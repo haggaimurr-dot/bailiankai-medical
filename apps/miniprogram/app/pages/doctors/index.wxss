@@ -1,0 +1,19 @@
+.hero { position: relative; overflow: hidden; padding: 40rpx 32rpx 28rpx; border-radius: 32rpx; background: linear-gradient(125deg, #e8f5ff 0%, #f5faff 58%, #dceeff 100%); }
+.hero .eyebrow { position: relative; z-index: 1; letter-spacing: 2rpx; font-size: 20rpx; }
+.hero .title { position: relative; z-index: 1; margin-top: 26rpx; color: #103f7d; font-size: 48rpx; }
+.hero-title-next, .hero-line { display: block; }
+.hero .subtitle { position: relative; z-index: 1; max-width: 440rpx; color: #506b87; }
+.hero-mark { position: absolute; top: 22rpx; right: -16rpx; color: #c9e1f6; font-size: 270rpx; line-height: 1; transform: rotate(-12deg); }
+.hero-bottom { display: flex; justify-content: space-between; gap: 12rpx; padding-top: 26rpx; margin-top: 32rpx; border-top: 1rpx solid #cddfee; color: #506b87; font-size: 22rpx; }
+.clinic-card { margin-top: 24rpx; padding-top: 20rpx; padding-bottom: 24rpx; }
+.doctor-card { margin-bottom: 24rpx; }
+.doctor-header { display: flex; align-items: center; gap: 24rpx; }
+.doctor-identity { flex: 1; min-width: 0; }
+.doctor-name { font-size: 36rpx; font-weight: 600; }
+.doctor-title { margin-top: 2rpx; color: #617188; font-size: 26rpx; }
+.demo-label { display: inline-block; margin-top: 8rpx; color: #617188; font-size: 20rpx; }
+.doctor-summary { margin-top: 24rpx; color: #334155; font-size: 27rpx; line-height: 1.8; }
+.focus-list { display: flex; flex-wrap: wrap; gap: 12rpx; margin-top: 22rpx; }
+.doctor-action { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16rpx; padding-top: 24rpx; margin-top: 28rpx; border-top: 1rpx solid #eef2f6; }
+.all-schedule { margin-top: 32rpx; }
+.my-appointments { margin-top: 24rpx; }

@@ -1,0 +1,7 @@
+.form-card { padding: 32rpx; margin-top: 24rpx; }
+.field-label { margin: 28rpx 0 16rpx; }
+.field-input { background: #f5f7fa; padding: 24rpx; margin-bottom: 28rpx; border-radius: 16rpx; }
+.phone-value { font-size: 36rpx; margin: 24rpx 0 12rpx; }
+.phone-button { background: #1763c6; color: #fff; font-size: 28rpx; margin: 28rpx 0; border-radius: 16rpx; }
+.notice { margin: 28rpx 0; color: #1763c6; line-height: 1.6; }
+.logout { margin-top: 20rpx; }

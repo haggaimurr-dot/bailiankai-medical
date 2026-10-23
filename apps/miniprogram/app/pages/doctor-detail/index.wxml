@@ -1,0 +1,28 @@
+<view class="page detail-page">
+  <view wx:if="{{loading}}" class="card state"><t-loading theme="circular" size="48rpx" text="正在读取医生资料" layout="vertical" /></view>
+  <view wx:elif="{{error}}" class="card state">
+    <view class="state-title">暂时无法查看医生资料</view><view class="state-description">{{error}}</view>
+    <t-button theme="primary" variant="outline" size="medium" bind:tap="retry">重新加载</t-button>
+    <view class="secondary-action"><t-button theme="primary" variant="text" bind:tap="openDoctors">返回医生列表</t-button></view>
+  </view>
+  <block wx:elif="{{doctor && clinic}}">
+    <view wx:if="{{isDemo}}" class="demo-banner"><view class="demo-dot"></view><text>开发演示 · 医生与院区为虚构资料，仅用于功能验证。</text></view>
+    <view class="card profile">
+      <view class="eyebrow">BAILIANKAI · DOCTOR</view>
+      <view class="profile-heading"><image wx:if="{{doctor.avatarUrl}}" class="avatar" src="{{doctor.avatarUrl}}" mode="aspectFill" /><view wx:else class="avatar">{{doctor.initials}}</view><view class="identity"><view class="doctor-name">{{doctor.name}}</view><view class="meta">{{doctor.title}}</view><view class="profile-clinic">{{clinic.name}}</view></view></view>
+      <view class="profile-summary">{{doctor.summary || '医生简介更新中。'}}</view>
+    </view>
+    <view class="section-heading"><text class="section-title">执业资质</text><text wx:if="{{isDemo}}" class="meta">演示证照样例</text></view>
+    <view wx:if="{{reviewedDate}}" class="meta">{{isDemo ? '演示核验' : '院方已核验'}} · {{reviewedDate}}（北京时间）</view>
+    <view class="card"><view wx:if="{{!credentials.length}}" class="meta">执业资质资料暂未公布。</view><view wx:for="{{credentials}}" wx:key="index" class="credential"><view>{{item.name}}</view><view wx:if="{{item.number}}" class="meta">证照编号：{{item.number}}</view><view wx:if="{{item.issuer}}" class="meta">发证机构：{{item.issuer}}</view><image wx:if="{{item.imageUrl}}" class="credential-image" src="{{item.imageUrl}}" mode="aspectFit" data-index="{{index}}" bindtap="preview" /><view wx:if="{{item.imageUrl}}" class="meta">点击查看证照原图</view></view></view>
+    <view class="section-heading"><text class="section-title">专业方向</text><text class="meta">了解关注领域</text></view>
+    <view class="card"><view wx:if="{{doctor.focus.length}}" class="focus-list"><text wx:for="{{doctor.focus}}" wx:key="*this">{{item}}</text></view><view wx:else class="meta">专业方向资料更新中。</view></view>
+    <view class="section-heading"><text class="section-title">服务介绍</text><text class="meta">从沟通到恢复</text></view>
+    <view wx:if="{{doctor.serviceIntroduction}}" class="card dedicated-service">{{doctor.serviceIntroduction}}</view>
+    <view wx:else class="card"><view class="service-row" wx:for="{{services}}" wx:key="number"><view class="service-number">{{item.number}}</view><view class="service-copy"><view class="service-title">{{item.title}}</view><view class="description">{{item.description}}</view></view></view><view class="service-note">以上为院区通用服务流程，个人安排以面诊沟通为准。</view></view>
+    <view class="section-heading"><text class="section-title">面诊说明</text><text class="meta">提前准备，从容到院</text></view>
+    <view class="card"><view wx:for="{{notes}}" wx:key="*this" class="note-row"><text class="note-dot">·</text><view>{{item}}</view></view></view>
+    <view class="card clinic-card"><view class="clinic-label">出诊院区</view><view class="clinic-name">{{clinic.name}}</view><view class="clinic-address">{{clinic.address}}</view><t-button theme="primary" variant="text" bind:tap="openClinic">院区地图 · 就诊导航 · 机构资质 ›</t-button></view>
+    <view class="booking-bar"><view class="booking-copy"><view>预约 {{doctor.name}}</view><text>查看未来 7 天排班 · 北京时间</text></view><t-button theme="primary" block bind:tap="openSchedule">查看排班 · 预约面诊 <t-icon name="arrow-right" size="32rpx" /></t-button></view>
+  </block>
+</view>

@@ -1,0 +1,36 @@
+{
+  "pages": [
+    "pages/home/index",
+    "pages/assessment/index",
+    "pages/assessment-tasks/index",
+    "pages/assessment-result/index",
+    "pages/support/index",
+    "pages/doctors/index",
+    "pages/doctor-detail/index",
+    "pages/schedule/index",
+    "pages/booking/index",
+    "pages/appointments/index",
+    "pages/records/index",
+    "pages/appointment-detail/index",
+    "pages/reschedule/index",
+    "pages/care-photos/index",
+    "pages/care-plan/index",
+    "pages/followups/index",
+    "pages/recovery-calendar/index",
+    "pages/profile/index",
+    "pages/messages/index",
+    "pages/cases/index",
+    "pages/clinic/index",
+    "pages/knowledge/index",
+    "pages/knowledge-detail/index"
+  ],
+  "window": {
+    "navigationBarTitleText": "百莲凯医疗美容",
+    "navigationBarBackgroundColor": "#FFFFFF",
+    "navigationBarTextStyle": "black",
+    "backgroundColor": "#F5F7FA",
+    "backgroundTextStyle": "dark"
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json"
+}

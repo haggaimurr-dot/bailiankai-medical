@@ -1,0 +1,32 @@
+<view class="page support-page">
+  <view class="title">在线咨询</view><view class="subtitle">就诊问题与服务需求，客服会在接手后回复。留言及服务进度会保存在这里。</view>
+  <view wx:if="{{error}}" class="card error">{{error}}</view><view wx:if="{{notice}}" class="card">{{notice}}</view>
+  <navigator wx:if="{{!patientId}}" url="/pages/profile/index" class="card">前往我的资料登录 ›</navigator>
+  <view wx:if="{{pending}}" class="card"><view>上次提交结果待确认，已保留原请求。</view><button bindtap="retry" disabled="{{busy}}">重试上次提交</button><button bindtap="discard" disabled="{{busy}}">核对后重新编辑</button></view>
+  <block wx:if="{{patientId}}">
+    <button wx:if="{{selected || creating}}" bindtap="back" disabled="{{busy}}">返回服务记录</button>
+    <view wx:if="{{creating}}" class="card">
+      <view class="label">服务院区</view><picker range="{{clinics}}" range-key="name" value="{{clinicIndex}}" data-field="clinic" bindchange="picker" disabled="{{busy}}"><view class="field">{{clinics[clinicIndex].name || '暂无可咨询院区'}} ›</view></picker>
+      <view class="label">咨询类型</view><picker range="{{categoryNames}}" value="{{categoryIndex}}" data-field="category" bindchange="picker" disabled="{{busy}}"><view class="field">{{categoryNames[categoryIndex]}} ›</view></picker>
+      <view class="label">咨询标题</view><input class="field" value="{{subject}}" data-field="subject" bindinput="input" maxlength="100" placeholder="简要描述你的问题（100字以内）" disabled="{{busy}}" />
+      <view class="label">咨询内容</view><textarea class="field" value="{{content}}" data-field="content" bindinput="input" maxlength="2000" placeholder="填写具体问题或服务需求（2000字以内）" disabled="{{busy}}" />
+      <button class="primary" bindtap="submit" loading="{{busy}}" disabled="{{busy || pending}}">提交咨询</button>
+    </view>
+    <block wx:elif="{{selected}}">
+      <view class="card"><view class="section-title">{{selected.subject}}</view><view class="status">{{selected.statusLabel}}</view><view class="meta">工单：{{selected.id}}</view><view class="meta">最近更新：{{selected.timeLabel}}（北京时间）</view></view>
+      <view wx:if="{{selected.rating}}" class="card">服务评分：{{selected.rating}} / 5 星<view>{{selected.ratingComment}}</view></view>
+      <view wx:elif="{{selected.status === 'resolved' || selected.status === 'closed'}}" class="card"><view class="section-title">评价本次服务</view><picker range="{{['1星','2星','3星','4星','5星']}}" value="{{rating - 1}}" data-field="rating" bindchange="picker" disabled="{{busy || pending}}"><view class="field">{{rating}} 星 ›</view></picker><textarea class="field" value="{{ratingComment}}" data-field="ratingComment" bindinput="input" maxlength="500" placeholder="评价建议（选填）" disabled="{{busy || pending}}" /><button bindtap="rate" disabled="{{busy || pending}}" loading="{{busy}}">提交评分</button></view>
+      <view class="section-title">咨询与服务记录 · 每3秒自动刷新</view><button bindtap="load" disabled="{{busy}}">刷新回复</button>
+      <view wx:for="{{events}}" wx:key="id" class="card message {{item.actorType}}"><view class="meta">{{item.actorType === 'patient' ? '我' : '客服'}} · {{item.timeLabel}}</view><view class="copy">{{item.content}}</view><button wx:for="{{item.attachments}}" wx:for-item="file" wx:key="id" data-id="{{file.id}}" data-name="{{file.name}}" bindtap="download">查看附件：{{file.name}}</button></view>
+      <view class="meta">第 {{eventPage}} 页 · 共 {{eventTotal}} 条，最新记录在前</view><button wx:if="{{eventPage*20 < eventTotal}}" bindtap="moreEvents" disabled="{{busy}}">查看更早记录</button>
+      <view wx:if="{{selected.status !== 'closed'}}" class="card"><view class="label">补充问题 / 回复客服</view><textarea class="field" value="{{reply}}" data-field="reply" bindinput="input" maxlength="2000" placeholder="填写回复（2000字以内）" disabled="{{busy}}" /><view wx:for="{{uploads}}" wx:key="name">{{item.name}}<button data-index="{{index}}" bindtap="removeAttachment" disabled="{{busy || pending}}">移除</button></view><button bindtap="attach" disabled="{{busy || pending || uploads.length >= 3}}">添加附件（JPG / PNG / PDF，每个2MB）</button><button class="primary" bindtap="send" loading="{{busy}}" disabled="{{busy || pending}}">发送</button></view>
+      <view wx:else class="card meta">本工单已关闭，历史记录保留。如有新的问题，可发起新咨询。</view>
+    </block>
+    <block wx:else>
+      <button class="primary" bindtap="newTicket" disabled="{{busy || pending}}">发起咨询</button><view class="section-title records-heading">我的服务记录</view>
+      <view wx:if="{{busy}}" class="card">正在加载…</view><view wx:elif="{{!tickets.length}}" class="card meta">暂无咨询记录，点击“发起咨询”提交问题。</view>
+      <view wx:for="{{tickets}}" wx:key="id" class="card" data-id="{{item.id}}" bindtap="select"><view class="section-title">{{item.subject}}</view><view class="status">{{item.statusLabel}}</view><view class="meta">{{item.timeLabel}} · 查看记录 ›</view></view>
+      <button wx:if="{{tickets.length < total}}" bindtap="more" disabled="{{busy}}">加载更多服务记录</button>
+    </block>
+  </block>
+</view>

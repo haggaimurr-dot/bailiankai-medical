@@ -1,0 +1,13 @@
+<view class="page">
+ <view class="heading">消息与复诊提醒</view>
+ <view class="description">自愿订阅复诊或随访提醒。每次同意可接收一次消息；再次同意不会在本地累加次数。可随时停止后续提醒。</view>
+ <view wx:for="{{templates}}" wx:key="id" class="card">
+  <view class="title">{{item.kind === 'revisit' ? '复诊提醒' : '随访提醒'}}</view>
+  <view class="description">院区编号：{{item.clinicId}}</view><view class="status">{{item.statusLabel}}</view>
+  <button type="primary" disabled="{{busy}}" data-id="{{item.id}}" bindtap="subscribe">订阅一次提醒</button>
+  <button disabled="{{busy}}" data-id="{{item.id}}" bindtap="revoke">停止后续提醒</button>
+ </view>
+ <view wx:if="{{!templates.length && !busy}}" class="description">暂无可订阅的提醒。</view>
+ <view wx:if="{{error}}" class="error">{{error}}</view><view wx:if="{{notice}}" class="status">{{notice}}</view>
+ <button disabled="{{busy}}" bindtap="load">刷新</button>
+</view>

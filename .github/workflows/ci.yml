@@ -1,0 +1,47 @@
+name: checks
+on:
+  push:
+  pull_request:
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.19.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check
+  api:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.4.11
+        env:
+          MYSQL_ROOT_PASSWORD: ci-only-password
+          MYSQL_DATABASE: bailiankai_test
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping --silent"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+    defaults:
+      run:
+        working-directory: services/api
+    env:
+      TEST_DB_DSN: root:ci-only-password@tcp(127.0.0.1:3306)/bailiankai_test?charset=utf8mb4&parseTime=true&loc=Asia%2FShanghai
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.27.1'
+          cache-dependency-path: services/api/go.sum
+      - run: go generate ./internal/apitypes
+      - run: git diff --exit-code -- internal/apitypes/types.gen.go
+      - run: go vet ./...
+      - run: go test -race ./...

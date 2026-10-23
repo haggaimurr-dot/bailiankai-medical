@@ -1,0 +1,25 @@
+{
+  "name": "bailiankai",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "pnpm@11.19.0",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "dev:admin": "pnpm --filter @bailiankai/admin dev",
+    "contracts:generate": "openapi-typescript packages/contracts/openapi.yaml -o packages/contracts/src/schema.ts",
+    "contracts:check": "openapi-typescript packages/contracts/openapi.yaml -o packages/contracts/src/schema.ts --check",
+    "tokens:sync": "node scripts/sync-tokens.mjs",
+    "typecheck": "pnpm -r --if-present typecheck",
+    "build:miniprogram": "pnpm --filter @bailiankai/miniprogram build",
+    "dev:miniprogram": "pnpm --filter @bailiankai/miniprogram watch",
+    "build": "pnpm build:miniprogram && pnpm --filter @bailiankai/admin build",
+    "test:e2e": "playwright test",
+    "check": "pnpm contracts:check && pnpm typecheck && pnpm --filter @bailiankai/miniprogram test:session && pnpm --filter @bailiankai/miniprogram test:support && pnpm --filter @bailiankai/miniprogram test:booking-rules && pnpm --filter @bailiankai/miniprogram test:doctor-detail && pnpm --filter @bailiankai/miniprogram test:home-presentation && pnpm --filter @bailiankai/miniprogram test:recovery-calendar && pnpm --filter @bailiankai/miniprogram test:cases && pnpm --filter @bailiankai/miniprogram test:records && pnpm --filter @bailiankai/miniprogram test:photos && pnpm --filter @bailiankai/miniprogram test:knowledge && pnpm --filter @bailiankai/miniprogram test:assessment && pnpm build"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "openapi-typescript": "7.13.0"
+  }
+}

@@ -1,0 +1,3 @@
+# 由 ../scripts/build.mjs 生成，TypeScript 是唯一源文件。
+**/*.js
+**/*.js.map

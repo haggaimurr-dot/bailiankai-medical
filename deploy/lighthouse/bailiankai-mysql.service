@@ -1,0 +1,23 @@
+[Unit]
+Description=Bailiankai isolated MySQL 8.4
+After=network.target
+
+[Service]
+User=bailiankai-db
+Group=bailiankai-db
+RuntimeDirectory=bailiankai-mysql
+RuntimeDirectoryMode=0750
+ExecStart=/opt/bailiankai/mysql-8.4.11/bin/mysqld --defaults-file=/etc/bailiankai/mysql.cnf
+Restart=on-failure
+RestartSec=5
+TimeoutStartSec=120
+TimeoutStopSec=120
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/bailiankai/mysql /var/log/bailiankai /run/bailiankai-mysql
+MemoryMax=650M
+
+[Install]
+WantedBy=multi-user.target

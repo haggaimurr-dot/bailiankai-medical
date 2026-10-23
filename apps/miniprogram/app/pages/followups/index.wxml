@@ -1,0 +1,31 @@
+<view class="page">
+ <view class="demo-banner"><view class="demo-dot"></view><text>开发演示 · 请使用虚构症状及照片</text></view>
+ <view class="card intro"><view class="section-title">治疗后随访</view><view class="copy">按计划反馈恢复情况。照片为选填资料，提交后可在这里查看医护回评。</view></view>
+ <view wx:if="{{loading}}" class="card state"><t-loading theme="circular" text="正在读取随访" layout="vertical" /></view>
+ <view wx:elif="{{expired}}" class="card state"><view class="section-title">登录已失效</view><view>{{error}}</view><t-button theme="primary" bind:tap="newIdentity">重新登录</t-button></view>
+ <block wx:else>
+  <view wx:if="{{error}}" class="inline-error">{{error}}<t-button variant="text" bind:tap="retry">刷新查看</t-button></view>
+  <view wx:if="{{treatment}}" class="card"><view class="section-title">实际治疗记录 · V{{treatment.version}}</view><view class="body">{{treatment.summary}}</view><view wx:if="{{treatment.notes}}" class="copy body">{{treatment.notes}}</view><t-button variant="text" theme="primary" bind:tap="openPlan">查看关联预约的已发布方案</t-button><view wx:if="{{revisions.length > 1}}" class="revision-history"><view class="field-label">更正历史</view><view wx:for="{{revisions}}" wx:key="version" class="revision-entry"><view>V{{item.version}} · {{item.changedLabel}}</view><view class="copy">{{item.correctionReason || '原始记录'}} · 治疗时间 {{item.treatedLabel}}</view><view class="body">{{item.summary}}</view><view wx:if="{{item.notes}}" class="copy body">{{item.notes}}</view></view></view></view>
+  <view wx:if="{{!tasks.length}}" class="card state"><view class="section-title">暂时没有随访任务</view><view class="copy">医护记录实际治疗后，会生成随访任务。</view></view>
+  <view wx:for="{{tasks}}" wx:key="id" class="card task-card {{active.id === item.id ? 'selected' : ''}}" data-id="{{item.id}}" bind:tap="selectTask"><view class="task-heading"><view class="section-title">{{item.title}}</view><view class="status status-{{item.status}}">{{item.statusLabel}}</view></view><view class="copy">计划时间：{{item.dueLabel}} · 北京时间</view><view class="copy">随访负责人：{{item.assigneeName}}</view><view wx:if="{{item.overdue}}" class="overdue">已超过计划时间，仍可提交反馈</view></view>
+  <view wx:if="{{!appointmentMode && total > 20}}" class="pagination"><t-button size="small" disabled="{{page <= 1}}" bind:tap="previous">上一页</t-button><text>第 {{page}} 页</text><t-button size="small" disabled="{{page * 20 >= total}}" bind:tap="next">下一页</t-button></view>
+  <view wx:if="{{active}}" class="card feedback">
+   <view class="section-title">{{active.title}} · {{active.statusLabel}}</view>
+   <block wx:if="{{active.status === 'pending'}}">
+    <view class="field-label">当前感受</view><picker mode="selector" range="{{severityLabels}}" value="{{severity}}" disabled="{{saving || uploading}}" bindchange="onSeverity"><view class="picker">{{severityLabels[severity]}}<text>选择 ›</text></view></picker>
+    <view class="field-label">症状与恢复情况</view><textarea class="symptoms-input" value="{{symptoms}}" maxlength="2000" disabled="{{saving || uploading}}" placeholder="描述目前的感受、变化或问题；没有不适也可以填写" bindinput="onSymptoms" />
+    <view class="concern"><text>希望医护重点关注</text><switch checked="{{concern}}" disabled="{{saving || uploading}}" bindchange="onConcern" color="#1763c6" /></view>
+   </block>
+   <block wx:else><view class="field-label">已提交反馈</view><view class="copy">{{severityLabels[active.severity]}}{{active.concern ? ' · 已请求医护关注' : ''}}</view><view class="body symptoms-result">{{active.symptoms}}</view></block>
+   <view class="field-label">本次随访照片</view>
+   <view class="copy">本次照片按随访任务保留，提交后不再替换。诊疗用途授权覆盖本次预约的面诊和随访照片，撤回后医护无法查看。</view>
+   <view class="consent"><t-button wx:if="{{!active.photosGranted}}" theme="primary" variant="outline" size="small" loading="{{consentLoading}}" bind:tap="grant">同意照片用于诊疗及随访</t-button><t-button wx:else theme="danger" variant="text" size="small" loading="{{consentLoading}}" bind:tap="revoke">已授权 · 撤回授权</t-button></view>
+   <view class="photo-grid"><view wx:for="{{photos}}" wx:key="angle" class="photo-item"><image wx:if="{{item.path}}" class="photo-preview" src="{{item.path}}" mode="aspectFit" data-angle="{{item.angle}}" bind:tap="preview" /><view wx:else class="photo-placeholder">{{item.label}}</view><t-button wx:if="{{active.status === 'pending'}}" theme="primary" variant="outline" size="small" disabled="{{!active.photosGranted || saving || uploading || consentLoading}}" data-angle="{{item.angle}}" bind:tap="choose">{{item.id ? '替换' : '选择'}}{{item.label}}</t-button></view></view>
+   <t-button wx:if="{{active.status === 'pending'}}" class="submit-followup" block theme="primary" loading="{{saving}}" disabled="{{uploading || consentLoading}}" bind:tap="submit">提交随访反馈</t-button>
+   <view wx:if="{{active.status === 'alert'}}" class="attention">已进入医护关注队列。如需及时帮助，请直接联系机构。</view>
+   <view wx:if="{{active.response}}" class="review"><view class="section-title">医护回评</view><view class="body review-response">{{active.response}}</view><view wx:if="{{active.disposition}}" class="field-label">异常处理记录</view><view wx:if="{{active.disposition}}" class="body">{{active.disposition}}</view></view>
+   <view wx:if="{{notice}}" class="notice">{{notice}}</view>
+   <t-button variant="text" theme="primary" disabled="{{saving || uploading || consentLoading}}" bind:tap="retry">刷新随访结果</t-button>
+  </view>
+ </block>
+</view>

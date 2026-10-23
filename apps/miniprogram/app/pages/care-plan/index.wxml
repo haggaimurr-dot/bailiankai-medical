@@ -1,0 +1,20 @@
+<view class="page">
+  <view class="demo-banner"><view class="demo-dot"></view><text>开发演示 · 方案内容为医生录入后发布</text></view>
+  <view wx:if="{{loading}}" class="card state"><t-loading theme="circular" text="正在读取治疗方案" layout="vertical" /></view>
+  <view wx:elif="{{expired}}" class="card state"><view class="state-title">登录已失效</view><view class="state-description">{{error}}</view><t-button theme="primary" block loading="{{creatingIdentity}}" bind:tap="newIdentity">重新登录</t-button></view>
+  <view wx:elif="{{error}}" class="card state"><view class="state-title">方案暂时无法读取</view><view class="state-description">{{error}}</view><t-button theme="primary" variant="outline" bind:tap="retry">重新加载</t-button></view>
+  <block wx:elif="{{versions.length}}">
+    <view wx:if="{{readError}}" class="card"><view class="state-description">{{readError}}</view><view class="stage-body">阅读确认未完成，请重试“我已阅读医嘱”；若内容已更新，请下拉刷新后重新确认。</view></view>
+    <view wx:for="{{versions}}" wx:key="id" class="card plan-card">
+      <view wx:if="{{item.linked}}" class="plan-version">当前查看的方案版本</view>
+      <view class="plan-version">方案 V{{item.version}}<text> · {{item.publishedAtLabel}}</text></view>
+      <view class="plan-summary">{{item.content.summary}}</view>
+      <view wx:for="{{item.content.stages}}" wx:for-item="stage" wx:key="title" class="plan-stage"><view class="stage-title">{{stage.title}}</view><view class="stage-body">{{stage.body}}</view></view>
+      <view wx:if="{{item.content.instructions}}" class="plan-instructions"><view class="stage-title">医嘱与注意事项</view><view class="stage-body">{{item.content.instructions}}</view></view>
+      <view wx:if="{{item.adviceVersion}}" class="plan-instructions"><view class="stage-body">阅读确认仅表示已阅读医嘱，不作为知情同意或治疗授权。</view><view wx:if="{{item.readAt}}" class="stage-body">已确认阅读 · {{item.readLabel}}</view><t-button wx:else theme="primary" variant="outline" size="small" data-id="{{item.id}}" disabled="{{!!confirmingId}}" loading="{{confirmingId === item.id}}" bind:tap="confirmRead">我已阅读医嘱</t-button></view>
+      <view class="plan-meta">负责医生 · {{item.publishedBy}}<text wx:if="{{item.changeReason}}"> · {{item.changeReason}}</text></view>
+    </view>
+    <view class="footer-note">方案按版本保留。若对内容有疑问，请联系负责医护。</view>
+  </block>
+  <view wx:else class="card state"><view class="state-symbol">○</view><view class="state-title">暂时没有已发布方案</view><view class="state-description">负责医生发布后，方案会显示在这里。</view></view>
+</view>

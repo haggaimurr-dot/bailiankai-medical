@@ -1,0 +1,11 @@
+[Unit]
+Description=Back up Bailiankai database and private media
+After=bailiankai-mysql.service
+Requires=bailiankai-mysql.service
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash /opt/bailiankai/current/deploy/backup.sh
+UMask=0077
+Nice=10
+IOSchedulingClass=idle

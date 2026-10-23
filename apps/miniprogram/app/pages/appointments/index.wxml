@@ -1,0 +1,26 @@
+<view class="page">
+  <view class="secondary-action"><t-button theme="primary" variant="outline" bind:tap="openFollowups">我的随访任务</t-button><t-button theme="primary" variant="outline" bind:tap="openRecords">治疗档案</t-button></view>
+  <view class="demo-banner"><view class="demo-dot"></view><text>开发演示 · 仅显示当前患者账号的预约</text></view>
+  <view class="list-header"><view><view class="eyebrow">MY APPOINTMENTS</view><view class="title">我的预约</view></view><t-button theme="primary" variant="outline" size="small" bind:tap="openSchedule">查看排班</t-button></view>
+  <view wx:if="{{patientName && !expired}}" class="identity-note">当前患者账号：{{patientName}}</view>
+  <view wx:if="{{hasSubmission && !expired}}" class="card pending-recovery"><view class="recovery-description">有一笔申请的提交结果待确认</view><t-button theme="primary" variant="text" size="small" bind:tap="openRecovery">查询原申请</t-button></view>
+  <scroll-view scroll-x class="filter-scroll" show-scrollbar="{{false}}"><view class="status-filters"><button wx:for="{{filters}}" wx:key="key" class="status-chip {{status === item.key ? 'status-chip-active' : ''}}" data-status="{{item.key}}" bindtap="onStatusChange">{{item.label}}</button></view></scroll-view>
+
+  <view wx:if="{{loading}}" class="card state"><t-loading theme="circular" text="正在读取预约记录" layout="vertical" /></view>
+  <view wx:elif="{{expired}}" class="card state"><view class="state-title">登录已失效</view><view class="state-description">{{error}}</view><t-button theme="primary" block loading="{{creatingIdentity}}" bind:tap="newIdentity">重新登录</t-button></view>
+  <view wx:elif="{{error && !records.length}}" class="card state"><view class="state-title">预约记录加载失败</view><view class="state-description">{{error}}</view><t-button theme="primary" variant="outline" bind:tap="retry">重新加载</t-button></view>
+  <block wx:elif="{{records.length}}">
+    <view class="record-count">共 {{total}} 条记录 · 下拉可刷新结果</view>
+    <view wx:for="{{records}}" wx:key="id" class="card appointment-card">
+      <view class="appointment-heading"><text class="appointment-doctor">{{item.doctorName}}</text><t-tag theme="{{item.statusTheme}}" variant="light" size="small">{{item.statusLabel}}</t-tag></view>
+      <view class="appointment-time">{{item.timeLabel}}</view><view class="meta">{{item.clinicName}} · 北京时间</view>
+      <view wx:if="{{item.status === 'pending'}}" class="appointment-deadline">待工作人员确认，最晚 {{item.deadlineLabel}}</view>
+      <view wx:if="{{item.status === 'rejected'}}" class="appointment-reason">拒绝原因：{{item.rejectionReason || '工作人员未确认本次申请'}}</view>
+      <view class="appointment-footer"><text class="meta">{{item.statusHint}}</text><t-button theme="primary" variant="text" size="small" data-id="{{item.id}}" bind:tap="openDetail">查看详情</t-button></view>
+    </view>
+    <view wx:if="{{error}}" class="inline-error">{{error}}</view>
+    <t-button wx:if="{{hasMore}}" theme="primary" variant="outline" block loading="{{loadingMore}}" bind:tap="loadMore">加载更多</t-button>
+    <view wx:else class="footer-note">已显示全部记录</view>
+  </block>
+  <view wx:else class="card state"><view class="state-symbol">○</view><view class="state-title">暂无{{status ? '此状态的' : ''}}预约</view><view class="state-description">提交申请后，可以在这里查看确认结果。</view><t-button theme="primary" variant="outline" bind:tap="openSchedule">查看可约时段</t-button></view>
+</view>

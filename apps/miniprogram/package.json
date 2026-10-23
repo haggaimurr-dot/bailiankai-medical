@@ -1,0 +1,33 @@
+{
+  "name": "@bailiankai/miniprogram",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "test:assessment": "node --test scripts/test-assessment.mjs",
+    "test:support": "node --test scripts/test-support.mjs",
+    "build": "tsc --noEmit && node scripts/build.mjs",
+    "watch": "node scripts/build.mjs --watch",
+    "smoke": "node scripts/smoke.mjs",
+    "smoke:followup": "node scripts/smoke-followup.mjs",
+    "smoke:care": "node scripts/smoke-care.mjs",
+    "smoke:photo-picker": "node scripts/smoke-photo-picker.mjs",
+    "smoke:booking": "node scripts/smoke-booking.mjs",
+    "test:booking-rules": "node --test scripts/test-booking-rules.mjs",
+    "test:session": "node scripts/test-session.mjs",
+    "test:doctor-detail": "node --test scripts/test-doctor-detail.mjs",
+    "test:recovery-calendar": "node --test scripts/test-recovery-calendar.mjs",
+    "test:cases": "node --test scripts/test-cases.mjs",
+    "test:photos": "node --test scripts/test-photo-quality.mjs scripts/test-care-photos.mjs",
+    "typecheck": "tsc --noEmit",
+    "test:records": "node --test scripts/test-records.mjs",
+    "test:home-presentation": "node --test scripts/test-home-presentation.mjs",
+    "test:knowledge": "node --test scripts/test-knowledge.mjs"
+  },
+  "dependencies": {
+    "tdesign-miniprogram": "^1.12.1"
+  },
+  "devDependencies": {
+    "miniprogram-api-typings": "^4.0.8",
+    "typescript": "~5.9.3"
+  }
+}

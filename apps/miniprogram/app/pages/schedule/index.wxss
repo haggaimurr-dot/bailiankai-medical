@@ -1,0 +1,29 @@
+.timezone { display: block; margin-top: 4rpx; color: #617188; font-size: 22rpx; }
+.filters { margin-top: 32rpx; padding-top: 18rpx; }
+.filter-divider { height: 1rpx; margin: 18rpx 0 24rpx; background: #eef2f6; }
+.filter-label { margin-bottom: 18rpx; font-size: 26rpx; font-weight: 600; }
+.doctor-options { display: flex; flex-wrap: wrap; gap: 16rpx; }
+.doctor-chip { flex: 0 0 auto; min-height: 88rpx; margin: 0; padding: 16rpx 24rpx; border: 1rpx solid #d7dee8; border-radius: 20rpx; color: #617188; background: #fff; font-size: 26rpx; line-height: 54rpx; }
+.doctor-chip::after, .day::after { border: 0; }
+.doctor-chip-active { border-color: #1763c6; color: #1763c6; background: #eff6ff; font-weight: 600; }
+.days-scroll { width: 100%; white-space: nowrap; }
+.days { display: inline-flex; gap: 14rpx; padding: 2rpx 2rpx 10rpx; }
+.day { flex: 0 0 112rpx; width: 112rpx; margin: 0; padding: 22rpx 12rpx 16rpx; border: 1rpx solid #d7dee8; border-radius: 24rpx; color: #617188; background: #fff; line-height: 1.5; }
+.day-label { font-size: 24rpx; }
+.day-date { margin-top: 10rpx; color: #15283f; font-size: 28rpx; font-weight: 600; }
+.day-indicator { width: 8rpx; height: 8rpx; margin: 14rpx auto 0; border-radius: 50%; background: transparent; }
+.day-active { border-color: #1763c6; color: #fff; background: #1763c6; }
+.day-active .day-date { color: #fff; }
+.day-active .day-indicator { background: #fff; }
+.slot { margin-bottom: 16rpx; padding: 28rpx; }
+.slot-content { display: flex; align-items: center; justify-content: space-between; gap: 16rpx; }
+.slot-booking { padding-top: 20rpx; text-align: right; }
+.slot-time { font-size: 32rpx; font-weight: 600; line-height: 1.5; }
+.slot-doctor { margin-top: 8rpx; color: #617188; font-size: 24rpx; }
+.slot-status { flex-shrink: 0; text-align: right; }
+.remaining { margin-top: 10rpx; color: #166534; font-size: 22rpx; }
+.slot-unavailable { background: #f9fafc; }
+.slot-unavailable .slot-time { color: #617188; }
+.refresh-tip { padding: 12rpx 0 24rpx; color: #617188; font-size: 22rpx; text-align: center; }
+.clinic-info { padding: 24rpx 28rpx; }
+.clinic-info .clinic-address { margin-top: 8rpx; }

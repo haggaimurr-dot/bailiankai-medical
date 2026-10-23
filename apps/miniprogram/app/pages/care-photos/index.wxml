@@ -1,0 +1,80 @@
+<view class="page">
+  <view class="demo-banner"><view class="demo-dot"></view><text>开发演示 · 请勿上传真实患者照片</text></view>
+  <view class="card intro-card">
+    <view class="intro-heading"><view class="section-title">面诊照片</view><text class="optional-tag">选填</text></view>
+    <view class="intro-copy">按相同光线与距离记录三个角度，便于面诊沟通。每张照片先检查、再确认上传。</view>
+    <view class="workflow"><text>01 拍摄 / 选图</text><text class="workflow-arrow">›</text><text>02 检查</text><text class="workflow-arrow">›</text><text>03 确认保存</text></view>
+  </view>
+  <view class="card guide-card">
+    <view class="section-title">拍摄前，做好这四件事</view>
+    <view class="guide-grid">
+      <view class="guide-step"><text class="guide-number">1</text><view><view class="guide-title">光线均匀</view><view class="guide-copy">面向柔和光源，避免逆光、阴影与强闪光。</view></view></view>
+      <view class="guide-step"><text class="guide-number">2</text><view><view class="guide-title">保留真实肤况</view><view class="guide-copy">关闭美颜、滤镜；移开头发，避免遮挡面颊。</view></view></view>
+      <view class="guide-step"><text class="guide-number">3</text><view><view class="guide-title">保持同一距离</view><view class="guide-copy">镜头与双眼同高，约 50–80 cm，额头到下巴入镜。</view></view></view>
+      <view class="guide-step"><text class="guide-number">4</text><view><view class="guide-title">对焦后再拍</view><view class="guide-copy">点击面颊对焦，稳住手机；建议请他人用后置相机拍摄。</view></view></view>
+    </view>
+    <view class="guide-note">左右以本人脸部为准，自拍镜像可能与屏幕方向不同。选相册原图，避免截图和压缩图片。</view>
+  </view>
+  <view wx:if="{{loading}}" class="card state"><t-loading theme="circular" text="正在读取照片资料" layout="vertical" /></view>
+  <view wx:elif="{{expired}}" class="card state"><view class="state-title">登录已失效</view><view class="state-description">请重新登录后读取当前账号的照片资料。</view><t-button theme="primary" block="{{true}}" bind:tap="newIdentity">重新登录</t-button></view>
+  <view wx:elif="{{error}}" class="card state"><view class="state-title">照片资料暂时无法读取</view><view class="state-description">{{error}}</view><t-button theme="primary" block="{{true}}" bind:tap="load">重新读取</t-button></view>
+  <block wx:else>
+    <view wx:if="{{actionError}}" class="inline-error">{{actionError}}</view>
+    <view class="card consent-card">
+      <view class="section-title">照片用途授权</view>
+      <view class="consent-copy">仅用于本次预约的诊疗及治疗后随访资料查看，会记录授权版本与操作时间。撤回后，医护端不能继续查看面诊及随访照片。</view>
+      <t-button wx:if="{{!granted}}" theme="primary" block="{{true}}" loading="{{consentLoading}}" bind:tap="grant">同意照片用于本次诊疗</t-button>
+      <view wx:else class="consent-active"><text>已授权 · 已保存 {{savedCount}} / 3</text><t-button theme="danger" variant="outline" size="small" disabled="{{selecting || checking || uploading}}" loading="{{consentLoading}}" bind:tap="revoke">撤回授权</t-button></view>
+    </view>
+    <view wx:if="{{draft}}" id="photo-review" class="card review-card">
+      <view class="intro-heading"><view class="section-title">检查这张照片</view><text class="optional-tag">尚未上传</text></view>
+      <view class="review-meta">{{draft.label}} · {{draft.source === 'camera' ? '相机拍摄' : '相册选择'}}</view>
+      <image class="draft-preview" src="{{draft.path}}" mode="aspectFit" bind:tap="previewDraft" />
+      <view class="preview-hint">点击图片放大，检查面颊细节与拍摄角度</view>
+      <view wx:if="{{checking}}" class="checking-state"><t-loading theme="circular" size="32rpx" text="正在本机检查照片…" /></view>
+      <block wx:elif="{{draft.inspection}}">
+        <view wx:for="{{draft.inspection.checks}}" wx:for-item="check" wx:key="key" class="inspection-row">
+          <view class="inspection-heading"><text>{{check.label}}</text><text class="check-badge check-{{check.status}}">{{check.status === 'pass' ? '已检查' : check.status === 'block' ? '请重新选择' : check.status === 'warning' ? '建议检查' : '人工核对'}}</text></view>
+          <view class="inspection-copy">{{check.message}}</view>
+        </view>
+        <view wx:if="{{draft.inspection.blocked}}" class="blocked-note">这张照片暂时不能上传，请选择更清晰的原图或重新拍摄。</view>
+        <block wx:else>
+          <view id="review-actions">
+          <view class="review-note">自动检查仅作拍摄提示。保存前，请放大照片并完成两项核对。</view>
+          <button class="review-check {{draft.clarityConfirmed ? 'review-checked' : ''}}" style="width: 100%; margin-left: 0; margin-right: 0;" disabled="{{uploading || consentLoading}}" data-field="clarity" bind:tap="toggleReview" aria-label="核对清晰度">
+            <text class="check-box">{{draft.clarityConfirmed ? '✓' : ''}}</text><text>面颊纹理清楚，没有明显模糊或遮挡</text>
+          </button>
+          <button class="review-check {{draft.angleConfirmed ? 'review-checked' : ''}}" style="width: 100%; margin-left: 0; margin-right: 0;" disabled="{{uploading || consentLoading}}" data-field="angle" bind:tap="toggleReview" aria-label="核对拍摄角度">
+            <text class="check-box">{{draft.angleConfirmed ? '✓' : ''}}</text><text>符合{{draft.label}}指引，已核对本人左右方向</text>
+          </button>
+          <view wx:if="{{draft.error}}" class="inline-error">{{draft.error}}</view>
+          <t-button class="review-confirm" theme="primary" block="{{true}}" disabled="{{!draft.clarityConfirmed || !draft.angleConfirmed || consentLoading || !granted || !uploadAllowed}}" loading="{{uploading}}" bind:tap="confirmDraft">{{draft.error ? '重试保存照片' : '确认并保存照片'}}</t-button>
+          </view>
+        </block>
+      </block>
+      <t-button class="review-discard" theme="default" variant="outline" block="{{true}}" disabled="{{checking || uploading || consentLoading}}" bind:tap="discardDraft">放弃这张，重新选择</t-button>
+    </view>
+    <view class="section-heading"><view class="section-title">三个拍摄角度</view><text class="meta">已保存 {{savedCount}} / 3</text></view>
+    <view wx:for="{{items}}" wx:key="angle" class="card photo-card">
+      <view class="photo-heading"><view class="photo-label">{{item.label}}</view><text class="photo-state {{item.id ? 'photo-saved' : ''}}">{{item.id ? '已保存' : '尚未上传'}}</text></view>
+      <view class="angle-instruction">{{item.instruction}}</view>
+      <image wx:if="{{item.path && item.id}}" class="photo-preview" src="{{item.path}}" mode="aspectFit" data-angle="{{item.angle}}" bind:tap="preview" />
+      <view wx:elif="{{!item.id}}" class="photo-placeholder">
+        <view class="pose-frame pose-{{item.angle}}"><view class="pose-head"><view class="pose-eye pose-eye-first"></view><view class="pose-eye pose-eye-second"></view><view class="pose-nose"></view><view class="pose-mouth"></view></view><view class="pose-shoulders"></view></view>
+        <view class="pose-caption">{{item.pose}}</view><view class="pose-subtitle">示意轮廓 · 请按上方文字核对角度</view>
+      </view>
+      <view wx:else class="photo-placeholder photo-read-failed">照片已保存，预览暂时无法显示</view>
+      <view class="source-actions">
+        <t-button class="source-camera" theme="primary" block="{{true}}" disabled="{{!uploadAllowed || !granted || uploading || checking || selecting || consentLoading || draft}}" data-angle="{{item.angle}}" data-source="camera" bind:tap="choose">相机拍摄</t-button>
+        <t-button class="source-album" theme="primary" variant="outline" block="{{true}}" disabled="{{!uploadAllowed || !granted || uploading || checking || selecting || consentLoading || draft}}" data-angle="{{item.angle}}" data-source="album" bind:tap="choose">从相册选图</t-button>
+      </view>
+      <view wx:if="{{item.id && uploadAllowed}}" class="replace-note">重新拍摄或选图，确认保存后替换当前照片</view>
+      <view wx:if="{{item.message}}" class="photo-error"><text>{{item.message}}</text><t-button theme="primary" variant="text" size="small" data-angle="{{item.angle}}" bind:tap="retry">重试读取</t-button></view>
+    </view>
+    <view wx:if="{{selecting}}" class="footer-note">正在打开系统相机或相册…</view>
+    <view wx:if="{{!uploadAllowed}}" class="footer-note">当前预约的面诊照片仅供查看；治疗后的新照片请在随访任务中补充。</view>
+    <view wx:else class="footer-note">照片为选填，不影响预约。每个角度保留一张；保存后会替换该角度的照片并去除拍摄元数据。</view>
+  </block>
+  <canvas type="2d" id="photo-analysis-canvas" class="analysis-canvas" aria-hidden="true"></canvas>
+</view>
+

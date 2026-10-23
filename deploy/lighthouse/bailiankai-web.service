@@ -1,0 +1,24 @@
+[Unit]
+Description=Bailiankai independent web entry
+After=network.target bailiankai-api.service
+Requires=bailiankai-api.service
+
+[Service]
+User=bailiankai
+Group=bailiankai
+Environment=XDG_DATA_HOME=/var/lib/bailiankai/caddy/data
+Environment=XDG_CONFIG_HOME=/var/lib/bailiankai/caddy/config
+ExecStart=/usr/bin/caddy run --config /etc/bailiankai/Caddyfile --adapter caddyfile
+Restart=on-failure
+RestartSec=5
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/bailiankai/caddy
+MemoryMax=256M
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,36 @@
+<view class="page booking-page">
+  <view class="demo-banner"><view class="demo-dot"></view><text>预约演示 · 请使用示例资料，不填写真实患者信息</text></view>
+  <view class="eyebrow">APPOINTMENT</view><view class="title">{{waitlist ? '登记候补预约' : '填写预约申请'}}</view>
+  <view class="subtitle">{{waitlist ? '候补不占名额；有空位后需主动申请，工作人员确认后生效。' : '提交后暂留名额，工作人员确认后生效。'}}</view>
+
+  <view wx:if="{{loading}}" class="card state"><t-loading theme="circular" text="正在核对出诊信息" layout="vertical" /></view>
+  <view wx:elif="{{expired}}" class="card state"><view class="state-title">登录已失效</view><view class="state-description">{{error || submitError}}</view><t-button theme="primary" block loading="{{creatingIdentity}}" bind:tap="newIdentity">重新登录</t-button></view>
+  <view wx:elif="{{error}}" class="card state"><view class="state-title">暂时无法继续</view><view class="state-description">{{error}}</view><t-button theme="primary" variant="outline" bind:tap="initialize">重新加载</t-button><view class="secondary-action"><t-button variant="text" theme="primary" bind:tap="openAppointments">查看我的预约</t-button></view><view class="secondary-action"><t-button variant="text" theme="primary" bind:tap="backToSchedule">返回排班</t-button></view></view>
+  <block wx:else>
+    <view class="card booking-summary"><view class="section-title">{{doctorName}}</view><view class="summary-time">{{timeLabel}}</view><view class="meta">{{clinicName}} · 北京时间</view></view>
+    <view class="identity-note">患者账号：{{patientName}}<text class="identity-note-line">{{officialIdentity ? '同一微信账号可恢复此患者的资料与预约。' : '本机演示身份，仅用于开发验证。'}}</text></view>
+    <view wx:if="{{completedId}}" class="card state"><view class="state-title">申请已提交</view><view class="state-description">可进入详情查看工作人员的确认结果。</view><t-button theme="primary" bind:tap="openCompleted">查看申请详情</t-button></view>
+    <block wx:else>
+      <view wx:if="{{recoveryMode}}" class="card recovery-card">
+        <view class="section-title">正在确认原申请结果</view><view class="state-description">{{recoveryMessage || '已保留原申请编号与资料，请等待提交结果。'}}</view>
+        <t-button theme="primary" block loading="{{recovering}}" disabled="{{submitting}}" bind:tap="querySubmission">查询提交结果</t-button>
+        <view wx:if="{{canRetry}}" class="secondary-action"><t-button theme="primary" variant="outline" block loading="{{submitting}}" disabled="{{recovering}}" bind:tap="retrySubmission">使用原申请重试</t-button></view>
+        <view wx:if="{{canAbandon}}" class="secondary-action"><t-button variant="text" theme="danger" bind:tap="abandonRecovery">放弃原申请恢复</t-button></view>
+      </view>
+      <view wx:elif="{{!slotAvailable}}" class="card state"><view class="state-title">这个时段暂不可预约</view><view class="state-description">可能已约满、停诊或开始，请重新选择时段。</view><t-button theme="primary" variant="outline" bind:tap="backToSchedule">重新选择时段</t-button></view>
+      <view wx:if="{{!recoveryMode || canRetry}}" class="card contact-form">
+        <view class="section-title">联系信息</view>
+        <view class="meta">本次预约联系人可与患者本人不同。这里的手机号单独保存，不修改患者账号手机号。</view>
+        <t-button wx:if="{{accountPhone && !recoveryMode}}" theme="primary" variant="text" size="small" disabled="{{submitting}}" bind:tap="useAccountPhone">使用账号手机号填写本次联系人</t-button>
+        <view class="field-label">联系人姓名 <text class="required">*</text></view><input class="field-input" value="{{contactName}}" data-field="contactName" bindinput="onFieldChange" maxlength="40" disabled="{{submitting || recoveryMode}}" placeholder="演示访客" aria-label="联系人姓名" />
+        <view class="field-label">手机号码 <text class="required">*</text></view><input class="field-input" value="{{contactPhone}}" data-field="contactPhone" bindinput="onFieldChange" type="number" maxlength="11" disabled="{{submitting || recoveryMode}}" placeholder="13800000000（演示号码）" aria-label="联系人手机号" />
+        <view class="field-label">备注 <text class="meta">选填</text></view><textarea class="field-textarea" value="{{note}}" data-field="note" bindinput="onFieldChange" maxlength="300" disabled="{{submitting || recoveryMode}}" placeholder="可填写需要协调的到院事项，请勿填写诊疗隐私" aria-label="预约备注" /><view class="field-count">{{note.length}} / 300</view>
+      </view>
+      <view wx:if="{{waitlist}}" class="rules"><view class="rules-title">候补须知</view><view>仅开放且已满的时段可候补；不保证有空位。</view><view>在详情刷新后主动申请空位，成功后再等待工作人员确认。</view><view>可在开始前取消候补；开始时自动过期。</view></view>
+      <view wx:else class="rules"><view class="rules-title">预约须知</view><view>提交后名额按服务端显示的确认截止时间保留，最晚截至时段开始。</view><view>工作人员确认后才生效；未及时确认会自动过期。</view><view>时段开始前，可以取消待确认或已确认的预约。</view></view>
+      <view wx:if="{{validationError || submitError}}" class="inline-error" role="alert">{{validationError || submitError}}</view>
+      <t-button wx:if="{{!recoveryMode}}" class="submit-appointment" theme="primary" block loading="{{submitting}}" disabled="{{!slotAvailable}}" bind:tap="submit">{{waitlist ? '提交候补申请' : '提交预约申请'}}</t-button>
+    </block>
+    <view class="secondary-action"><t-button theme="primary" variant="text" bind:tap="openAppointments">查看我的预约</t-button></view>
+  </block>
+</view>

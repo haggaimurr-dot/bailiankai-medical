@@ -1,0 +1,9 @@
+.categories { white-space: nowrap; margin: 24rpx 0; }
+.category { display: inline-block; margin: 0 16rpx 0 0; padding: 8rpx 24rpx; font-size: 26rpx; line-height: 1.8; border-radius: 32rpx; background: #fff; }
+.category::after { border: 0; }
+.category.active { color: #1763c6; background: #eaf3ff; }
+.read-link { color: #1763c6; font-size: 24rpx; margin-top: 20rpx; }
+.search-bar { display:flex; gap:16rpx; align-items:center; margin:24rpx 0; background:#fff; padding:16rpx; border-radius:20rpx; }
+.search-bar input { flex:1; min-width:0; font-size:26rpx; }
+.search-bar button,.favorites-toggle { font-size:26rpx; color:#1763c6; background:#eaf3ff; border-radius:16rpx; }
+.search-bar button { margin:0; }

@@ -1,0 +1,10 @@
+[Unit]
+Description=Daily Bailiankai private media backup at 02:00 Shanghai
+
+[Timer]
+OnCalendar=*-*-* 02:00:00 Asia/Shanghai
+Persistent=true
+Unit=media-backup.service
+
+[Install]
+WantedBy=timers.target

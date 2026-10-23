@@ -1,0 +1,44 @@
+<view class="page">
+  <view class="demo-banner"><view class="demo-dot"></view><text>开发演示 · 仅显示当前患者账号的随访记录</text></view>
+  <view class="eyebrow">MY RECOVERY</view><view class="title">恢复日历</view>
+  <view class="subtitle">按当前日历日期范围查看随访安排、恢复反馈和医护回评。</view>
+  <view wx:if="{{loading}}" class="card state"><t-loading theme="circular" text="正在整理恢复日历" layout="vertical" /></view>
+  <view wx:elif="{{expired}}" class="card state"><view class="state-title">登录已失效</view><view class="state-description">{{error}}</view><t-button theme="primary" loading="{{creatingIdentity}}" bind:tap="newIdentity">重新登录</t-button></view>
+  <view wx:elif="{{error}}" class="card state"><view class="state-title">日历暂时无法加载</view><view class="state-description">{{error}}</view><t-button theme="primary" variant="outline" bind:tap="retry">重新加载</t-button></view>
+  <block wx:else>
+    <view class="meta range-note">当前日历范围：{{rangeLabel}}</view>
+    <view class="summary"><view><text class="count">{{taskCount}}</text><text>范围内随访任务</text></view><view><text class="count pending-count">{{pendingCount}}</text><text>范围内待填写</text></view><view><text class="count">{{reviewCount}}</text><text>范围内医护回评</text></view></view>
+    <view class="card calendar">
+      <view class="month-nav"><button class="month-arrow" bindtap="previousMonth" aria-label="上个月">‹</button><view class="section-title">{{monthLabel}}</view><button class="month-arrow" bindtap="nextMonth" aria-label="下个月">›</button></view>
+      <view class="calendar-tools"><text>北京时间</text><button class="today-link" bindtap="today">回到今天</button></view>
+      <view class="week-grid"><view wx:for="{{weekdays}}" wx:key="*this" class="weekday">{{item}}</view></view>
+      <view class="day-grid"><button wx:for="{{days}}" wx:key="date" class="day {{!item.inMonth ? 'outside' : ''}} {{item.today ? 'is-today' : ''}} {{item.selected ? 'is-selected' : ''}}" data-date="{{item.date}}" bindtap="selectDate" aria-label="{{item.date}}{{item.hasPending ? '，待填写反馈' : ''}}{{item.hasTask ? '，有随访任务' : ''}}{{item.hasReview ? '，有医护回评' : ''}}"><text>{{item.day}}</text><view class="dots"><view wx:if="{{item.hasTask}}" class="dot task-dot"></view><view wx:if="{{item.hasPending}}" class="dot pending-dot"></view><view wx:if="{{item.hasReview}}" class="dot review-dot"></view></view></button></view>
+      <view class="legend"><text><text class="dot task-dot"></text>随访任务</text><text><text class="dot pending-dot"></text>待填写</text><text><text class="dot review-dot"></text>医护回评</text></view>
+    </view>
+    <view class="section-heading"><view class="section-title">{{selected}}</view><text class="meta">{{selectedEvents.length}} 项记录</text></view>
+    <view wx:if="{{!selectedEvents.length}}" class="card empty"><view>{{taskCount ? '当天暂无随访记录' : '当前日期范围暂无随访任务'}}</view><view class="meta">{{taskCount ? '选择带标记的日期，查看安排和回评。' : '医护记录实际治疗后，随访安排会显示在这里。'}}</view></view>
+    <view wx:for="{{selectedEvents}}" wx:key="id" class="card event-card">
+      <view class="event-top"><text class="event-kind kind-{{item.kind}}">{{item.kindLabel}} · {{item.time}}</text><text class="event-status">{{item.statusLabel}}</text></view>
+      <view class="event-title">{{item.title}}</view><view class="meta">随访负责人：{{item.assigneeName}}</view>
+      <view wx:if="{{item.content}}" class="event-content">{{item.content}}</view>
+      <view wx:if="{{item.disposition}}" class="event-content">异常处理：{{item.disposition}}</view>
+      <view wx:if="{{item.overdue}}" class="overdue">已超过计划时间，仍可填写反馈</view>
+      <t-button theme="primary" variant="{{item.pending ? 'outline' : 'text'}}" size="small" data-id="{{item.id}}" bind:tap="openTask">{{item.pending ? '填写反馈' : '查看随访详情'}}</t-button>
+    </view>
+    <view class="section-heading"><view class="section-title">待填写反馈</view><text class="meta">{{pendingScope === 'all' ? '全部日期' : '当前日历范围'}} · {{visiblePendingEvents.length}} 项</text></view>
+    <view class="scope-tabs"><button class="scope-tab {{pendingScope === 'range' ? 'active' : ''}}" data-scope="range" bindtap="changePendingScope">当前日历范围</button><button class="scope-tab {{pendingScope === 'all' ? 'active' : ''}}" data-scope="all" bindtap="changePendingScope">全部日期（{{allPendingEvents.length}}）</button></view>
+    <view wx:if="{{!visiblePendingEvents.length}}" class="card empty">{{pendingScope === 'all' ? '全部日期暂无待填写反馈' : '当前日历范围暂无待填写反馈'}}</view>
+    <view wx:for="{{visiblePendingEvents}}" wx:key="id" class="card pending-row"><view><view class="event-title">{{item.title}}</view><view class="meta">{{item.date}} {{item.time}}</view><view wx:if="{{item.crossMonth}}" class="meta">跨月待办</view><view wx:if="{{item.overdue}}" class="overdue">已逾期，仍可提交</view></view><t-button theme="primary" variant="outline" size="small" data-id="{{item.id}}" bind:tap="openTask">填写反馈</t-button></view>
+    <view class="section-heading"><view class="section-title">恢复趋势对照</view><text class="meta">全部日期 · 同一次预约</text></view>
+    <view wx:if="{{!series.length}}" class="card empty">提交随访反馈后，可在这里对照恢复记录。</view>
+    <view wx:else class="card comparison">
+      <picker range="{{series}}" range-key="label" value="{{seriesIndex}}" bindchange="changeSeries"><view class="comparison-picker">{{series[seriesIndex].label}} <text>⌄</text></view></picker>
+      <view class="comparison-columns">
+        <view><view class="meta">基准反馈</view><picker range="{{pointLabels}}" value="{{beforeIndex}}" data-side="before" bindchange="changePoint"><view class="comparison-picker">{{before.date}} ⌄</view></picker><view class="severity">{{before.severityLabel}}</view><view class="event-content">{{before.symptoms}}</view><view wx:if="{{before.concern}}" class="overdue">反馈时希望医护关注</view><view wx:if="{{before.response}}" class="event-content">医护回评：{{before.response}}</view><view wx:if="{{before.disposition}}" class="event-content">异常处理：{{before.disposition}}</view></view>
+        <view><view class="meta">对照反馈</view><picker range="{{pointLabels}}" value="{{afterIndex}}" data-side="after" bindchange="changePoint"><view class="comparison-picker">{{after.date}} ⌄</view></picker><view class="severity">{{after.severityLabel}}</view><view class="event-content">{{after.symptoms}}</view><view wx:if="{{after.concern}}" class="overdue">反馈时希望医护关注</view><view wx:if="{{after.response}}" class="event-content">医护回评：{{after.response}}</view><view wx:if="{{after.disposition}}" class="event-content">异常处理：{{after.disposition}}</view></view>
+      </view>
+      <view class="trend-result">{{trendLabel}}</view><view class="meta">对照患者填写的不适程度，恢复情况请结合医护回评查看。</view>
+    </view>
+    <view class="footer-note">随访任务按计划日期展示，反馈与回评按实际发生日期展示。下拉可刷新。</view>
+  </block>
+</view>

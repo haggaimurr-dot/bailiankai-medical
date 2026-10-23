@@ -1,0 +1,56 @@
+.brand-line { display: flex; align-items: center; justify-content: space-between; margin-bottom: 28rpx; }
+.brand-name { font-size: 34rpx; font-weight: 600; letter-spacing: 2rpx; }
+.brand-caption { margin-top: 4rpx; font-size: 22rpx; color: #617188; }
+.brand-seal { display: flex; align-items: center; justify-content: center; width: 72rpx; height: 72rpx; border-radius: 24rpx; color: #fff; background: #1763c6; font-size: 50rpx; }
+.home-hero { position: relative; overflow: hidden; padding: 40rpx 32rpx 28rpx; border: 1rpx solid #dae9f6; border-radius: 32rpx; background: linear-gradient(125deg, #e7f3ff, #f6fbff 65%, #d9ecfc); }
+.home-hero .eyebrow { position: relative; font-size: 20rpx; letter-spacing: 2rpx; }
+.home-hero .title { position: relative; margin-top: 26rpx; color: #103f7d; font-size: 48rpx; }
+.home-hero .subtitle { position: relative; color: #506b87; }
+.hero-line { display: block; }
+.hero-action { position: relative; margin-top: 28rpx; }
+.hero-button-content { display: flex; align-items: center; justify-content: center; gap: 12rpx; white-space: nowrap; }
+.profile-entry { padding: 16rpx; margin-bottom: 24rpx; }
+.hero-orbit { position: absolute; right: -140rpx; top: 60rpx; width: 360rpx; height: 360rpx; border: 44rpx solid #c6def64d; border-radius: 50%; }
+.hero-orbit::after { content: ''; position: absolute; inset: 28rpx; border: 1rpx solid #b8d5ed; border-radius: 50%; }
+.hero-bottom { position: relative; display: flex; justify-content: space-between; margin-top: 32rpx; padding-top: 24rpx; border-top: 1rpx solid #cddfee; font-size: 22rpx; color: #506b87; }
+.quick-grid { display: flex; align-items: stretch; gap: 12rpx; width: 100%; margin: 28rpx 0; }
+.quick-entry { box-sizing: border-box; flex: 1 1 0%; width: 0; min-width: 0; display: flex; flex-direction: column; align-items: center; padding: 24rpx 4rpx; border-radius: 24rpx; background: #fff; font-size: 25rpx; line-height: 1.6; text-align: center; color: #15283f; }
+.quick-entry-hover { background: #eff6ff; }
+.quick-label { white-space: nowrap; }
+.quick-caption { display: block; margin-top: 4rpx; font-size: 20rpx; white-space: nowrap; color: #617188; }
+.text-link::after { border: 0; }
+.quick-icon { display: flex; align-items: center; justify-content: center; width: 72rpx; height: 72rpx; margin: 0 auto 14rpx; border-radius: 24rpx; }
+.blue { background: #eaf3ff; color: #1763c6; }
+.teal { background: #e7f6f3; color: #268779; }
+.purple { background: #f0edfa; color: #7963ad; }
+.home-heading { display: flex; align-items: center; justify-content: space-between; gap: 20rpx; margin-bottom: 12rpx; }
+.home-heading .meta { margin-top: 6rpx; }
+.flow-step { display: flex; gap: 24rpx; padding-top: 28rpx; }
+.step-number { flex: 0 0 56rpx; width: 56rpx; height: 56rpx; border-radius: 18rpx; background: #eff6ff; color: #1763c6; font-size: 24rpx; text-align: center; line-height: 56rpx; }
+.step-copy { flex: 1; padding-bottom: 24rpx; border-bottom: 1rpx solid #edf1f6; }
+.flow-step:last-child .step-copy { padding-bottom: 0; border: 0; }
+.step-copy > view { font-size: 28rpx; font-weight: 600; }
+.step-copy > text { display: block; margin-top: 6rpx; color: #617188; font-size: 24rpx; }
+.text-link { display: flex; align-items: center; gap: 4rpx; padding: 8rpx 0 8rpx 12rpx; margin: 0; background: transparent; color: #1763c6; font-size: 24rpx; line-height: 1.6; }
+.home-clinic { margin-bottom: 20rpx; padding: 20rpx 28rpx; }
+.home-doctor { margin-top: 20rpx; }
+.doctor-header { display: flex; gap: 24rpx; align-items: center; }
+.doctor-identity { min-width: 0; flex: 1; }
+.doctor-name { font-size: 34rpx; font-weight: 600; }
+.doctor-demo { font-size: 20rpx; color: #617188; }
+.doctor-summary { margin-top: 24rpx; font-size: 26rpx; color: #425770; }
+.focus-list { display: flex; flex-wrap: wrap; gap: 12rpx; margin-top: 20rpx; }
+.focus-list text { border-radius: 10rpx; padding: 4rpx 12rpx; background: #eff6ff; color: #1763c6; font-size: 22rpx; }
+.doctor-action { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16rpx; border-top: 1rpx solid #edf1f6; padding-top: 24rpx; margin-top: 24rpx; }
+.preparation { margin-top: 32rpx; }
+.preparation-row { display: flex; gap: 20rpx; margin-top: 24rpx; font-size: 25rpx; color: #425770; }
+.preparation-row > text { color: #1763c6; font-size: 22rpx; }
+.preparation-row > view { flex: 1; }
+.preparation-note { margin-top: 28rpx; padding-top: 20rpx; border-top: 1rpx solid #edf1f6; color: #617188; font-size: 22rpx; }
+.bottom-action { margin: 36rpx 0 28rpx; }
+.bottom-action .footer-note { margin-top: 16rpx; }
+.home-page > .demo-banner { margin: 0; }
+
+.brand-logo { width: 90rpx; height: 90rpx; }
+.brand-introduction { margin-top: 24rpx; }
+.read-link { margin-top: 16rpx; color: #1763c6; font-size: 24rpx; }

@@ -1,0 +1,57 @@
+<view class="page home-page">
+  <view class="brand-line"><view><view class="brand-name">{{presentation.brandName || '百莲凯医疗美容'}}</view><view class="brand-caption">{{presentation.tagline || '用心沟通 · 陪伴每一步'}}</view></view><image wx:if="{{presentation.logoUrl}}" class="brand-logo" src="{{presentation.logoUrl}}" mode="aspectFit" /><text wx:else class="brand-seal">＋</text></view>
+  <view class="home-hero">
+    <view class="hero-orbit" aria-hidden="true"></view>
+    <view class="eyebrow">BAILIANKAI · SKIN CARE</view>
+    <view class="title">关心你的皮肤<text class="hero-line">也关心你的感受</text></view>
+    <view class="subtitle">痘坑痘印面诊与恢复管理<text class="hero-line">从一次充分的沟通开始。</text></view>
+    <view class="hero-action"><t-button theme="primary" bind:tap="openSchedule"><view class="hero-button-content"><text>预约面诊</text><t-icon name="arrow-right" size="32rpx" /></view></t-button></view>
+    <view class="hero-bottom"><text>医生面诊</text><text>个人方案</text><text>治疗随访</text></view>
+  </view>
+
+  <view wx:if="{{presentation.introduction}}" class="card brand-introduction"><view class="section-title">关于{{presentation.brandName}}</view><view class="subtitle">{{presentation.introduction}}</view></view>
+  <view class="card profile-entry"><t-button theme="primary" variant="text" block custom-style="font-size: 26rpx; padding-left: 0; padding-right: 0;" content="我的资料 · 登录与手机号授权" bind:tap="openProfile" /></view>
+  <view class="quick-grid">
+    <navigator url="/pages/assessment/index" class="quick-entry"><view class="quick-label">AI 辅助评估</view><text class="quick-caption">照片观察 · 医生复核</text></navigator>
+    <navigator url="/pages/support/index" class="quick-entry"><view class="quick-label">在线咨询</view><text class="quick-caption">留言 · 服务记录</text></navigator>
+    <navigator url="/pages/cases/index" class="quick-entry"><view class="quick-label">案例库</view><text class="quick-caption">治疗前后对比</text></navigator>
+    <view class="quick-entry" aria-role="button" aria-label="找医生，了解团队" hover-class="quick-entry-hover" bindtap="openDoctors"><view class="quick-icon blue"><t-icon name="user" size="44rpx" /></view><view class="quick-label">找医生</view><text class="quick-caption">了解团队</text></view>
+    <view class="quick-entry" aria-role="button" aria-label="看流程，就诊指南" hover-class="quick-entry-hover" bindtap="openFlow"><view class="quick-icon teal"><t-icon name="task" size="44rpx" /></view><view class="quick-label">看流程</view><text class="quick-caption">就诊指南</text></view>
+    <view class="quick-entry" aria-role="button" aria-label="我的预约，查看进度" hover-class="quick-entry-hover" bindtap="openAppointments"><view class="quick-icon blue"><t-icon name="calendar" size="44rpx" /></view><view class="quick-label">我的预约</view><text class="quick-caption">查看进度</text></view>
+    <view class="quick-entry" aria-role="button" aria-label="治疗档案，方案与随访" hover-class="quick-entry-hover" bindtap="openRecords"><view class="quick-icon purple"><t-icon name="folder" size="44rpx" /></view><view class="quick-label">治疗档案</view><text class="quick-caption">方案与随访</text></view>
+  </view>
+
+  <view class="card"><view class="section-title">恢复日历</view><view class="meta">按日期查看随访安排、待填写反馈和医护回评。</view><t-button theme="primary" variant="text" bind:tap="openCalendar">查看我的恢复日历 ›</t-button></view>
+
+  <view id="care-flow" class="card flow-card">
+    <view class="home-heading"><view><view class="section-title">从面诊到随访</view><view class="meta">每一步，都有清晰的安排</view></view><t-icon name="heart" size="40rpx" color="#1763c6" /></view>
+    <view class="flow-step" wx:for="{{steps}}" wx:key="number"><view class="step-number">{{item.number}}</view><view class="step-copy"><view>{{item.title}}</view><text>{{item.description}}</text></view></view>
+  </view>
+
+  <view class="section-heading"><text class="section-title">认识医生团队</text><button class="text-link" bindtap="openDoctors">查看全部 <t-icon name="chevron-right" size="28rpx" /></button></view>
+  <view wx:if="{{clinics.length}}" class="card home-clinic">
+    <picker range="{{clinics}}" range-key="name" value="{{clinicIndex}}" bindchange="onClinicChange" disabled="{{loading}}"><view class="clinic-picker" aria-role="button" aria-label="切换院区"><view><view class="clinic-label">当前院区{{presentation.isDemo ? ' · 演示资料' : ''}}</view><view class="clinic-name">{{clinic.name}}</view></view><t-icon wx:if="{{clinics.length > 1}}" name="chevron-down" size="32rpx" /></view></picker>
+    <view class="clinic-address">{{clinic.address}}</view><view class="meta">营业时间：{{presentation.hours || '暂未公布'}}</view><t-button theme="primary" variant="text" bind:tap="openClinic">院区地图 · 就诊导航 · 机构资质 ›</t-button>
+  </view>
+  <view wx:if="{{loading}}" class="card state"><t-loading theme="circular" size="48rpx" text="正在读取团队资料" layout="vertical" /></view>
+  <view wx:elif="{{error}}" class="card state"><view class="state-title">团队资料暂时无法加载</view><view class="state-description">{{error}}</view><t-button theme="primary" variant="outline" size="medium" bind:tap="retry">重新加载</t-button></view>
+  <block wx:elif="{{doctors.length}}">
+    <view wx:for="{{doctors}}" wx:key="id" class="card home-doctor" data-doctor-id="{{item.id}}" bindtap="openDoctorDetail" aria-role="button" aria-label="查看{{item.name}}详情">
+      <view class="doctor-header"><image wx:if="{{item.avatarUrl}}" class="avatar" src="{{item.avatarUrl}}" mode="aspectFill" /><view wx:else class="avatar">{{item.initials}}</view><view class="doctor-identity"><view class="doctor-name">{{item.name}}</view><view class="meta">{{item.title}}</view><text wx:if="{{item.presentation.isDemo}}" class="doctor-demo">演示医生</text></view></view>
+      <view class="doctor-summary">{{item.summary}}</view>
+      <view class="focus-list"><text wx:for="{{item.focus}}" wx:for-item="focus" wx:key="*this">{{focus}}</text></view>
+      <view class="doctor-action"><text class="meta">专业方向 · 服务与面诊说明</text><t-button theme="primary" variant="outline" size="small" data-doctor-id="{{item.id}}" catch:tap="openDoctorDetail">查看医生详情</t-button></view>
+    </view>
+  </block>
+  <view wx:else class="card state"><view class="state-title">暂无医生资料</view><view class="state-description">当前院区还未发布团队信息，请稍后查看。</view></view>
+
+  <view class="section-heading"><text class="section-title">皮肤科普</text><button class="text-link" bindtap="openKnowledge">查看全部 ›</button></view>
+  <view wx:if="{{loading}}" class="card state">正在读取科普内容</view>
+  <view wx:elif="{{knowledgeError}}" class="card state"><view class="state-description">{{knowledgeError}}</view><t-button theme="primary" variant="text" bind:tap="openKnowledge">进入科普栏目重试 ›</t-button></view>
+  <view wx:elif="{{!articles.length}}" class="card state">暂无已发布科普内容</view>
+  <view wx:for="{{articles}}" wx:key="id" class="card knowledge-entry" data-id="{{item.id}}" bindtap="openArticle" aria-role="button" aria-label="阅读{{item.title}}"><view class="section-title">{{item.title}}</view><view class="subtitle">{{item.summary}}</view><view class="meta">审核：{{item.reviewerName}}</view><view class="read-link">阅读全文 ›</view></view>
+
+  <view class="card preparation"><view class="section-title">面诊前，准备好这些</view><view class="preparation-row"><text>01</text><view>整理希望与医生沟通的问题和个人需求。</view></view><view class="preparation-row"><text>02</text><view>准备既往就诊、治疗及用药信息，方便面诊沟通。</view></view><view class="preparation-row"><text>03</text><view>在“我的预约”查看确认结果和到院时段。</view></view><view class="preparation-note">本页提供就诊流程介绍，具体方案以医生面诊及发布的方案为准。</view></view>
+  <view class="bottom-action"><t-button theme="primary" block bind:tap="openSchedule">选择时间 · 预约面诊</t-button><view class="footer-note">提交后需工作人员确认，可在“我的预约”查看进度</view></view>
+  <view wx:if="{{presentation.isDemo}}" class="demo-banner"><view class="demo-dot"></view><text>Mock 演示 · 院区与医生为虚构资料，示例位置与证照不代表真实资料。</text></view>
+</view>

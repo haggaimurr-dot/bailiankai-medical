@@ -1,0 +1,22 @@
+.result-card { padding: 36rpx 32rpx; border-color: #d7e6fb; background: #f7faff; }
+.result-title { margin-top: 22rpx; font-size: 44rpx; font-weight: 600; }
+.result-hint { margin-top: 12rpx; color: #617188; font-size: 28rpx; }
+.deadline { margin-top: 24rpx; padding-top: 24rpx; border-top: 1rpx solid #d7e6fb; color: #8a5200; font-size: 25rpx; }
+.deadline-note { display: block; margin-top: 8rpx; color: #617188; font-size: 22rpx; }
+.rejection-reason { margin-top: 24rpx; color: #b42318; font-size: 26rpx; }
+.detail-card { margin-top: 24rpx; }
+.detail-row { display: flex; gap: 24rpx; margin-top: 24rpx; font-size: 26rpx; }
+.detail-label { flex: 0 0 112rpx; color: #617188; }
+.detail-value { flex: 1; min-width: 0; word-break: break-all; }
+.time-zone { display: block; color: #617188; font-size: 22rpx; }
+.appointment-id { font-size: 22rpx; }
+.detail-actions { margin-top: 32rpx; }
+.action-notice { padding: 24rpx; margin-top: 24rpx; border-radius: 20rpx; color: #1251a3; background: #eaf2fe; font-size: 26rpx; }
+.care-links { border-color: #dce9f7; }
+.care-link-copy { color: #617188; font-size: 24rpx; line-height: 1.8; }
+.care-link-actions { display: flex; gap: 18rpx; margin-top: 24rpx; }
+.care-link-actions t-button { flex: 1; }
+
+.timeline-event { border-left: 2rpx solid #d8c9b9; padding: 8rpx 0 24rpx 24rpx; margin-left: 8rpx; }
+.timeline-title { font-size: 28rpx; font-weight: 600; margin-bottom: 8rpx; }
+.timeline-detail { font-size: 26rpx; line-height: 1.7; margin-top: 8rpx; }

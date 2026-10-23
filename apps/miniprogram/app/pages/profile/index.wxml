@@ -1,0 +1,44 @@
+<view class="page profile-page">
+  <view class="eyebrow">MY PROFILE</view><view class="title">我的资料</view>
+  <navigator url="/pages/knowledge/index?favorites=1" class="card">我的科普收藏 ›</navigator>
+  <navigator url="/pages/assessment-tasks/index" class="card">我的 AI 评估 ›</navigator>
+  <view class="subtitle">同一微信账号登录，可在不同设备找回资料、预约和治疗记录。</view>
+  <view wx:if="{{loading}}" class="card state"><t-loading theme="circular" text="正在读取资料" /></view>
+  <view wx:elif="{{!patient}}" class="card state">
+    <view class="state-title">登录患者账号</view><view class="state-description">登录后管理个人资料。手机号授权可独立选择。</view>
+    <t-button theme="primary" block loading="{{busy}}" bind:tap="login">{{demoMode ? '创建演示身份' : '微信登录'}}</t-button>
+  </view>
+  <block wx:else>
+    <view class="card form-card"><view class="section-title">患者资料</view>
+      <view class="meta">{{patient.loginKind === 'wechat' ? '微信患者账号' : '本机演示身份'}} · {{patient.id}}</view>
+      <view wx:if="{{patient.loginKind === 'demo' && !demoMode}}" class="state-description">当前是原演示身份。切换微信账号后，演示记录仍归原身份，不会自动合并。</view>
+      <t-button wx:if="{{patient.loginKind === 'demo' && !demoMode}}" theme="primary" variant="outline" block disabled="{{busy}}" bind:tap="login">切换为微信患者账号</t-button>
+      <view class="field-label">姓名</view><input class="field-input" value="{{name}}" bindinput="nameChanged" maxlength="40" disabled="{{busy}}" placeholder="请输入姓名" />
+      <t-button theme="primary" block loading="{{busy}}" bind:tap="save">保存资料</t-button>
+    </view>
+    <view wx:if="{{patient.loginKind === 'wechat'}}" class="card form-card"><view class="section-title">绑定院内档案</view>
+      <view class="state-description">如医护已为您人工建档，请向建档医护领取绑定码，核对档案后绑定。绑定码15分钟有效，已有业务记录的微信账号需联系医护核对。</view>
+      <input class="field-input" value="{{bindingCode}}" bindinput="bindingCodeChanged" maxlength="32" disabled="{{busy}}" placeholder="粘贴医护提供的绑定码" />
+      <t-button theme="primary" variant="outline" block loading="{{busy}}" bind:tap="bindChart">核对并绑定档案</t-button>
+    </view>
+    <view class="card form-card"><view class="section-title">账号手机号</view>
+      <view class="phone-value">{{patient.phone || '尚未保存手机号'}}</view><view class="meta">授权状态：{{phoneStatus}}</view>
+      <view class="state-description">用于患者账号联系。预约时可另外填写本人或代办联系人的手机号。修改或撤回这里的授权，不会改写已提交预约的联系人信息，也不会撤回诊疗照片授权。</view>
+      <button wx:if="{{patient.loginKind === 'wechat'}}" class="phone-button" open-type="getPhoneNumber" bindgetphonenumber="authorizePhone" disabled="{{busy}}">{{patient.phoneAuthorization === 'granted' ? '重新授权并更新手机号' : '授权微信手机号'}}</button>
+      <t-button wx:if="{{patient.phoneAuthorization === 'granted'}}" theme="danger" variant="outline" block disabled="{{busy}}" bind:tap="revokePhone">撤回手机号授权</t-button>
+    </view>
+    <t-button theme="default" variant="outline" block disabled="{{busy}}" bind:tap="load">刷新资料</t-button>
+    <navigator url="/pages/messages/index" class="card">消息与复诊提醒 ›</navigator>
+    <navigator url="/pages/cases/index?mine=1" class="card">我的案例 · 展示授权与撤回 ›</navigator>
+    <view class="logout"><t-button theme="default" variant="text" block disabled="{{busy}}" bind:tap="logout">退出当前设备</t-button></view>
+  </block>
+  <view wx:if="{{policy}}" class="card form-card">
+    <view class="section-title">{{policy.title}}</view><view class="meta">版本 {{policy.version}} · {{policy.effectiveAt}}</view>
+    <view class="state-description">{{policy.content}}</view>
+    <view wx:if="{{patient}}" class="meta">当前版本：{{privacy.accepted ? '已同意' : '尚未同意或已撤回'}}</view>
+    <t-button wx:if="{{patient && !privacy.accepted}}" theme="primary" block disabled="{{busy}}" bind:tap="acceptPrivacy">阅读并同意当前版本</t-button>
+    <t-button wx:if="{{patient && privacy.accepted}}" theme="danger" variant="outline" block disabled="{{busy}}" bind:tap="revokePrivacy">撤回隐私同意</t-button>
+    <view wx:for="{{privacy.events}}" wx:key="id" class="meta">{{item.recordedAt}} · {{item.policyVersion}} · {{item.action === 'accepted' ? '同意' : '撤回'}}</view>
+  </view>
+  <view wx:if="{{error}}" class="inline-error" role="alert">{{error}}</view><view wx:if="{{notice}}" class="notice">{{notice}}</view>
+</view>

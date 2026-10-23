@@ -1,0 +1,48 @@
+<view class="page">
+  <view class="demo-banner"><view class="demo-dot"></view><text>开发演示 · 预约提交后须由工作人员确认</text></view>
+  <view class="eyebrow">SCHEDULE</view>
+  <view class="title">找到合适的时间</view>
+  <view class="subtitle">查看未来 7 天的出诊安排<text class="timezone">以下时间均为北京时间</text></view>
+
+  <view wx:if="{{initializing}}" class="card state"><t-loading theme="circular" size="48rpx" text="正在读取排班信息" layout="vertical" /></view>
+  <view wx:elif="{{initialError}}" class="card state"><view class="state-symbol">!</view><view class="state-title">暂时无法加载</view><view class="state-description">{{initialError}}</view><t-button theme="primary" variant="outline" size="medium" bind:tap="retry">重新加载</t-button></view>
+  <block wx:elif="{{clinic}}">
+    <view class="card filters">
+      <picker range="{{clinics}}" range-key="name" value="{{clinicIndex}}" bindchange="onClinicChange">
+        <view class="clinic-picker" aria-role="button" aria-label="切换院区"><view><view class="clinic-label">出诊院区</view><view class="clinic-name">{{clinic.name}}</view></view><text wx:if="{{clinics.length > 1}}" class="chevron">⌄</text></view>
+      </picker>
+      <view class="filter-divider"></view>
+      <view class="filter-label">选择医生</view>
+      <view class="doctor-options">
+        <button class="doctor-chip {{!doctorId ? 'doctor-chip-active' : ''}}" data-id="" bindtap="onDoctorChange" aria-label="全部医生" aria-pressed="{{!doctorId}}">全部医生</button>
+        <button wx:for="{{doctors}}" wx:key="id" class="doctor-chip {{doctorId === item.id ? 'doctor-chip-active' : ''}}" data-id="{{item.id}}" bindtap="onDoctorChange" aria-pressed="{{doctorId === item.id}}">{{item.name}}</button>
+      </view>
+    </view>
+
+    <view class="section-heading"><text class="section-title">选择日期</text><text class="meta">未来 7 天</text></view>
+    <scroll-view scroll-x class="days-scroll" show-scrollbar="{{false}}">
+      <view class="days">
+        <button wx:for="{{days}}" wx:key="date" class="day {{date === item.date ? 'day-active' : ''}}" data-date="{{item.date}}" bindtap="onDateChange" aria-label="{{item.date}} {{item.label}}" aria-pressed="{{date === item.date}}"><view class="day-label">{{item.label}}</view><view class="day-date">{{item.shortDate}}</view><view class="day-indicator"></view></button>
+      </view>
+    </scroll-view>
+
+    <view class="section-heading"><text class="section-title">{{date}} 排班</text><text wx:if="{{!loading && !error}}" class="meta">{{availableCount}} 个可用时段</text></view>
+    <view wx:if="{{loading}}" class="card state"><t-loading theme="circular" size="48rpx" text="正在查询时段" layout="vertical" /></view>
+    <view wx:elif="{{error}}" class="card state"><view class="state-symbol">!</view><view class="state-title">时段加载失败</view><view class="state-description">{{error}}</view><t-button theme="primary" variant="outline" size="medium" bind:tap="retry">重新查询</t-button></view>
+    <block wx:elif="{{slots.length}}">
+      <view wx:for="{{slots}}" wx:key="id" class="card slot {{!item.available ? 'slot-unavailable' : ''}}">
+        <view class="slot-content">
+        <view class="slot-main"><view class="slot-time">{{item.timeRange}}</view><view class="slot-doctor">{{item.doctorName}}</view></view>
+        <view class="slot-status"><t-tag theme="{{item.available ? 'success' : 'default'}}" variant="light" size="small">{{item.stateLabel}}</t-tag><view wx:if="{{item.available}}" class="remaining">余 {{item.remaining}} 个名额</view></view>
+        </view>
+        <view wx:if="{{item.available || item.waitlistAvailable}}" class="slot-booking"><t-button class="book-slot" theme="primary" variant="outline" size="small" data-id="{{item.id}}" bind:tap="bookSlot">{{item.waitlistAvailable ? '登记候补' : '申请此时段'}}</t-button></view>
+      </view>
+    </block>
+    <view wx:else class="card state"><view class="state-symbol">○</view><view class="state-title">当天暂无可查询排班</view><view class="state-description">试试其他日期或医生，已开始的时段不再展示。</view></view>
+    <view class="refresh-tip">下拉可刷新最新排班</view>
+    <view class="card clinic-info"><view class="clinic-label">院区地址</view><view class="clinic-address">{{clinic.address}}</view></view>
+  </block>
+  <view wx:else class="card state"><view class="state-title">暂无院区信息</view><view class="state-description">院区资料发布后即可查询排班。</view></view>
+  <view class="secondary-action"><t-button theme="primary" variant="text" bind:tap="openAppointments">查看我的预约</t-button></view>
+  <view class="footer-note">演示数据仅用于功能验证</view>
+</view>

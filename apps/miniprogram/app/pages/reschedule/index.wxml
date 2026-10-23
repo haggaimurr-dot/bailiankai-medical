@@ -1,0 +1,20 @@
+<view class="page">
+  <view class="title">{{appointment.status === 'waiting' ? '候补转预约' : '更改预约时间'}}</view>
+  <view wx:if="{{loading}}" class="card state"><t-loading text="正在读取预约与排班" /></view>
+  <view wx:elif="{{error}}" class="card state"><view>{{error}}</view><t-button bind:tap="load">重试</t-button></view>
+  <block wx:elif="{{appointment}}">
+    <view class="card"><view class="section-title">{{appointment.doctorName}} · {{appointment.clinicName}}</view><view>原时间：{{appointment.timeLabel}}</view><view class="meta">{{appointment.statusLabel}} · 北京时间</view></view>
+    <view class="rules">同一医生、同一院区内选择新时间。成功后重新进入待确认；新时段无法申请时保留原预约。候补不占名额，可选择原时段空位或其他可用时段。</view>
+    <view wx:if="{{recovering}}" class="card"><view class="section-title">原申请等待确认结果</view><view>已保存原申请，重试会复用原编号与时段。</view><t-button theme="primary" loading="{{submitting}}" bind:tap="submit">使用原申请重试</t-button></view>
+    <block wx:elif="{{appointment.canReschedule}}">
+      <scroll-view scroll-x><view class="days"><button wx:for="{{days}}" wx:key="date" data-date="{{item.date}}" bindtap="changeDate" disabled="{{submitting}}" class="day {{date === item.date ? 'selected' : ''}}">{{item.label}} {{item.shortDate}}</button></view></scroll-view>
+      <view wx:if="{{loadingSlots}}" class="card"><t-loading text="查询空位" /></view>
+      <view wx:elif="{{slotError}}" class="card"><view>{{slotError}}</view><t-button bind:tap="loadSlots">重新查询</t-button></view>
+      <block wx:else><button wx:for="{{slots}}" wx:key="id" class="card slot {{selected === item.id ? 'selected' : ''}}" disabled="{{!item.available || submitting}}" data-id="{{item.id}}" bindtap="selectSlot">{{item.label}} · {{item.available ? '可申请' : '暂无空位'}}</button><view wx:if="{{!slots.length}}" class="card">当天没有可选时段，请换一天。</view></block>
+      <t-button theme="primary" block disabled="{{!selected || loadingSlots || slotError}}" loading="{{submitting}}" bind:tap="submit">{{appointment.status === 'waiting' ? '申请转为待确认预约' : '确认改期申请'}}</t-button>
+    </block>
+    <view wx:else class="card">当前预约状态已变化，无法申请改期或候补转预约。</view>
+    <view wx:if="{{notice}}" class="notice" role="alert">{{notice}}</view>
+  </block>
+  <view class="secondary-action"><t-button variant="text" disabled="{{submitting}}" bind:tap="openDetail">返回预约详情</t-button></view>
+</view>

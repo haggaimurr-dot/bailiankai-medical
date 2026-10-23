@@ -1,0 +1,7 @@
+.card { padding: 32rpx; margin: 24rpx 0; }
+.rules, .notice { margin: 24rpx 0; font-size: 26rpx; line-height: 1.8; }
+.notice { color: var(--mlk-color-error, #b84040); }
+.days { display: flex; gap: 16rpx; padding: 24rpx 0; }
+.day { flex-shrink: 0; font-size: 24rpx; margin: 0; }
+.selected { border: 2rpx solid var(--mlk-color-primary, #927554); }
+.slot { font-size: 26rpx; text-align: left; }

@@ -1,0 +1,12 @@
+<view class="page">
+  <view wx:if="{{loading}}" class="card state"><t-loading text="正在读取院区资料" layout="vertical" /></view>
+  <view wx:elif="{{error}}" class="card state"><view class="state-title">院区资料暂不可用</view><view class="state-description">{{error}}</view><t-button bind:tap="retry" theme="primary">重新加载</t-button></view>
+  <block wx:elif="{{clinic && presentation}}">
+    <view wx:if="{{presentation.isDemo}}" class="demo-banner">Mock 演示资料 · 地图坐标与证照样例不代表真实院址和资质</view>
+    <view class="card"><view class="title">{{clinic.name}}</view><view class="subtitle">{{clinic.address}}</view><view class="meta">营业时间：{{presentation.hours || '暂未公布'}}</view><view class="meta">联系电话：{{clinic.phone}}</view><view class="actions"><t-button size="small" variant="outline" bind:tap="copyAddress">复制地址</t-button><t-button wx:if="{{canCall}}" size="small" variant="outline" bind:tap="call">联系院区</t-button></view></view>
+    <view class="card"><view class="section-title">院区地图</view><map wx:if="{{hasLocation}}" class="clinic-map" latitude="{{presentation.location.latitude}}" longitude="{{presentation.location.longitude}}" markers="{{markers}}" scale="16" show-location="{{false}}" /><view wx:else class="meta">院区尚未公布地图位置，可复制地址或联系院区。</view><t-button wx:if="{{hasLocation}}" theme="primary" block bind:tap="openLocation">{{presentation.isDemo ? '查看演示地图位置' : '打开地图 · 就诊导航'}}</t-button></view>
+    <view class="card"><view class="section-title">交通与停车</view><view class="copy">{{presentation.transport || '交通信息暂未公布。'}}</view></view>
+    <view class="card"><view class="section-title">到院指引</view><view class="copy">{{presentation.arrivalGuide || '到院前请确认预约结果与时段，到院后向前台出示预约信息。'}}</view><t-button variant="text" theme="primary" bind:tap="openAppointments">查看我的预约 ›</t-button></view>
+    <view id="credentials" class="card"><view class="section-title">机构资质</view><view wx:if="{{!presentation.credentials.length}}" class="meta">机构资质资料暂未公布。</view><view class="credential" wx:for="{{presentation.credentials}}" wx:key="index"><view>{{item.name}}</view><view class="meta" wx:if="{{item.number}}">证照编号：{{item.number}}</view><view class="meta" wx:if="{{item.issuer}}">发证机构：{{item.issuer}}</view><image wx:if="{{item.imageUrl}}" src="{{item.imageUrl}}" mode="aspectFit" data-index="{{index}}" bindtap="preview" /><view wx:if="{{item.imageUrl}}" class="meta">点击查看证照原图</view></view></view>
+  </block>
+</view>

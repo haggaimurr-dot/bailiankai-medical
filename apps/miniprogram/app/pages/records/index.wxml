@@ -1,0 +1,40 @@
+<view class="page">
+  <view class="demo-banner"><view class="demo-dot"></view><text>开发演示 · 仅显示当前患者账号可访问的记录</text></view>
+  <view class="page-heading"><view><view class="eyebrow">MY CARE HISTORY</view><view class="title">方案与治疗档案</view></view><view wx:if="{{patientName && !expired}}" class="patient-name">{{patientName}}</view></view>
+  <view class="intro-copy">统一查看问诊、复诊、方案、治疗与随访。按各项记录的发生时间倒序展示，时间均为北京时间。</view>
+  <t-button theme="primary" variant="outline" block bind:tap="openCalendar">恢复日历 · 查看随访与回评</t-button>
+  <view wx:if="{{loading}}" class="card state"><t-loading theme="circular" text="正在整理治疗档案" layout="vertical" /></view>
+  <view wx:elif="{{expired}}" class="card state"><view class="state-title">登录已失效</view><view class="state-copy">{{error}}</view><t-button theme="primary" loading="{{creatingIdentity}}" bind:tap="newIdentity">重新登录</t-button></view>
+  <block wx:else>
+    <view wx:if="{{error}}" class="card state"><view class="state-copy">{{error}}</view><t-button theme="primary" variant="outline" bind:tap="retry">刷新档案</t-button></view>
+    <view wx:if="{{records.length}}">
+      <view class="record-count">共 {{total}} 条记录 · 下拉可刷新</view>
+      <view wx:for="{{records}}" wx:key="id" class="timeline-row">
+        <view class="timeline-rail"><view class="timeline-dot"></view><view wx:if="{{index + 1 < records.length}}" class="timeline-line"></view></view>
+        <view class="card record-card">
+          <view class="record-top"><text class="record-date">{{item.dateLabel}}</text><t-tag theme="primary" variant="light" size="small">{{item.kindLabel}}</t-tag></view>
+          <view class="record-doctor">{{item.kind === 'initial' || item.kind === 'revisit' ? item.kindLabel + '记录' : item.title}}</view>
+          <view wx:if="{{item.kind === 'initial' || item.kind === 'revisit'}}" class="record-section">
+            <view class="section-label">主诉</view><view class="section-copy">{{item.title}}</view>
+            <block wx:if="{{item.history}}"><view class="section-label consultation-label">病史与既往情况</view><view class="section-copy">{{item.history}}</view></block>
+            <block wx:if="{{item.summaryLabel}}"><view class="section-label consultation-label">评估结论</view><view class="section-copy">{{item.summaryLabel}}</view></block>
+          </view>
+          <view wx:elif="{{item.summaryLabel}}" class="section-copy">{{item.summaryLabel}}</view>
+          <view wx:if="{{item.stageLabel}}" class="record-meta">{{item.stageLabel}}</view>
+          <view wx:if="{{item.parentConsultationId}}" class="record-meta">本次复诊已关联前次问诊</view>
+          <view wx:if="{{item.nextVisitLabel}}" class="record-meta">建议下次复诊：{{item.nextVisitLabel}}</view>
+          <view wx:if="{{item.adviceVersion}}" class="record-section">
+            <view class="section-label">医嘱与注意事项</view><view class="section-copy advice-copy">{{item.advice}}</view>
+            <view class="record-meta">阅读确认仅表示已阅读医嘱，不作为知情同意或治疗授权。</view>
+            <view wx:if="{{item.readLabel}}" class="read-confirmed">已确认阅读 · {{item.readLabel}}</view>
+            <t-button wx:else theme="primary" variant="outline" size="small" disabled="{{!!confirmingId}}" loading="{{confirmingId === item.id}}" data-id="{{item.id}}" bind:tap="confirmRead">我已阅读医嘱</t-button>
+          </view>
+          <view wx:if="{{item.appointmentId}}" class="record-footer"><t-button theme="primary" variant="text" size="small" data-id="{{item.id}}" bind:tap="openDetail">{{item.kind === 'plan' ? '查看完整方案' : item.kind === 'followup' || item.kind === 'submitted' || item.kind === 'reviewed' ? '查看随访详情' : '查看关联预约'}}</t-button></view>
+        </view>
+      </view>
+      <t-button wx:if="{{hasMore}}" theme="primary" variant="outline" block loading="{{loadingMore}}" bind:tap="loadMore">加载更早记录</t-button>
+      <view wx:else class="footer-note">已显示全部记录</view>
+    </view>
+    <view wx:elif="{{!error}}" class="card state"><view class="state-symbol">○</view><view class="state-title">暂时没有档案记录</view><view class="state-copy">问诊、复诊、方案与后续治疗记录会统一显示在这里。</view></view>
+  </block>
+</view>

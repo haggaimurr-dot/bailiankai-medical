@@ -1,0 +1,24 @@
+<view class="page">
+ <view class="title">{{mine ? '我的案例展示授权' : '案例库'}}</view>
+ <view class="subtitle">{{mine ? '先查看本版本的全部文字和图片，再自主决定是否授权。诊疗照片授权不能替代展示授权。' : '经患者独立授权和医生审核的治疗前后记录。个体情况不同，案例不代表效果承诺。'}}</view>
+ <view wx:if="{{error}}" class="inline-error" role="alert">{{error}}</view>
+ <block wx:if="{{selected}}">
+  <view class="card"><view class="section-title">{{selected.content.title}}</view><view class="meta">分类：{{selected.content.category || '未分类'}}</view><view class="tags"><text wx:for="{{selected.content.tags}}" wx:key="*this" class="tag">{{item}}</text></view><view class="text">{{selected.content.summary}}</view><view class="text">{{selected.content.body}}</view>
+   <view wx:for="{{pairs}}" wx:key="beforeImageId"><view class="pair"><view><view>治疗前 · {{item.angle}}</view><image src="{{item.beforePath}}" data-id="{{item.beforeImageId}}" mode="widthFix" bindload="imageLoaded" binderror="imageFailed"/><view class="meta">{{item.beforeAt}}</view></view><view><view>治疗后 · {{item.angle}}</view><image src="{{item.afterPath}}" data-id="{{item.afterImageId}}" mode="widthFix" bindload="imageLoaded" binderror="imageFailed"/><view class="meta">{{item.afterAt}}</view></view></view>
+    <view class="comparison" wx:if="{{imagesReady}}"><image class="comparison-image" src="{{item.afterPath}}" mode="aspectFit" binderror="imageFailed"/><view class="before-clip" style="width:{{item.position}}%"><image class="comparison-image" style="width:{{item.position > 0 ? 10000 / item.position : 100}}%" src="{{item.beforePath}}" mode="aspectFit" binderror="imageFailed"/></view><view class="divider" style="left:{{item.position}}%"/><text class="comparison-before">治疗前</text><text class="comparison-after">治疗后</text></view>
+    <view class="meta">拖动滑块查看治疗前后 · {{item.angle}}</view><slider value="{{item.position}}" min="0" max="100" step="1" disabled="{{!imagesReady}}" data-index="{{index}}" bindchanging="compare" bindchange="compare" show-value aria-label="治疗前后图片对比"/>
+   </view>
+   <view class="meta">审核医生：{{selected.reviewerName || '待审核'}} · {{selected.publishedAt ? '已发布' : '未发布'}}</view>
+  </view>
+  <view wx:if="{{mine}}" class="card"><view class="section-title">案例展示独立授权</view><view class="text">{{selected.policyContent}}</view><view class="meta">版本：{{selected.policyVersion}} · 案例内容版本 {{selected.revision}}</view>
+   <button wx:if="{{selected.consentRevision !== selected.revision}}" type="primary" data-granted="true" disabled="{{busy || !imagesReady}}" bindtap="consent">已查看全部内容，同意本版本展示</button>
+   <button wx:else type="warn" data-granted="false" disabled="{{busy}}" bindtap="consent">撤回展示授权</button>
+  </view><button disabled="{{busy}}" bindtap="close">返回案例列表</button>
+ </block>
+ <block wx:else>
+  <view class="card filters"><input value="{{category}}" data-field="category" maxlength="40" placeholder="输入案例分类筛选" bindinput="filterInput" bindconfirm="search"/><input value="{{tag}}" data-field="tag" maxlength="30" placeholder="输入案例标签筛选" bindinput="filterInput" bindconfirm="search"/><button disabled="{{loading || busy}}" bindtap="search">筛选案例</button></view>
+  <view wx:for="{{rows}}" wx:key="id" class="card" data-id="{{item.id}}" bindtap="select"><view class="section-title">{{item.content.title}}</view><view class="meta">{{item.content.category || '未分类'}}</view><view class="tags"><text wx:for="{{item.content.tags}}" wx:for-item="tag" wx:key="*this" class="tag">{{tag}}</text></view><view class="text">{{item.content.summary}}</view><view class="meta" wx:if="{{mine}}">{{item.consentRevision === item.revision ? '本版本已授权' : '待授权或已撤回'}} · {{item.publishedAt ? '已发布' : '未发布'}}</view><view class="meta">查看文字和治疗前后图片 ›</view></view>
+  <view wx:if="{{loading}}" class="card">正在加载…</view><view wx:elif="{{!rows.length && !error}}" class="card">{{mine ? '暂未整理您的案例。' : '暂无已发布案例。'}}</view>
+  <button wx:if="{{rows.length < total}}" loading="{{loading}}" disabled="{{loading}}" bindtap="more">加载更多</button><button disabled="{{loading || busy}}" bindtap="load">刷新</button>
+ </block>
+</view>

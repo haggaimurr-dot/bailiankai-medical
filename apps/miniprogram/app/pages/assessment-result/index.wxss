@@ -1,0 +1,1 @@
+.result-page .card,.result-page .demo-banner { margin:24rpx 0; }.doctor { background:#f0f7ff; border-color:#d7e7ff; }.observation { display:flex; gap:16rpx; margin-top:24rpx; color:#617188; }.observation text { color:#1763c6; }.limitations { background:#fafbfd; }.action { color:#1763c6; text-align:center; }.footer-note { margin-bottom:28rpx; }

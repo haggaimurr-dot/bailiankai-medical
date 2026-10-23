@@ -1,0 +1,9 @@
+{
+  "navigationBarTitleText": "百莲凯医疗美容",
+  "enablePullDownRefresh": true,
+  "usingComponents": {
+    "t-button": "tdesign-miniprogram/button/button",
+    "t-icon": "tdesign-miniprogram/icon/icon",
+    "t-loading": "tdesign-miniprogram/loading/loading"
+  }
+}

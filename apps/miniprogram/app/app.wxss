@@ -1,0 +1,44 @@
+@import './styles/mlk.mobile.wxss';
+
+page {
+  min-height: 100%;
+  color: var(--mlk-semantic-color-text-primary);
+  background: var(--mlk-semantic-color-bg-page);
+  font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  font-size: 28rpx;
+  line-height: 1.6;
+  --td-brand-color: #1763c6;
+  --td-button-primary-bg-color: #1763c6;
+  --td-button-border-radius: 24rpx;
+}
+
+view, text, button { box-sizing: border-box; }
+button { font: inherit; }
+.page { padding: 32rpx 32rpx calc(48rpx + env(safe-area-inset-bottom)); }
+.card {
+  padding: 32rpx;
+  border: 1rpx solid #e3eaf2;
+  border-radius: 32rpx;
+  background: #fff;
+}
+.eyebrow { color: #1763c6; font-size: 22rpx; font-weight: 600; letter-spacing: 3rpx; }
+.title { margin-top: 12rpx; font-size: 48rpx; font-weight: 600; line-height: 1.4; }
+.subtitle { margin-top: 16rpx; color: #617188; font-size: 26rpx; line-height: 1.75; }
+.section-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 16rpx; margin: 40rpx 0 20rpx; }
+.section-title { font-size: 34rpx; font-weight: 600; }
+.meta { color: #617188; font-size: 24rpx; }
+.demo-banner { display: flex; align-items: flex-start; gap: 16rpx; padding: 24rpx; margin-bottom: 24rpx; border-radius: 20rpx; color: #1251a3; background: #eaf2fe; font-size: 24rpx; }
+.demo-dot { flex: 0 0 12rpx; width: 12rpx; height: 12rpx; margin-top: 13rpx; border-radius: 50%; background: #1763c6; }
+.state { margin-top: 24rpx; padding: 64rpx 32rpx; text-align: center; }
+.state-title { margin-top: 12rpx; font-size: 32rpx; font-weight: 600; }
+.state-description { margin: 12rpx 0 28rpx; color: #617188; font-size: 26rpx; }
+.state-symbol { width: 80rpx; height: 80rpx; margin: 0 auto 24rpx; border-radius: 24rpx; color: #1763c6; background: #eff6ff; line-height: 80rpx; font-size: 40rpx; }
+.clinic-picker { display: flex; align-items: center; justify-content: space-between; gap: 24rpx; min-height: 96rpx; }
+.clinic-label { color: #617188; font-size: 22rpx; }
+.clinic-name { color: #15283f; font-size: 30rpx; font-weight: 600; }
+.chevron { color: #1763c6; font-size: 34rpx; }
+.clinic-address { margin-top: 12rpx; color: #617188; font-size: 24rpx; }
+.footer-note { margin-top: 32rpx; color: #617188; font-size: 22rpx; text-align: center; }
+.avatar { display: flex; align-items: center; justify-content: center; flex: 0 0 112rpx; width: 112rpx; height: 112rpx; border-radius: 28rpx; color: #1763c6; background: linear-gradient(145deg, #e3f3ff, #f1f7ff); font-size: 38rpx; font-weight: 600; }
+.secondary-action { margin-top: 20rpx; text-align: center; }
+.inline-error { margin: 20rpx 0; padding: 24rpx; border-radius: 16rpx; color: #b42318; background: #fef2f2; font-size: 26rpx; }

@@ -1,0 +1,24 @@
+[Unit]
+Description=Bailiankai API
+After=network.target bailiankai-mysql.service
+Requires=bailiankai-mysql.service
+
+[Service]
+User=bailiankai
+Group=bailiankai
+WorkingDirectory=/opt/bailiankai/current
+EnvironmentFile=/etc/bailiankai/api.env
+ExecStart=/opt/bailiankai/current/bin/api
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=90
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/bailiankai/private-media
+MemoryMax=650M
+
+[Install]
+WantedBy=multi-user.target

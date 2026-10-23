@@ -1,0 +1,18 @@
+[Unit]
+Description=Bailiankai encrypted private media backup
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=bailiankai-backup
+Group=bailiankai-backup
+WorkingDirectory=/opt/bailiankai
+EnvironmentFile=/etc/bailiankai/media-backup.env
+ExecStart=/opt/bailiankai/bin/media -operation backup
+TimeoutStartSec=2h
+UMask=0077
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true

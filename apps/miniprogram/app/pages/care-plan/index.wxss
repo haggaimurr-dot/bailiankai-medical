@@ -1,0 +1,8 @@
+.plan-card { margin-top: 24rpx; }
+.plan-version { color: #315f91; font-size: 25rpx; font-weight: 600; }
+.plan-version text { color: #8192a7; font-size: 21rpx; font-weight: 400; }
+.plan-summary { margin-top: 22rpx; color: #334155; font-size: 28rpx; line-height: 1.8; font-weight: 550; white-space: pre-wrap; }
+.plan-stage, .plan-instructions { margin-top: 26rpx; padding-top: 22rpx; border-top: 1rpx solid #e8edf4; }
+.stage-title { color: #425d7d; font-size: 25rpx; font-weight: 600; }
+.stage-body { margin-top: 9rpx; color: #53667e; font-size: 24rpx; line-height: 1.85; white-space: pre-wrap; }
+.plan-meta { margin-top: 22rpx; color: #8797aa; font-size: 21rpx; }

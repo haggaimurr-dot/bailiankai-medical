@@ -1,0 +1,23 @@
+# Optional local development alternative to scripts/setup-local.ps1.
+# Supply MYSQL_ROOT_PASSWORD and MYSQL_PASSWORD in your shell or a private env file.
+services:
+  mysql:
+    image: mysql:8.4.11
+    ports:
+      - '127.0.0.1:3307:3306'
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?set a local root password}
+      MYSQL_DATABASE: bailiankai_dev
+      MYSQL_USER: bailiankai
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?set a local application password}
+      TZ: Asia/Shanghai
+    command: ['--default-time-zone=+08:00']
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ['CMD', 'mysqladmin', 'ping', '-h', '127.0.0.1', '--silent']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+volumes:
+  mysql_data:

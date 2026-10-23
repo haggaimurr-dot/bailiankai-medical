@@ -1,0 +1,33 @@
+{
+	admin off
+	auto_https disable_redirects
+}
+(bailiankai_site) {
+	encode zstd gzip
+	header X-Content-Type-Options nosniff
+	header Referrer-Policy same-origin
+	header X-Frame-Options DENY
+	@api path /api/* /healthz /readyz
+	handle @api {
+		reverse_proxy 127.0.0.1:18081
+	}
+	handle {
+		root * /opt/bailiankai/current/admin
+		try_files {path} /index.html
+		file_server
+	}
+}
+http://127.0.0.1:9080 {
+	bind 127.0.0.1
+	import bailiankai_site
+}
+https://42.192.114.201 {
+	tls force_automate {
+		issuer acme {
+			dir https://acme-v02.api.letsencrypt.org/directory
+			profile shortlived
+			disable_http_challenge
+		}
+	}
+	import bailiankai_site
+}

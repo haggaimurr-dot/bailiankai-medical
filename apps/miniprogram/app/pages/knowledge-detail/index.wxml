@@ -1,0 +1,13 @@
+<view class="page">
+  <view wx:if="{{loading}}" class="card state"><t-loading text="正在读取文章" layout="vertical" /></view>
+  <view wx:elif="{{error}}" class="card state"><view class="state-title">文章暂不可用</view><view class="state-description">{{error}}</view><t-button theme="primary" bind:tap="retry">重新加载</t-button></view>
+  <block wx:elif="{{article}}"><view class="card"><view class="title">{{article.title}}</view><view class="subtitle">{{article.summary}}</view><view class="meta">审核：{{article.reviewerName}} · {{reviewedDate}}</view><view class="meta">发布：{{publishedDate}}（北京时间）</view><text class="article-body" selectable>{{article.body}}</text><block wx:if="{{article.sourceText}}"><view class="section-title">参考来源</view><text class="article-body" selectable>{{article.sourceText}}</text></block><view class="footer-note">科普内容用于了解知识，个人诊疗安排以医生面诊为准。</view></view>
+    <t-button wx:if="{{!demo}}" block theme="primary" variant="outline" loading="{{saving}}" disabled="{{loading || saving || favoriteError}}" bind:tap="toggleFavorite">{{saved ? '取消收藏' : '收藏文章'}}</t-button>
+    <view wx:if="{{demo}}" class="meta">演示文章不支持账号收藏</view>
+    <view wx:if="{{favoriteError}}" class="card state"><view>{{favoriteError}}</view><t-button bind:tap="retry">重新读取收藏状态</t-button></view>
+    <navigator url="/pages/knowledge/index?favorites=1" class="collection-link">查看我的收藏 ›</navigator>
+    <view wx:if="{{related.length}}" class="section-title">相关内容 · 同分类推荐</view>
+    <view wx:for="{{related}}" wx:key="id" class="card related" data-id="{{item.id}}" bindtap="openRelated" aria-role="button"><view class="section-title">{{item.title}}</view><view class="subtitle">{{item.summary}}</view><view class="meta">审核：{{item.reviewerName}} · 阅读全文 ›</view></view>
+    <view wx:if="{{relatedError}}" class="card state"><view>推荐内容暂不可用：{{relatedError}}</view><t-button bind:tap="retry">重新加载</t-button></view>
+  </block>
+</view>

@@ -1,0 +1,48 @@
+<view class="page">
+  <view wx:if="{{isDemo}}" class="demo-banner">
+    <view class="demo-dot"></view>
+    <text>开发演示 · 院区与医生均为虚构数据，仅用于功能验证</text>
+  </view>
+
+  <view class="hero">
+    <view class="eyebrow">BAILIANKAI · CARE</view>
+    <view class="title">了解医生<text class="hero-title-next">从容安排到院</text></view>
+    <view class="subtitle">查看团队介绍与近期排班，<text class="hero-line">为下一次面诊做好准备。</text></view>
+    <view class="hero-mark" aria-hidden="true">＋</view>
+    <view class="hero-bottom"><text>百莲凯医疗美容</text><text>医生与排班</text></view>
+  </view>
+
+  <view class="my-appointments"><t-button theme="primary" variant="outline" block bind:tap="openAppointments">我的预约 · 查看申请进度</t-button></view>
+
+  <view wx:if="{{clinics.length}}" class="card clinic-card">
+    <picker range="{{clinics}}" range-key="name" value="{{clinicIndex}}" bindchange="onClinicChange" disabled="{{loading}}">
+      <view class="clinic-picker" aria-role="button" aria-label="切换院区">
+        <view><view class="clinic-label">当前院区</view><view class="clinic-name">{{clinic.name}}</view></view>
+        <text wx:if="{{clinics.length > 1}}" class="chevron">⌄</text>
+      </view>
+    </picker>
+    <view class="clinic-address">{{clinic.address}}</view><t-button theme="primary" variant="text" bind:tap="openClinic">院区地图 · 就诊导航 · 机构资质 ›</t-button>
+  </view>
+
+  <view class="section-heading"><text class="section-title">医生团队</text><text wx:if="{{!loading && !error}}" class="meta">{{doctors.length}} 位医生</text></view>
+
+  <view wx:if="{{loading}}" class="card state"><t-loading theme="circular" size="48rpx" text="正在读取医生资料" layout="vertical" /></view>
+  <view wx:elif="{{error}}" class="card state">
+    <view class="state-symbol">!</view><view class="state-title">暂时无法加载</view>
+    <view class="state-description">{{error}}</view><t-button theme="primary" size="medium" variant="outline" bind:tap="retry">重新加载</t-button>
+  </view>
+  <block wx:elif="{{doctors.length}}">
+    <view wx:for="{{doctors}}" wx:key="id" class="card doctor-card">
+      <view class="doctor-header" data-doctor-id="{{item.id}}" bindtap="openDoctorDetail" aria-role="button" aria-label="查看{{item.name}}详情">
+        <image wx:if="{{item.avatarUrl}}" class="avatar" src="{{item.avatarUrl}}" mode="aspectFill" /><view wx:else class="avatar">{{item.initials}}</view>
+        <view class="doctor-identity"><view class="doctor-name">{{item.name}}</view><view class="doctor-title">{{item.title}}</view><text wx:if="{{item.presentation.isDemo}}" class="demo-label">演示资料</text></view>
+      </view>
+      <view class="doctor-summary">{{item.summary}}</view>
+      <view class="focus-list"><t-tag wx:for="{{item.focus}}" wx:for-item="focus" wx:key="*this" theme="primary" variant="light" size="small">{{focus}}</t-tag></view>
+      <view class="doctor-action"><t-button theme="primary" variant="text" size="small" data-doctor-id="{{item.id}}" bind:tap="openDoctorDetail">医生详情</t-button><t-button theme="primary" variant="outline" size="small" data-doctor-id="{{item.id}}" bind:tap="openSchedule">查看排班</t-button></view>
+    </view>
+    <view class="all-schedule"><t-button theme="primary" block bind:tap="openSchedule">查看全部排班</t-button></view>
+  </block>
+  <view wx:else class="card state"><view class="state-symbol">＋</view><view class="state-title">暂无医生资料</view><view class="state-description">当前院区还未发布医生信息，请稍后再来查看。</view></view>
+  <view class="footer-note">预约需工作人员确认，可在“我的预约”查看进度</view>
+</view>

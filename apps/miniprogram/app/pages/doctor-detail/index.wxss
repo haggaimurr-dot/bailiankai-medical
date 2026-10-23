@@ -1,0 +1,29 @@
+.detail-page { padding-bottom: calc(260rpx + env(safe-area-inset-bottom)); }
+.profile { background: linear-gradient(135deg, #eaf3ff, #fff); }
+.profile-heading { display: flex; align-items: center; gap: 24rpx; margin-top: 28rpx; }
+.identity { flex: 1; min-width: 0; }
+.doctor-name { font-size: 40rpx; font-weight: 600; overflow-wrap: break-word; }
+.profile-clinic { margin-top: 12rpx; color: #1763c6; font-size: 24rpx; }
+.profile-summary { margin-top: 28rpx; color: #425770; font-size: 26rpx; }
+.focus-list { display: flex; flex-wrap: wrap; gap: 16rpx; }
+.focus-list text { padding: 8rpx 20rpx; border-radius: 12rpx; background: #eff6ff; color: #1763c6; font-size: 26rpx; }
+.service-row { display: flex; gap: 24rpx; }
+.service-row + .service-row { margin-top: 28rpx; padding-top: 28rpx; border-top: 1rpx solid #edf1f6; }
+.service-number { flex: 0 0 52rpx; color: #1763c6; font-size: 30rpx; font-weight: 600; }
+.service-copy { flex: 1; min-width: 0; }
+.service-title { font-size: 28rpx; font-weight: 600; }
+.description { margin-top: 8rpx; color: #617188; font-size: 26rpx; }
+.service-note { margin-top: 28rpx; color: #617188; font-size: 22rpx; }
+.note-row { display: flex; gap: 16rpx; color: #425770; font-size: 26rpx; }
+.note-row + .note-row { margin-top: 20rpx; }
+.note-dot { color: #1763c6; font-weight: 600; }
+.note-row > view { flex: 1; }
+.clinic-card { margin-top: 32rpx; }
+.booking-bar { position: fixed; left: 0; right: 0; bottom: 0; padding: 20rpx 32rpx calc(24rpx + env(safe-area-inset-bottom)); background: #fff; border-top: 1rpx solid #e3eaf2; z-index: 10; }
+.booking-copy { margin-bottom: 16rpx; font-size: 26rpx; font-weight: 600; }
+.booking-copy text { color: #617188; font-size: 22rpx; font-weight: 400; }
+
+.dedicated-service { white-space: pre-wrap; overflow-wrap: break-word; color: #425770; font-size: 26rpx; }
+
+.credential { padding: 20rpx 0; }
+.credential-image { display: block; width: 100%; height: 300rpx; margin-top: 20rpx; }

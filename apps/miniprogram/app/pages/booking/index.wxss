@@ -1,0 +1,14 @@
+.booking-summary { margin-top: 28rpx; border-color: #d7e6fb; background: #f8fbff; }
+.summary-time { margin: 14rpx 0 10rpx; color: #1763c6; font-size: 30rpx; font-weight: 600; }
+.identity-note { margin: 24rpx 4rpx; color: #617188; font-size: 22rpx; }
+.identity-note-line { display: block; }
+.contact-form { margin-top: 24rpx; }
+.field-label { margin: 28rpx 0 12rpx; font-size: 26rpx; font-weight: 600; }
+.required { color: #b42318; }
+.field-input, .field-textarea { box-sizing: border-box; width: 100%; min-height: 96rpx; padding: 22rpx; border: 1rpx solid #cbd5e1; border-radius: 16rpx; color: #15283f; background: #fff; font-size: 28rpx; }
+.field-input { height: 96rpx; }
+.field-textarea { height: 200rpx; line-height: 1.6; }
+.field-count { margin-top: 8rpx; color: #617188; font-size: 22rpx; text-align: right; }
+.rules { padding: 28rpx 4rpx; color: #617188; font-size: 24rpx; line-height: 1.8; }
+.rules-title { margin-bottom: 8rpx; color: #334155; font-weight: 600; }
+.recovery-card { margin-top: 24rpx; border-color: #e8c995; background: #fffcf5; }
