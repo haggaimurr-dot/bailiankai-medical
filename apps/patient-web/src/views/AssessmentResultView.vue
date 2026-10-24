@@ -36,6 +36,7 @@ const needsLogin = ref(false)
 const clinicId = ref('')
 const reviewedTime = ref('')
 const photos = ref<{ angle: string; label: string; url: string }[]>([])
+const photosLoading = ref(false)
 let photosTaskId = ''
 
 function clearPhotos() {
@@ -46,15 +47,18 @@ function clearPhotos() {
 
 async function loadPhotos(view: components['schemas']['AssessmentView'], patientId: string) {
   if (photosTaskId === taskId || !view.photos?.length) return
+  photosLoading.value = true
   const loaded: { angle: string; label: string; url: string }[] = []
   try {
-    for (const photo of [...view.photos].sort((a, b) => (angleOrder[a.angle] ?? 9) - (angleOrder[b.angle] ?? 9))) {
-      loaded.push({ angle: photo.angle, label: angleLabels[photo.angle] || photo.angle, url: await assessmentApi.photo(taskId, photo.id, patientId) })
-    }
+    const ordered = [...view.photos].sort((a, b) => (angleOrder[a.angle] ?? 9) - (angleOrder[b.angle] ?? 9))
+    const urls = await Promise.all(ordered.map((photo) => assessmentApi.photo(taskId, photo.id, patientId)))
+    ordered.forEach((photo, index) => loaded.push({ angle: photo.angle, label: angleLabels[photo.angle] || photo.angle, url: urls[index] }))
     photos.value = loaded
     photosTaskId = taskId
   } catch {
     for (const item of loaded) URL.revokeObjectURL(item.url)
+  } finally {
+    photosLoading.value = false
   }
 }
 
@@ -140,6 +144,10 @@ onUnmounted(() => {
       </template>
       <h2 style="margin-top: 14px">医生说明</h2>
       <p>{{ review.note }}</p>
+      <template v-if="photosLoading && !photos.length">
+        <h2 style="margin-top: 14px">本次评估照片</h2>
+        <p class="muted">照片加载中…</p>
+      </template>
       <template v-if="photos.length">
         <h2 style="margin-top: 14px">本次评估照片</h2>
         <div class="photo-grid">
