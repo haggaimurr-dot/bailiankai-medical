@@ -275,7 +275,7 @@ onUnmounted(() => { requestId += 1 })
 <style scoped>
 .brand-line { display: flex; align-items: center; gap: 10px; }
 .brand-title { font-size: 19px; font-weight: 700; }
-.brand-logo { width: 40px; height: 40px; object-fit: contain; }
+.brand-logo { height: 34px; width: auto; max-width: 140px; object-fit: contain; }
 .brand-seal { font-size: 26px; color: var(--brand); font-weight: 800; }
 .hero { border-radius: 16px; padding: 20px 18px; color: #fff; background: linear-gradient(135deg, #1763c6, #0d4c9c); }
 .eyebrow { font-size: 11px; letter-spacing: 2px; color: var(--brand); font-weight: 700; }
