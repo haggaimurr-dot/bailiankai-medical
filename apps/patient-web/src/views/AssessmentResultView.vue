@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { showImagePreview } from 'vant'
 import { errorMessage } from '../api'
 import { assessmentApi, type AssessmentTask } from '../patient'
 import { useSessionStore } from '../stores/session'
@@ -25,12 +26,41 @@ const route = useRoute()
 const router = useRouter()
 const store = useSessionStore()
 
+const angleLabels: Record<string, string> = { front: '正面', left: '本人左侧', right: '本人右侧' }
+const angleOrder: Record<string, number> = { front: 0, left: 1, right: 2 }
+
 const review = ref<PublicReview | null>(null)
 const label = ref('')
 const error = ref('')
 const needsLogin = ref(false)
 const clinicId = ref('')
 const reviewedTime = ref('')
+const photos = ref<{ angle: string; label: string; url: string }[]>([])
+let photosTaskId = ''
+
+function clearPhotos() {
+  for (const item of photos.value) URL.revokeObjectURL(item.url)
+  photos.value = []
+  photosTaskId = ''
+}
+
+async function loadPhotos(view: components['schemas']['AssessmentView'], patientId: string) {
+  if (photosTaskId === taskId || !view.photos?.length) return
+  const loaded: { angle: string; label: string; url: string }[] = []
+  try {
+    for (const photo of [...view.photos].sort((a, b) => (angleOrder[a.angle] ?? 9) - (angleOrder[b.angle] ?? 9))) {
+      loaded.push({ angle: photo.angle, label: angleLabels[photo.angle] || photo.angle, url: await assessmentApi.photo(taskId, photo.id, patientId) })
+    }
+    photos.value = loaded
+    photosTaskId = taskId
+  } catch {
+    for (const item of loaded) URL.revokeObjectURL(item.url)
+  }
+}
+
+function preview(index: number) {
+  showImagePreview({ images: photos.value.map((item) => item.url), startPosition: index, closeable: true })
+}
 
 const taskId = String(route.query.id || '')
 let generation = 0
@@ -60,6 +90,7 @@ async function load() {
     label.value = statusLabels[view.task.status]
     reviewedTime.value = published ? dateTime(published.reviewedAt) : ''
     clinicId.value = view.task.clinicId
+    if (published) void loadPhotos(view, session.patient.id)
   } catch (e) {
     if (gen === generation) {
       error.value = errorMessage(e)
@@ -78,6 +109,7 @@ onUnmounted(() => {
   visible = false
   generation++
   if (timer) clearTimeout(timer)
+  clearPhotos()
 })
 </script>
 
@@ -108,6 +140,16 @@ onUnmounted(() => {
       </template>
       <h2 style="margin-top: 14px">医生说明</h2>
       <p>{{ review.note }}</p>
+      <template v-if="photos.length">
+        <h2 style="margin-top: 14px">本次评估照片</h2>
+        <div class="photo-grid">
+          <figure v-for="(item, index) in photos" :key="item.angle" class="photo-cell" @click="preview(index)">
+            <img :src="item.url" :alt="item.label" />
+            <figcaption class="muted">{{ item.label }}</figcaption>
+          </figure>
+        </div>
+        <p class="muted">点击照片可查看原图。</p>
+      </template>
       <button
         v-if="review.decision === 'rejected'"
         class="primary"
@@ -128,3 +170,28 @@ onUnmounted(() => {
     <p class="muted" style="text-align: center">照片辅助观察，具体以面诊为准。</p>
   </main>
 </template>
+
+<style scoped>
+.photo-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-top: 8px;
+}
+.photo-cell {
+  margin: 0;
+  cursor: pointer;
+}
+.photo-cell img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 10px;
+  display: block;
+}
+.photo-cell figcaption {
+  text-align: center;
+  margin-top: 4px;
+  font-size: 12px;
+}
+</style>
