@@ -165,6 +165,7 @@ onUnmounted(() => {
       <p class="muted">暂无经医生复核的结果，请查看任务进度。</p>
     </section>
 
+    <button class="primary" @click="router.push('/')">返回主页</button>
     <button class="ghost" @click="router.push({ path: '/assessment/tasks', query: { id: taskId } })">查看任务进度</button>
     <button class="ghost" @click="router.push('/schedule')">预约面诊 ›</button>
     <p class="muted" style="text-align: center">照片辅助观察，具体以面诊为准。</p>
