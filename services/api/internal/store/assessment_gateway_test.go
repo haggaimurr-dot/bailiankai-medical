@@ -73,6 +73,34 @@ func TestAssessmentGatewayProtocolAndFailureCodes(t *testing.T) {
 		t.Fatal(seen)
 	}
 }
+func TestAssessmentGatewayCircuitBreaker(t *testing.T) {
+	input := store.AssessmentFrozenInput{Configuration: assessmentConfig(), Photos: []store.AssessmentPhoto{{ID: "photo-test", Angle: "front", SHA256: strings.Repeat("a", 64), Width: 512, Height: 512}}}
+	seen := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		seen++
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte(`{"error":"boom"}`))
+	}))
+	defer server.Close()
+	gateway, err := store.NewAssessmentGateway(server.URL, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 4; i++ {
+		_, err := gateway.Check(context.Background(), input, map[string][]byte{"photo-test": []byte("synthetic")})
+		failure, ok := err.(*store.AssessmentProviderError)
+		if !ok || failure.Code != "MODEL_UNAVAILABLE" || !failure.Retryable {
+			t.Fatalf("call %d: %v", i+1, err)
+		}
+	}
+	if seen != 3 {
+		t.Fatalf("breaker did not open: gateway called %d times, want 3 (4th must fail fast)", seen)
+	}
+	if gateway.Health(context.Background()) {
+		t.Fatal("expected unhealthy gateway (no /healthz on failing server)")
+	}
+}
+
 func TestAssessmentStrictJSONRejectsMissingDuplicateAndNestedFields(t *testing.T) {
 	for _, raw := range []string{`{"version":1,"version":2}`, `{"version":null}`, `{"version":1} {}`, `{"version":1,"unknown":true}`, `{"version":1,"finalContent":{"summary":"incomplete"}}`} {
 		t.Run(raw, func(t *testing.T) {
