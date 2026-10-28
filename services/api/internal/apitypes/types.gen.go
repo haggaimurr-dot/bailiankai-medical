@@ -4147,11 +4147,11 @@ type CreateKnowledgeCategoryJSONRequestBody CreateKnowledgeCategoryJSONBody
 // UpdateKnowledgeCategoryJSONRequestBody defines body for UpdateKnowledgeCategory for application/json ContentType.
 type UpdateKnowledgeCategoryJSONRequestBody UpdateKnowledgeCategoryJSONBody
 
-// SaveMessageTemplateJSONRequestBody defines body for SaveMessageTemplate for application/json ContentType.
-type SaveMessageTemplateJSONRequestBody = MessageTemplateChange
-
 // UpdateNotificationMergeSettingJSONRequestBody defines body for UpdateNotificationMergeSetting for application/json ContentType.
 type UpdateNotificationMergeSettingJSONRequestBody = NotificationMergeSettingUpdate
+
+// SaveMessageTemplateJSONRequestBody defines body for SaveMessageTemplate for application/json ContentType.
+type SaveMessageTemplateJSONRequestBody = MessageTemplateChange
 
 // CreatePatientChartJSONRequestBody defines body for CreatePatientChart for application/json ContentType.
 type CreatePatientChartJSONRequestBody = PatientChartCreate

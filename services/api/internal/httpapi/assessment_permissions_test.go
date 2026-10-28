@@ -9,7 +9,7 @@ func TestAssessmentPermissionMatrix(t *testing.T) {
 			allowed      bool
 		}{
 			{"GET", "/api/v1/admin/assessments", role == "manager" || role == "doctor"},
-			{"GET", "/api/v1/admin/assessments/:assessmentId/photos/:photoRef/content", role == "manager" || role == "doctor"},
+			{"GET", "/api/v1/admin/assessments/:assessmentId/photos/:photoId/content", role == "manager" || role == "doctor"},
 			{"POST", "/api/v1/admin/assessments/:assessmentId/assignment", role == "manager"},
 			{"POST", "/api/v1/admin/assessments/:assessmentId/reviews", role == "doctor"},
 			{"POST", "/api/v1/admin/assessments/new-unknown-operation", false},

@@ -1979,7 +1979,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/admin/notification-merge-settings": {
+    "/api/v1/admin/messages/merge-settings": {
         parameters: {
             query?: never;
             header?: never;

@@ -9,8 +9,10 @@ require (
 	github.com/go-sql-driver/mysql v1.9.3
 	github.com/oapi-codegen/runtime v1.7.0
 	github.com/pressly/goose/v3 v3.26.0
+	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
 	github.com/tencentyun/cos-go-sdk-v5 v0.7.75
 	golang.org/x/crypto v0.46.0
+	gopkg.in/yaml.v3 v3.0.1
 	gorm.io/driver/mysql v1.6.0
 	gorm.io/gorm v1.31.1
 )
@@ -45,7 +47,6 @@ require (
 	github.com/quic-go/qpack v0.5.1 // indirect
 	github.com/quic-go/quic-go v0.54.0 // indirect
 	github.com/sethvargo/go-retry v0.3.0 // indirect
-	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/ugorji/go/codec v1.3.0 // indirect
 	go.uber.org/mock v0.5.0 // indirect

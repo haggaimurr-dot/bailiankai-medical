@@ -32,9 +32,9 @@ func (a *API) registerAssessmentRoutes(r *gin.Engine) {
 	patient.GET("/:assessmentId", a.getAssessment)
 	patient.GET("/:assessmentId/consent", a.assessmentConsent)
 	patient.POST("/:assessmentId/consent", a.changeAssessment)
-	patient.PUT("/:assessmentId/photos/:photoRef", a.uploadAssessmentPhoto)
-	patient.POST("/:assessmentId/photos/:photoRef", a.uploadAssessmentPhoto)
-	patient.GET("/:assessmentId/photos/:photoRef/content", a.assessmentPhoto)
+	patient.PUT("/:assessmentId/photos/:angle", a.uploadAssessmentPhoto)
+	patient.POST("/:assessmentId/photos/:angle", a.uploadAssessmentPhoto)
+	patient.GET("/:assessmentId/photos/:photoId/content", a.assessmentPhoto)
 	for _, action := range []string{"quality-check", "submit", "retry", "cancel"} {
 		patient.POST("/:assessmentId/"+action, a.changeAssessment)
 	}
@@ -42,7 +42,7 @@ func (a *API) registerAssessmentRoutes(r *gin.Engine) {
 	admin.GET("", a.listAssessments)
 	admin.GET("/reviewers", a.assessmentReviewers)
 	admin.GET("/:assessmentId", a.getAssessment)
-	admin.GET("/:assessmentId/photos/:photoRef/content", a.assessmentPhoto)
+	admin.GET("/:assessmentId/photos/:photoId/content", a.assessmentPhoto)
 	admin.GET("/:assessmentId/events", a.assessmentEvents)
 	admin.POST("/:assessmentId/assignment", a.changeAssessment)
 	admin.POST("/:assessmentId/reviews", a.changeAssessment)
@@ -212,7 +212,7 @@ func (a *API) changeAssessment(c *gin.Context) {
 	c.JSON(code, gin.H{"data": view})
 }
 func (a *API) uploadAssessmentPhoto(c *gin.Context) {
-	angle := c.Param("photoRef")
+	angle := c.Param("angle")
 	if angle != "front" && angle != "left" && angle != "right" {
 		fail(c, 400, "INVALID_PHOTO_ANGLE", "照片角度无效")
 		return
@@ -288,7 +288,7 @@ func (a *API) uploadAssessmentPhoto(c *gin.Context) {
 	c.JSON(200, gin.H{"data": view})
 }
 func (a *API) assessmentPhoto(c *gin.Context) {
-	id, photoID, patientID := c.Param("assessmentId"), c.Param("photoRef"), assessmentPatient(c)
+	id, photoID, patientID := c.Param("assessmentId"), c.Param("photoId"), assessmentPatient(c)
 	photo, err := a.assessments.Photo(c.Request.Context(), id, photoID, patientID)
 	if err != nil {
 		a.assessmentError(c, err)
