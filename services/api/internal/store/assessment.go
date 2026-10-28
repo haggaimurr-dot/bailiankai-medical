@@ -952,7 +952,10 @@ func (s *AssessmentService) Upload(ctx context.Context, id, patientID, key strin
 			return err
 		}
 		if count > 0 {
-			return ErrAssessmentQuality
+			// Same photo reused for another angle: still a quality failure
+			// (submit also rejects duplicate hashes), but wrapped so the
+			// API can tell the patient why instead of the generic message.
+			return fmt.Errorf("%w: %w", ErrAssessmentQuality, ErrAssessmentDuplicatePhoto)
 		}
 		if err := tx.Model(&AssessmentPhoto{}).Where("assessment_id = ? AND is_current = TRUE AND angle = ?", id, photo.Angle).Update("is_current", false).Error; err != nil {
 			return err

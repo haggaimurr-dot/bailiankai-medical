@@ -80,6 +80,8 @@ func (a *API) assessmentError(c *gin.Context, err error) {
 		fail(c, 400, "INVALID_ASSESSMENT_INPUT", "评估请求内容无效，请检查输入")
 	case errors.Is(err, store.ErrAssessmentConsent):
 		fail(c, 403, "AI_CONSENT_REQUIRED", "请先同意本任务的AI用途授权")
+	case errors.Is(err, store.ErrAssessmentDuplicatePhoto):
+		fail(c, 422, "DUPLICATE_PHOTO", "这张照片已用于另一角度，请换一张不同的照片")
 	case errors.Is(err, store.ErrAssessmentQuality):
 		fail(c, 422, "INPUT_QUALITY_REJECTED", "请补齐三张不同角度照片，并等待全部服务端质检通过")
 	case errors.Is(err, store.ErrAssessmentConfiguration):

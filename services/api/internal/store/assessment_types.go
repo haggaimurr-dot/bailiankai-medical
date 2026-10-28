@@ -17,6 +17,7 @@ var (
 	ErrAssessmentConsent       = errors.New("assessment consent required")
 	ErrAssessmentPrivacy       = errors.New("assessment privacy consent required")
 	ErrAssessmentQuality       = errors.New("assessment quality rejected")
+	ErrAssessmentDuplicatePhoto = errors.New("duplicate assessment photo")
 	ErrAssessmentConfiguration = errors.New("assessment pipeline unavailable")
 	ErrAssessmentRateLimit     = errors.New("assessment rate limit")
 )
