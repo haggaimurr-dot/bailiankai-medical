@@ -92,6 +92,8 @@ async function write(action?: 'assignment'|'reviews') {
     if (!alive || request !== generation || auth.employee?.id !== employeeId) return
     selected.value = view; reviewBaseVersion = view.task.version
     pending.value = null; sessionStorage.removeItem(storageKey()); success.value = '操作已保存，患者读取最新复核结果。'
+    const audit = await api.assessmentEvents(taskId)
+    if (alive && request === generation) events.value = audit
   } catch (cause) {
     if (!alive || request !== generation) return
     error.value = errorMessage(cause)
