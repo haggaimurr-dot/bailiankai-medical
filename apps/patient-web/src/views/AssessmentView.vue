@@ -76,23 +76,37 @@ const angleRows = computed(() =>
     }
   }),
 )
-const canSubmit = computed(() => {
-  const current = view.value
-  return Boolean(
-    current &&
-      current.task.status === 'draft' &&
-      current.consent.granted &&
-      current.photos.length === 3 &&
-      current.photos.every((p) => p.qualityCheck.status === 'passed') &&
-      modelAvailable.value,
-  )
-})
 
 const policyUpdated = computed(() => {
   const c = view.value?.consent
   return Boolean(c && !c.granted && c.grantedVersion && c.grantedVersion !== c.version)
 })
 let policyUpdateShown = ''
+
+const submitBlockReasons = computed(() => {
+  const current = view.value
+  if (!current || current.task.status !== 'draft') return []
+  const reasons: string[] = []
+  if (!current.consent.granted) reasons.push('尚未同意AI用途授权')
+  for (const angle of angles) {
+    const photo = current.photos.find((p) => p.angle === angle.value)
+    if (!photo) {
+      reasons.push(`${angle.label}：未上传`)
+      continue
+    }
+    const q = photo.qualityCheck
+    if (q.status === 'passed') continue
+    if (q.status === 'pending') reasons.push(`${angle.label}：质检进行中，请稍候`)
+    else if (q.status === 'rejected') {
+      const failed = q.checks.filter((c) => c.status === 'fail').map((c) => c.message)
+      const detail = failed.join('；') || q.retakeAdvice.join('；') || q.issues.join('；') || '请按提示重拍'
+      reasons.push(`${angle.label}：质检未通过——${detail}`)
+    } else if (q.status === 'unavailable') reasons.push(`${angle.label}：质检暂不可用，请稍后重试质检`)
+    else reasons.push(`${angle.label}：质检状态未知，请重新检查照片`)
+  }
+  if (!modelAvailable.value) reasons.push('AI 模型暂不可用，暂无法提交分析')
+  return reasons
+})
 
 function apply(next: AssessmentView) {
   view.value = next
@@ -219,6 +233,14 @@ async function create() {
 async function perform(action?: PendingAction['action'], granted?: boolean) {
   const current = view.value
   if (!current || busy.value || !patientId) return
+  // 提交前复用已有的质检结果：不合格当场拦下并说明原因，不发无效提交。
+  if (action === 'submit' && !pendingAction) {
+    const reasons = submitBlockReasons.value
+    if (reasons.length) {
+      error.value = `暂无法提交：${reasons.join('；')}`
+      return
+    }
+  }
   if (!pendingAction) {
     if (!action) return
     pendingAction = {
@@ -282,12 +304,39 @@ function choosePhoto(angle: string) {
   fileInput.value?.click()
 }
 
-function onFilePicked(event: Event) {
+const MAX_PHOTO_BYTES = 8 * 1024 * 1024
+// 上传前复用服务端同一套质检门槛（格式 / 大小 / 尺寸）：不合格当场拦下并
+// 说明原因，不上传、不占一次服务端质检。视觉项（人脸/清晰度/曝光/遮挡/
+// 角度）仍需服务端质检，见 submitBlockReasons。
+async function precheckPhoto(file: File): Promise<string | null> {
+  if (file.size < 1 || file.size > MAX_PHOTO_BYTES) return '照片过大，请选择不超过8MB的JPG或PNG照片'
+  if (file.type !== 'image/jpeg' && file.type !== 'image/png') return '请使用JPG或PNG照片上传'
+  let bitmap: ImageBitmap
+  try {
+    bitmap = await createImageBitmap(file)
+  } catch {
+    return '照片无法读取，请重新选择JPG或PNG照片'
+  }
+  const { width, height } = bitmap
+  bitmap.close()
+  if (width < 512 || height < 512) return `照片太小（${width}×${height}），短边至少512像素，请用原图重拍`
+  if (width > 4096 || height > 4096) return `照片过大（${width}×${height}），最长边不超过4096像素`
+  return null
+}
+
+async function onFilePicked(event: Event) {
   const input = event.target as HTMLInputElement
   const file = input.files?.[0]
   input.value = ''
   const current = view.value
   if (!file || !current || !pendingAngle) return
+  error.value = ''
+  const label = angles.find((a) => a.value === pendingAngle)?.label || pendingAngle
+  const problem = await precheckPhoto(file)
+  if (problem) {
+    error.value = `${label}：${problem}`
+    return
+  }
   pendingUpload = { angle: pendingAngle, file, version: current.task.version, key: assessmentKey() }
   void upload()
 }
@@ -517,9 +566,10 @@ onUnmounted(() => {
             </button>
             <button v-if="uploadPending" class="primary" :disabled="busy" @click="upload">重试原照片上传</button>
             <button v-if="actionPending" class="primary" :disabled="busy" @click="perform()">重试原操作</button>
-            <button v-if="view.task.status === 'draft'" class="primary" :disabled="busy || !canSubmit || actionPending || uploadPending" @click="perform('submit')">
+            <button v-if="view.task.status === 'draft'" class="primary" :disabled="busy || actionPending || uploadPending" @click="perform('submit')">
               提交辅助评估
             </button>
+            <p v-if="view.task.status === 'draft' && submitBlockReasons.length" class="mlk-error">暂无法提交：{{ submitBlockReasons.join('；') }}</p>
             <button class="ghost" @click="router.push({ path: '/assessment/tasks', query: { id: view.task.id } })">查看任务进度</button>
           </div>
         </section>
