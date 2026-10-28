@@ -1350,6 +1350,58 @@ paths:
             application/json:
               schema: {$ref: '#/components/schemas/AppointmentResult'}
         default: {$ref: '#/components/responses/Error'}
+  /api/v1/me/waitlist:
+    get:
+      operationId: listMyWaitlist
+      security: [{PatientBearer: []}]
+      responses:
+        '200':
+          description: 本人候补中的预约及其限时确认 offer（无 offer 时 offer 为 null）
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/WaitlistListResult'}
+        default: {$ref: '#/components/responses/Error'}
+  /api/v1/me/appointments/{appointmentId}/waitlist-confirm:
+    post:
+      operationId: confirmWaitlistOffer
+      description: 在限时确认 offer 有效期内确认，候补转为待确认；超时返回 409 且空位自动顺延给下一位候补者。
+      security: [{PatientBearer: []}]
+      parameters:
+        - {$ref: '#/components/parameters/AppointmentId'}
+      responses:
+        '200':
+          description: 已转为待确认
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AppointmentResult'}
+        default: {$ref: '#/components/responses/Error'}
+  /api/v1/admin/waitlist:
+    get:
+      operationId: listWaitlistQueue
+      security: [{EmployeeBearer: []}]
+      parameters:
+        - name: slotId
+          in: query
+          required: true
+          schema: {type: string}
+      responses:
+        '200':
+          description: 指定时段的候补队列（按登记时间正序）及其限时确认 offer
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/WaitlistListResult'}
+        default: {$ref: '#/components/responses/Error'}
+    post:
+      operationId: sweepWaitlist
+      description: 结算过期 offer 并向有空位的时段顺延；返回本次过期与新 offer 数量。
+      security: [{EmployeeBearer: []}]
+      responses:
+        '200':
+          description: 结算结果
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/WaitlistSweepResult'}
+        default: {$ref: '#/components/responses/Error'}
   /api/v1/me/appointments/{appointmentId}/photo-consent:
     get:
       operationId: getPhotoConsent
@@ -3622,6 +3674,43 @@ components:
           type: array
           items: {$ref: '#/components/schemas/Appointment'}
         meta: {$ref: '#/components/schemas/PageMeta'}
+    WaitlistOffer:
+      type: object
+      required: [id, appointmentId, slotId, patientId, status, expiresAt, createdAt, updatedAt]
+      properties:
+        id: {$ref: '#/components/schemas/EntityId'}
+        appointmentId: {$ref: '#/components/schemas/EntityId'}
+        slotId: {$ref: '#/components/schemas/EntityId'}
+        patientId: {$ref: '#/components/schemas/EntityId'}
+        status: {type: string, enum: [offered, accepted, expired]}
+        expiresAt: {type: string, format: date-time}
+        createdAt: {type: string, format: date-time}
+        updatedAt: {type: string, format: date-time}
+    WaitlistEntry:
+      type: object
+      required: [appointment]
+      properties:
+        appointment: {$ref: '#/components/schemas/Appointment'}
+        offer:
+          nullable: true
+          allOf: [{$ref: '#/components/schemas/WaitlistOffer'}]
+    WaitlistListResult:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items: {$ref: '#/components/schemas/WaitlistEntry'}
+    WaitlistSweepResult:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [expired, offered]
+          properties:
+            expired: {type: integer, minimum: 0, format: int32}
+            offered: {type: integer, minimum: 0, format: int32}
     PhotoAngle:
       type: string
       enum: [front, left, right]

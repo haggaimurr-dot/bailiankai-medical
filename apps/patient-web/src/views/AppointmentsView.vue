@@ -3,9 +3,9 @@ import { onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { showConfirmDialog } from 'vant'
 import { errorMessage } from '../api'
-import { clearSubmission, isSessionExpired, loadSubmission, patientApi } from '../patient'
+import { clearSubmission, isSessionExpired, loadSubmission, patientApi, type WaitlistOffer } from '../patient'
 import { useSessionStore } from '../stores/session'
-import { appointmentView, type AppointmentView } from '../utils/appointment'
+import { appointmentView, dateTime, type AppointmentView } from '../utils/appointment'
 
 const router = useRouter()
 const sessionStore = useSessionStore()
@@ -29,6 +29,8 @@ const expired = ref(false)
 const creatingIdentity = ref(false)
 const patientName = ref('')
 const records = ref<AppointmentView[]>([])
+const offers = ref<Record<string, WaitlistOffer>>({})
+const confirmingId = ref('')
 const status = ref('')
 const page = ref(0)
 const total = ref(0)
@@ -78,6 +80,15 @@ async function load(append = false) {
     total.value = meta.total
     hasMore.value = rows.length < meta.total
     hasSubmission.value = Boolean(loadSubmission())
+    // 候补 offer 另取：失败不阻塞预约列表本身。
+    try {
+      const wl = await patientApi.waitlist()
+      if (gen === generation) {
+        const map: Record<string, WaitlistOffer> = {}
+        for (const entry of wl.data || []) if (entry.offer) map[entry.appointment.id] = entry.offer
+        offers.value = map
+      }
+    } catch { /* ignore: waitlist info is best-effort here */ }
   } catch (cause) {
     if (gen === generation) {
       error.value = errorMessage(cause)
@@ -104,6 +115,19 @@ function onStatusChange(next: string) {
 
 function openDetail(id: string) {
   if (id) void router.push({ name: 'appointment-detail', params: { id } })
+}
+
+async function confirmOffer(id: string) {
+  if (confirmingId.value) return
+  confirmingId.value = id
+  try {
+    await patientApi.confirmWaitlist(id)
+    await load()
+  } catch (cause) {
+    error.value = errorMessage(cause)
+  } finally {
+    confirmingId.value = ''
+  }
 }
 
 async function newIdentity() {
@@ -182,6 +206,10 @@ onUnmounted(() => { generation += 1 })
           <div class="appt-time">{{ item.timeLabel }}</div>
           <p class="muted">{{ item.clinicName }} · 北京时间</p>
           <p v-if="item.status === 'pending'" class="deadline">待工作人员确认，最晚 {{ item.deadlineLabel }}</p>
+          <div v-if="item.status === 'waiting' && offers[item.id]" class="offer-banner">
+            <span class="grow">有空位了！请在 {{ dateTime(offers[item.id].expiresAt) }} 前确认，超时将顺延给下一位候补患者。</span>
+            <button class="primary small" :disabled="confirmingId === item.id" @click="confirmOffer(item.id)">{{ confirmingId === item.id ? '确认中…' : '确认占位' }}</button>
+          </div>
           <p v-if="item.status === 'rejected'" class="reason">拒绝原因：{{ item.rejectionReason || '工作人员未确认本次申请' }}</p>
           <div class="row appt-footer">
             <span class="muted grow">{{ item.statusHint }}</span>
@@ -219,6 +247,7 @@ onUnmounted(() => { generation += 1 })
 .doctor-name { font-size: 16px; font-weight: 700; }
 .appt-time { font-size: 15px; font-weight: 600; margin-top: 8px; }
 .deadline { color: var(--amber); font-size: 13px; margin: 4px 0 0; }
+.offer-banner { display: flex; gap: 10px; align-items: center; background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 10px; padding: 10px 12px; font-size: 13px; line-height: 1.6; margin-top: 8px; }
 .reason { color: var(--danger); font-size: 13px; margin: 4px 0 0; }
 .appt-footer { margin-top: 10px; border-top: 1px solid var(--bg); padding-top: 8px; }
 .text-link { border: 0; background: none; color: var(--brand); font-size: 13px; cursor: pointer; padding: 4px 0; white-space: nowrap; }

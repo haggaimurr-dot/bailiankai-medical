@@ -70,7 +70,7 @@ func allowedEmployeeOperation(role, method, path string) bool {
 		return method == "GET" && (path == "/api/v1/admin/overview" || path == "/api/v1/admin/analytics")
 	}
 	if role == "customer_service" {
-		return (method == "GET" && (path == "/api/v1/admin/appointments" || path == "/api/v1/admin/appointments/:appointmentId" || path == "/api/v1/admin/patients")) || (method == "POST" && (path == "/api/v1/admin/appointments/:appointmentId/review" || path == "/api/v1/admin/appointments/:appointmentId/arrival" || path == "/api/v1/admin/appointments/remind"))
+		return (method == "GET" && (path == "/api/v1/admin/appointments" || path == "/api/v1/admin/appointments/:appointmentId" || path == "/api/v1/admin/patients" || path == "/api/v1/admin/waitlist")) || (method == "POST" && (path == "/api/v1/admin/appointments/:appointmentId/review" || path == "/api/v1/admin/appointments/:appointmentId/arrival" || path == "/api/v1/admin/appointments/remind"))
 	}
 	if !store.ClinicalRole(role) {
 		return false
@@ -118,6 +118,7 @@ var employeeAccessRules = []accessRule{
 	{"/clinics", "院区资料维护", "GET", "/api/v1/admin/clinics"},
 	{"/overview", "医生统计与运营分析", "GET", "/api/v1/admin/analytics"},
 	{"/appointments", "预约管理", "GET", "/api/v1/admin/appointments"},
+	{"/waitlist", "候补队列", "GET", "/api/v1/admin/waitlist"},
 	{"/patients", "患者档案", "GET", "/api/v1/admin/patients/:patientId"},
 	{"/care", "方案与照片", "GET", "/api/v1/admin/appointments/:appointmentId/care-plan"},
 	{"/followups", "治疗与随访", "GET", "/api/v1/admin/followups"},

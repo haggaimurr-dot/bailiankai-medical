@@ -2,7 +2,7 @@ import type { Appointment } from '../patient'
 import { clinicTime } from './date'
 
 export const statusInfo = {
-  waiting: { label: '候补中', theme: 'warning', hint: '候补不占名额。有空位后请主动申请，再等待工作人员确认。' },
+  waiting: { label: '候补中', theme: 'warning', hint: '候补不占名额。有空位后会通知你，请在限时内确认，再等待工作人员确认。' },
   pending: { label: '待确认', theme: 'warning', hint: '名额已暂留，请等待工作人员确认。' },
   completed: { label: '已治疗', theme: 'success', hint: '实际治疗已记录，可查看方案并填写随访。' },
   confirmed: { label: '已确认', theme: 'success', hint: '预约已确认，请按约定时间到院。' },

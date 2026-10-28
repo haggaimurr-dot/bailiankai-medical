@@ -1690,6 +1690,56 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/me/waitlist": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listMyWaitlist"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/appointments/{appointmentId}/waitlist-confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description 在限时确认 offer 有效期内确认，候补转为待确认；超时返回 409 且空位自动顺延给下一位候补者。 */
+        post: operations["confirmWaitlistOffer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/waitlist": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listWaitlistQueue"];
+        put?: never;
+        /** @description 结算过期 offer 并向有空位的时段顺延；返回本次过期与新 offer 数量。 */
+        post: operations["sweepWaitlist"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me/appointments/{appointmentId}/photo-consent": {
         parameters: {
             query?: never;
@@ -3961,6 +4011,35 @@ export interface components {
         AppointmentPage: {
             data: components["schemas"]["Appointment"][];
             meta: components["schemas"]["PageMeta"];
+        };
+        WaitlistOffer: {
+            id: components["schemas"]["EntityId"];
+            appointmentId: components["schemas"]["EntityId"];
+            slotId: components["schemas"]["EntityId"];
+            patientId: components["schemas"]["EntityId"];
+            /** @enum {string} */
+            status: "offered" | "accepted" | "expired";
+            /** Format: date-time */
+            expiresAt: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        WaitlistEntry: {
+            appointment: components["schemas"]["Appointment"];
+            offer?: components["schemas"]["WaitlistOffer"] | null;
+        };
+        WaitlistListResult: {
+            data: components["schemas"]["WaitlistEntry"][];
+        };
+        WaitlistSweepResult: {
+            data: {
+                /** Format: int32 */
+                expired: number;
+                /** Format: int32 */
+                offered: number;
+            };
         };
         /** @enum {string} */
         PhotoAngle: "front" | "left" | "right";
@@ -10613,6 +10692,94 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AppointmentResult"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listMyWaitlist: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 本人候补中的预约及其限时确认 offer（无 offer 时 offer 为 null） */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WaitlistListResult"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    confirmWaitlistOffer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                appointmentId: components["parameters"]["AppointmentId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 已转为待确认 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AppointmentResult"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listWaitlistQueue: {
+        parameters: {
+            query: {
+                slotId: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 指定时段的候补队列（按登记时间正序）及其限时确认 offer */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WaitlistListResult"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    sweepWaitlist: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 结算结果 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WaitlistSweepResult"];
                 };
             };
             default: components["responses"]["Error"];

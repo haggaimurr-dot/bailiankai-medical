@@ -7,6 +7,8 @@ export type { PatientIdentity, PatientSession }
 export type Appointment = components['schemas']['Appointment']
 export type AppointmentCreate = components['schemas']['AppointmentCreate']
 export type AppointmentStatus = components['schemas']['AppointmentStatus']
+export type WaitlistEntry = components['schemas']['WaitlistEntry']
+export type WaitlistOffer = components['schemas']['WaitlistOffer']
 export type CarePhoto = components['schemas']['CarePhoto']
 export type CarePlanVersion = components['schemas']['CarePlanVersion']
 export type FollowupTask = components['schemas']['FollowupTask']
@@ -194,6 +196,8 @@ export const patientApi = {
   appointmentTimeline: async (id: string) => (await authenticated<components['schemas']['AppointmentTimelineEvent'][]>(`/me/appointments/${encodeURIComponent(id)}/timeline`)).data!,
   reschedule: async (id: string, body: components['schemas']['AppointmentReschedule'], key: string, patientId: string) => (await authenticated<Appointment>(`/me/appointments/${encodeURIComponent(id)}/reschedule`, { method: 'POST', data: body as unknown as Record<string, unknown>, headers: { 'Idempotency-Key': key } }, patientId)).data!,
   cancel: async (id: string, version: number) => (await authenticated<Appointment>(`/me/appointments/${encodeURIComponent(id)}/cancel`, { method: 'POST', data: { version } })).data!,
+  waitlist: () => authenticated<WaitlistEntry[]>('/me/waitlist', {}),
+  confirmWaitlist: async (id: string) => (await authenticated<Appointment>(`/me/appointments/${encodeURIComponent(id)}/waitlist-confirm`, { method: 'POST', data: {} })).data!,
   photoConsent: async (id: string, patientId?: string) => (await authenticated<components['schemas']['PhotoConsent']>(`/me/appointments/${encodeURIComponent(id)}/photo-consent`, {}, patientId)).data!,
   setPhotoConsent: async (id: string, granted: boolean, patientId?: string) => (await authenticated<components['schemas']['PhotoConsent']>(`/me/appointments/${encodeURIComponent(id)}/photo-consent`, { method: 'POST', data: { granted } }, patientId)).data!,
   photos: async (id: string, patientId?: string) => (await authenticated<CarePhoto[]>(`/me/appointments/${encodeURIComponent(id)}/photos`, {}, patientId)).data!,

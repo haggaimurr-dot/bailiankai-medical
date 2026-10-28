@@ -330,7 +330,7 @@ onUnmounted(() => { generation += 1; disposed = true })
     <div>
       <div class="eyebrow">APPOINTMENT</div>
       <h1>{{ waitlist ? '登记候补预约' : '填写预约申请' }}</h1>
-      <p class="lede">{{ waitlist ? '候补不占名额；有空位后需主动申请，工作人员确认后生效。' : '提交后暂留名额，工作人员确认后生效。' }}</p>
+      <p class="lede">{{ waitlist ? '候补不占名额；有空位后会通知你，请在限时内确认，工作人员确认后生效。' : '提交后暂留名额，工作人员确认后生效。' }}</p>
     </div>
 
     <div v-if="loading" class="card state"><van-loading size="24">正在核对出诊信息</van-loading></div>

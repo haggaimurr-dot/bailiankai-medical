@@ -54,6 +54,22 @@ type Appointment struct {
 	EndsAt            time.Time `gorm:"->;-:migration"`
 }
 
+// WaitlistOffer is a time-limited vacancy offer for one waiting appointment.
+// While status is "offered" the seat is held in the slot's reserved count, so
+// no other patient can take it; confirming converts the waiting appointment
+// to pending without touching the count, expiring releases it and the next
+// waiter is offered in the same transaction. Statuses: offered|accepted|expired.
+type WaitlistOffer struct {
+	ID            string    `gorm:"primaryKey;size:64" json:"id"`
+	AppointmentID string    `json:"appointmentId"`
+	SlotID        string    `json:"slotId"`
+	PatientID     string    `json:"patientId"`
+	Status        string    `json:"status"`
+	ExpiresAt     time.Time `json:"expiresAt"`
+	CreatedAt     time.Time `json:"createdAt"`
+	UpdatedAt     time.Time `json:"updatedAt"`
+}
+
 type AppointmentEvent struct {
 	Sequence      uint64 `gorm:"autoIncrement"`
 	RequestKey    *string

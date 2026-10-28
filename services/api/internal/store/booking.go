@@ -246,6 +246,16 @@ func (s *MySQL) CreateAppointment(ctx context.Context, patientID, key string, in
 		if slot.Status != "open" {
 			return ErrSlotClosed
 		}
+		// A live waitlist offer holds the vacancy for its patient: direct
+		// bookings by anyone else see the slot as full. Waitlist
+		// registrations themselves always queue and are never blocked here.
+		if !in.Waitlist {
+			if offer, err := activeWaitlistOffer(tx, slot.ID, now); err != nil {
+				return err
+			} else if offer != nil && offer.PatientID != patientID {
+				return ErrSlotFull
+			}
+		}
 		if !in.Waitlist && slot.Reserved >= slot.Capacity {
 			return ErrSlotFull
 		}
@@ -462,7 +472,17 @@ func (s *MySQL) transition(ctx context.Context, id, patientID string, version in
 			if row.Status != "waiting" && row.Status != "pending" && row.Status != "confirmed" {
 				return ErrTransition
 			}
-			return persistTransition(tx, &row, "cancelled", "", "patient", patientID, "cancel", row.Status != "waiting", now)
+			if err := persistTransition(tx, &row, "cancelled", "", "patient", patientID, "cancel", row.Status != "waiting", now); err != nil {
+				return err
+			}
+			// A cancellation frees (or un-holds) the seat: offer it to the
+			// earliest waiter in this same transaction so no direct booking
+			// can take it first. Settle failures only log; they must never
+			// fail the cancellation.
+			if _, _, err := settleWaitlistSlotTx(tx, row.SlotID, now); err != nil {
+				slog.Error("waitlist settle after cancel failed", "slot", row.SlotID, "error", err)
+			}
+			return nil
 		case "confirm", "reject":
 			if (action == "confirm" && slot.Status != "open") || row.Status != "pending" || !row.ConfirmationDeadline.After(now) {
 				return ErrTransition
@@ -471,7 +491,18 @@ func (s *MySQL) transition(ctx context.Context, id, patientID string, version in
 			if action == "reject" {
 				to = "rejected"
 			}
-			return persistTransition(tx, &row, to, reason, "operator", employeeActor(ctx), action, action == "reject", now)
+			if err := persistTransition(tx, &row, to, reason, "operator", employeeActor(ctx), action, action == "reject", now); err != nil {
+				return err
+			}
+			// A rejection frees the seat: offer it to the earliest waiter in
+			// this same transaction so no direct booking can take it first.
+			// Settle failures only log; they must never fail the review.
+			if action == "reject" {
+				if _, _, err := settleWaitlistSlotTx(tx, row.SlotID, now); err != nil {
+					slog.Error("waitlist settle after reject failed", "slot", row.SlotID, "error", err)
+				}
+			}
+			return nil
 		default:
 			return ErrTransition
 		}
@@ -525,6 +556,12 @@ func (s *MySQL) expireOne(ctx context.Context, initial model.Appointment, now ti
 		}
 		if err := persistTransition(tx, &row, "expired", "", "system", "expiry-worker", "expire", row.Status == "pending", now); err != nil {
 			return err
+		}
+		// A pending expiry frees the seat; a waiting expiry drops its offer
+		// hold. Either way the slot's waitlist needs settling in this same
+		// transaction. Failures only log.
+		if _, _, err := settleWaitlistSlotTx(tx, row.SlotID, now); err != nil {
+			slog.Error("waitlist settle after expiry failed", "slot", row.SlotID, "error", err)
 		}
 		expired = true
 		return nil

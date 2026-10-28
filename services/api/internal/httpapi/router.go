@@ -25,6 +25,7 @@ type API struct {
 	assessments *store.AssessmentService
 	repo        store.Repository
 	booking     store.BookingRepository
+	waitlist    store.WaitlistRepository
 	care        store.CareRepository
 	followup    store.FollowupRepository
 	employees   store.EmployeeRepository
@@ -34,10 +35,11 @@ type API struct {
 
 func New(repo store.Repository, _ string) *gin.Engine {
 	booking, _ := repo.(store.BookingRepository)
+	waitlist, _ := repo.(store.WaitlistRepository)
 	care, _ := repo.(store.CareRepository)
 	followup, _ := repo.(store.FollowupRepository)
 	employees, _ := repo.(store.EmployeeRepository)
-	return newRouter(&API{repo: repo, booking: booking, care: care, followup: followup, employees: employees, now: time.Now})
+	return newRouter(&API{repo: repo, booking: booking, waitlist: waitlist, care: care, followup: followup, employees: employees, now: time.Now})
 }
 
 func NewWithMediaRoot(repo store.Repository, _, mediaRoot string) (*gin.Engine, error) {
@@ -50,18 +52,20 @@ func NewWithMediaRoot(repo store.Repository, _, mediaRoot string) (*gin.Engine, 
 
 func NewWithMedia(repo store.Repository, media store.Media) *gin.Engine {
 	booking, _ := repo.(store.BookingRepository)
+	waitlist, _ := repo.(store.WaitlistRepository)
 	care, _ := repo.(store.CareRepository)
 	followup, _ := repo.(store.FollowupRepository)
 	employees, _ := repo.(store.EmployeeRepository)
-	return newRouter(&API{repo: repo, booking: booking, care: care, followup: followup, employees: employees, media: media, now: time.Now})
+	return newRouter(&API{repo: repo, booking: booking, waitlist: waitlist, care: care, followup: followup, employees: employees, media: media, now: time.Now})
 }
 
 func NewWithAssessmentService(repo store.Repository, media store.Media, assessments *store.AssessmentService) *gin.Engine {
 	booking, _ := repo.(store.BookingRepository)
+	waitlist, _ := repo.(store.WaitlistRepository)
 	care, _ := repo.(store.CareRepository)
 	followup, _ := repo.(store.FollowupRepository)
 	employees, _ := repo.(store.EmployeeRepository)
-	return newRouter(&API{repo: repo, booking: booking, care: care, followup: followup, employees: employees, media: media, assessments: assessments, now: time.Now})
+	return newRouter(&API{repo: repo, booking: booking, waitlist: waitlist, care: care, followup: followup, employees: employees, media: media, assessments: assessments, now: time.Now})
 }
 
 func newRouter(a *API) *gin.Engine {
@@ -114,6 +118,7 @@ func newRouter(a *API) *gin.Engine {
 	r.POST("/api/v1/admin/employees/:employeeId/clinics", a.authenticate, a.requireManager, a.setEmployeeClinics)
 	r.PATCH("/api/v1/admin/slots/:slotId", a.authenticate, a.requireManager, a.updateSlot)
 	a.registerBookingRoutes(r)
+	a.registerWaitlistRoutes(r)
 	a.registerScheduleRoutes(r)
 	a.registerDirectoryRoutes(r)
 	a.registerKnowledgeRoutes(r)

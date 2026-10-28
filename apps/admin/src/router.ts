@@ -19,6 +19,7 @@ import { auth, setAuth, clearAuth, canAccess, employeeHome } from './auth'
 import { api } from './api'
 import AccountView from './views/AccountView.vue'
 import AssessmentsView from './views/AssessmentsView.vue'
+import WaitlistView from './views/WaitlistView.vue'
 
 export const router = createRouter({
   history: createWebHistory(),
@@ -35,6 +36,7 @@ export const router = createRouter({
     { path: '/overview', component: OverviewView, meta: { title: '医生统计与运营分析' } },
     { path: '/arrivals', component: ArrivalsView, meta: { title: '到诊工作台' } },
     { path: '/appointments', component: AppointmentsView, meta: { title: '预约管理' } },
+    { path: '/waitlist', component: WaitlistView, meta: { title: '候补队列' } },
     { path: '/workbench', component: WorkbenchView, meta: { title: '待办工作台' } },
     { path: '/handoffs', component: FollowupView, props: { handoffOnly: true }, meta: { title: '人员交接' } },
     { path: '/followups', component: FollowupView, meta: { title: '治疗与随访' } },

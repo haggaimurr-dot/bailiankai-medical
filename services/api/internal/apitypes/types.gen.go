@@ -698,6 +698,13 @@ const (
 	TimelineEventKindTreatment   TimelineEventKind = "treatment"
 )
 
+// Defines values for WaitlistOfferStatus.
+const (
+	WaitlistOfferStatusAccepted WaitlistOfferStatus = "accepted"
+	WaitlistOfferStatusExpired  WaitlistOfferStatus = "expired"
+	WaitlistOfferStatusOffered  WaitlistOfferStatus = "offered"
+)
+
 // Defines values for GetOperationsAnalyticsParamsGroupBy.
 const (
 	GetOperationsAnalyticsParamsGroupByClinic GetOperationsAnalyticsParamsGroupBy = "clinic"
@@ -819,8 +826,8 @@ const (
 
 // Defines values for SetPrivacyConsentJSONBodyAction.
 const (
-	Accepted SetPrivacyConsentJSONBodyAction = "accepted"
-	Revoked  SetPrivacyConsentJSONBodyAction = "revoked"
+	SetPrivacyConsentJSONBodyActionAccepted SetPrivacyConsentJSONBodyAction = "accepted"
+	SetPrivacyConsentJSONBodyActionRevoked  SetPrivacyConsentJSONBodyAction = "revoked"
 )
 
 // Defines values for PatientAdviceParamsKind.
@@ -3551,6 +3558,40 @@ type TreatmentRevision struct {
 	Version    int32     `json:"version"`
 }
 
+// WaitlistEntry defines model for WaitlistEntry.
+type WaitlistEntry struct {
+	Appointment Appointment    `json:"appointment"`
+	Offer       *WaitlistOffer `json:"offer"`
+}
+
+// WaitlistListResult defines model for WaitlistListResult.
+type WaitlistListResult struct {
+	Data []WaitlistEntry `json:"data"`
+}
+
+// WaitlistOffer defines model for WaitlistOffer.
+type WaitlistOffer struct {
+	AppointmentId EntityId            `json:"appointmentId"`
+	CreatedAt     time.Time           `json:"createdAt"`
+	ExpiresAt     time.Time           `json:"expiresAt"`
+	Id            EntityId            `json:"id"`
+	PatientId     EntityId            `json:"patientId"`
+	SlotId        EntityId            `json:"slotId"`
+	Status        WaitlistOfferStatus `json:"status"`
+	UpdatedAt     time.Time           `json:"updatedAt"`
+}
+
+// WaitlistOfferStatus defines model for WaitlistOffer.Status.
+type WaitlistOfferStatus string
+
+// WaitlistSweepResult defines model for WaitlistSweepResult.
+type WaitlistSweepResult struct {
+	Data struct {
+		Expired int32 `json:"expired"`
+		Offered int32 `json:"offered"`
+	} `json:"data"`
+}
+
 // AppointmentId defines model for AppointmentId.
 type AppointmentId = EntityId
 
@@ -3868,6 +3909,11 @@ type AdminListSupportParamsAssignment string
 type AdminSupportDetailParams struct {
 	Page     *int `form:"page,omitempty" json:"page,omitempty"`
 	PageSize *int `form:"pageSize,omitempty" json:"pageSize,omitempty"`
+}
+
+// ListWaitlistQueueParams defines parameters for ListWaitlistQueue.
+type ListWaitlistQueueParams struct {
+	SlotId string `form:"slotId" json:"slotId"`
 }
 
 // PublicCasesParams defines parameters for PublicCases.

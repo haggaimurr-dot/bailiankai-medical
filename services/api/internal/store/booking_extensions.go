@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"sort"
 	"time"
 
@@ -123,6 +124,14 @@ func (s *MySQL) RescheduleAppointment(ctx context.Context, id, patientID, key st
 		if target.Status != "open" || !doctor.Active || doctor.PublishedJSON == nil || !clinic.Active || clinic.PublishedJSON == nil {
 			return ErrSlotClosed
 		}
+		// A live waitlist offer holds the target vacancy for its patient:
+		// reschedules and claims by anyone else see the slot as full. The
+		// holder passes and claims below.
+		if offer, err := activeWaitlistOffer(tx, target.ID, now); err != nil {
+			return err
+		} else if offer != nil && offer.PatientID != patientID {
+			return ErrSlotFull
+		}
 		if target.Reserved >= target.Capacity {
 			return ErrSlotFull
 		}
@@ -161,6 +170,24 @@ func (s *MySQL) RescheduleAppointment(ctx context.Context, id, patientID, key st
 		if row.Status == "waiting" && original.ID == target.ID {
 			action = "claim"
 			detail = "候补转为待确认，名额已暂留"
+			// The holder claimed through the original path: accept the
+			// offer so it can no longer block or be confirmed again.
+			if err := tx.Model(&model.WaitlistOffer{}).Where("appointment_id = ? AND status = ?", id, "offered").
+				Updates(map[string]any{"status": "accepted", "updated_at": now}).Error; err != nil {
+				return err
+			}
+		}
+		if row.Status == "waiting" && original.ID != target.ID {
+			// The waiter left this slot's queue: drop their offer and
+			// forward the vacancy in the same transaction. A settle
+			// failure must not fail the reschedule itself.
+			if err := tx.Model(&model.WaitlistOffer{}).Where("appointment_id = ? AND status = ?", id, "offered").
+				Updates(map[string]any{"status": "expired", "updated_at": now}).Error; err != nil {
+				return err
+			}
+			if _, _, err := settleWaitlistSlotTx(tx, original.ID, now); err != nil {
+				slog.Error("waitlist settle after waiter left failed", "slot", original.ID, "error", err)
+			}
 		}
 		actorType, actorID := "patient", patientID
 		if employeeScoped(ctx) {
