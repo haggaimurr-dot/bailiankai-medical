@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useRoute } from 'vue-router'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { ElMessage, ElMessageBox, ElCheckbox } from 'element-plus'
+import { ElMessage, ElMessageBox, ElCheckbox, ElRadio } from 'element-plus'
 import { api, errorMessage, type Appointment, type CarePhoto, type CarePlanContent, type CarePlanVersion, type CarePlanWorkspace, type CarePlanTemplate } from '../api'
 import { slotTime } from '../dates'
 import { auth } from '../auth'
