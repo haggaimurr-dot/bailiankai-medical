@@ -16,15 +16,16 @@ const pending = ref<number | null>(null), overdue = ref<number | null>(null), su
 const submitted = ref<number | null>(null), alerts = ref<number | null>(null)
 const errors = ref<string[]>([])
 let generation = 0, notificationGeneration = 0, timer: ReturnType<typeof setInterval> | undefined
+const levelNames = { 1: '紧急', 2: '重要', 3: '一般' } as const
 const cards = computed(() => [
-  { title: '交接待确认', count: pending.value, detail: manager.value ? '查看接手人的确认进度' : '确认您已收到的任务', to: '/handoffs?status=pending', urgent: false },
+  { title: '交接待确认', count: pending.value, detail: manager.value ? '查看接手人的确认进度' : '确认您已收到的任务', to: '/handoffs?status=pending', level: 3 as const },
   ...(manager.value ? [
-    { title: '超时升级', count: overdue.value, detail: '超时未确认，联系接手人跟进', to: '/handoffs?status=overdue', urgent: true },
-    { title: '主管待办', count: supervisor.value, detail: '超时未跟进、待回复和需处理事项', to: '/handoffs?status=todo', urgent: false },
+    { title: '超时升级', count: overdue.value, detail: '超时未确认，联系接手人跟进', to: '/handoffs?status=overdue', level: 1 as const },
+    { title: '主管待办', count: supervisor.value, detail: '超时未跟进、待回复和需处理事项', to: '/handoffs?status=todo', level: 2 as const },
   ] : []),
-  { title: '随访待回评', count: submitted.value, detail: '查看患者反馈并提交医护回评', to: '/followups?status=submitted', urgent: false },
-  { title: '异常待处理', count: alerts.value, detail: '核实异常并记录处理结果', to: '/followups?status=alert', urgent: true },
-])
+  { title: '随访待回评', count: submitted.value, detail: '查看患者反馈并提交医护回评', to: '/followups?status=submitted', level: 2 as const },
+  { title: '异常待处理', count: alerts.value, detail: '核实异常并记录处理结果', to: '/followups?status=alert', level: 1 as const },
+].sort((a, b) => a.level - b.level))
 function timestamp(value: string) { return new Intl.DateTimeFormat('zh-CN', { timeZone: 'Asia/Shanghai', dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value)) }
 async function loadNotifications() {
   const request = ++notificationGeneration
@@ -83,7 +84,7 @@ onBeforeUnmount(() => { ++generation; ++notificationGeneration; if (timer) clear
       <SchedulePatients />
     </template>
     <div class="todo-grid" aria-label="分类待办">
-      <RouterLink v-for="card in cards" :key="card.title" :to="card.to" class="surface todo-card" :class="{ urgent: card.urgent && (card.count || 0) > 0 }"><span>{{ card.title }}</span><strong>{{ busy ? '…' : card.count ?? '—' }}<small>项</small></strong><p>{{ card.detail }}</p><b>进入处理 →</b></RouterLink>
+      <RouterLink v-for="card in cards" :key="card.title" :to="card.to" class="surface todo-card" :class="[`level-${card.level}`, { active: (card.count || 0) > 0 }]"><span>{{ card.title }}<i class="level-tag">{{ levelNames[card.level] }}</i></span><strong>{{ busy ? '…' : card.count ?? '—' }}<small>项</small></strong><p>{{ card.detail }}</p><b>进入处理 →</b></RouterLink>
     </div>
     <p class="scope-note">仅展示当前账号授权范围内的事项；各分类可能包含同一任务。读取失败显示“—”。</p>
     <div class="surface shortcuts"><h2>常用工作区</h2><div><RouterLink to="/handoffs">人员交接与确认</RouterLink><RouterLink to="/followups">治疗与随访</RouterLink><RouterLink v-if="manager" to="/appointments">预约审批与到诊</RouterLink><RouterLink v-if="manager" to="/employees">员工账号管理</RouterLink></div></div>
@@ -110,7 +111,7 @@ onBeforeUnmount(() => { ++generation; ++notificationGeneration; if (timer) clear
 .todo-card:hover, .todo-card:focus-visible { border-color: var(--el-color-primary); }
 .todo-card strong { font-size: 32px; }.todo-card small { font-size: 12px; margin-left: 8px; font-weight: 400; }
 .todo-card p, .scope-note, .notification-row p { font-size: 12px; color: #6d8094; line-height: 1.8; }
-.todo-card b { font-size: 12px; color: var(--el-color-primary); }.todo-card.urgent { border-color: #efc4b9; background: #fff8f5; }.todo-card.urgent strong { color: #b45b43; }
+.todo-card b { font-size: 12px; color: var(--el-color-primary); }.todo-card .level-tag { font-style: normal; font-size: 11px; margin-left: 8px; padding: 2px 7px; border-radius: 20px; background: #eef1f6; color: #66788b; vertical-align: 1px; }.todo-card.level-1.active { border-color: #efc4b9; background: #fff8f5; }.todo-card.level-1.active strong { color: #b45b43; }.todo-card.level-1.active .level-tag { background: #fdeceb; color: #b45b43; }.todo-card.level-2.active { border-color: #ecd9a8; background: #fffaf0; }.todo-card.level-2.active strong { color: #96690f; }.todo-card.level-2.active .level-tag { background: #fdf3d7; color: #96690f; }.todo-card.level-3.active .level-tag { background: #e8f1fd; color: #1763c6; }
 .scope-note { margin: 12px 0 22px; }.shortcuts { padding: 22px; margin-bottom: 22px; }.shortcuts h2 { font-size: 16px; margin-bottom: 16px; }.shortcuts > div { display: flex; flex-wrap: wrap; gap: 20px; }.shortcuts a { color: var(--el-color-primary); font-size: 13px; }
 .notification-row { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; padding: 18px 24px; border-top: 1px solid #edf0f4; }.notification-row.unread { background: #f5f9ff; }.notice-title { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; font-size: 13px; }.notice-title > span:last-child { font-size: 11px; color: #b07835; }.notification-row p { margin-top: 8px; }.notice-actions { display: flex; gap: 8px; }.notice-actions .el-button { margin: 0; }.notification-panel > .scope-note { padding: 0 24px; }.notification-panel > .el-pagination { padding: 16px 24px; }.empty { padding: 28px; text-align: center; color: #7d8a99; }
 .workbench > .el-alert { margin-bottom: 12px; }
