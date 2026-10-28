@@ -119,3 +119,84 @@ func TestSupportIntegration(t *testing.T) {
 		t.Fatal("closed accepted message", err)
 	}
 }
+
+// P2 咨询-患者端：客服回复写站内消息并亮未读角标；患者进工单详情后只清
+// 当前工单的回复；内部记录不产生站内消息。
+func TestSupportReplyNotifiesPatient(t *testing.T) {
+	f := newBookingFixture(t)
+	ctx := context.Background()
+	patient := f.patient()
+	t.Cleanup(func() {
+		f.db.Exec("DELETE FROM patient_messages WHERE patient_id = ?", patient.Patient.ID)
+		f.db.Exec("DELETE FROM support_events WHERE ticket_id IN (SELECT id FROM support_tickets WHERE patient_id = ?)", patient.Patient.ID)
+		f.db.Exec("DELETE FROM support_tickets WHERE patient_id = ?", patient.Patient.ID)
+	})
+	account := model.EmployeeAccount{ID: "support-reply-agent", Username: "support-reply-agent", DisplayName: "客服测试", Role: "customer_service", ClinicIDs: []string{"clinic-demo"}, Active: true, Version: 1, CreatedAt: f.now, UpdatedAt: f.now}
+	if err := f.db.Create(&account).Error; err != nil {
+		t.Fatal(err)
+	}
+	agent := store.WithEmployeeActor(store.WithEmployeeScope(ctx, "customer_service", "", []string{"clinic-demo"}), account.ID)
+	mkTicket := func(key, subject string) model.SupportTicket {
+		t.Helper()
+		row, err := f.repo.CreateSupport(ctx, patient.Patient.ID, store.SupportInput{ClinicID: "clinic-demo", Subject: subject, Category: "booking", Content: "咨询内容", RequestKey: key}, f.now)
+		if err != nil {
+			t.Fatal(err)
+		}
+		due := f.now.Add(time.Hour)
+		row, err = f.repo.ChangeSupport(agent, row.ID, "", store.SupportInput{Action: "assign", AssigneeID: account.ID, DueAt: &due, Content: "接手", Version: row.Version, RequestKey: key + "-assign"}, f.now)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return row
+	}
+	unread := func() int64 {
+		t.Helper()
+		n, err := f.repo.UnreadPatientMessageCount(ctx, patient.Patient.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return n
+	}
+	ticket := mkTicket("support-reply-t1", "咨询一")
+	if unread() != 0 {
+		t.Fatal("unexpected unread before reply")
+	}
+	ticket, err := f.repo.ChangeSupport(agent, ticket.ID, "", store.SupportInput{Action: "message", Content: "客服回复一", Version: ticket.Version, RequestKey: "support-reply-t1-msg"}, f.now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	msgs, total, err := f.repo.PatientMessages(ctx, patient.Patient.ID, 1, 20)
+	if err != nil || total != 1 || len(msgs) != 1 || msgs[0].Kind != "support_reply" || msgs[0].TicketID != ticket.ID || msgs[0].ReadAt != nil {
+		t.Fatalf("reply message: msgs=%+v total=%d err=%v", msgs, total, err)
+	}
+	if unread() != 1 {
+		t.Fatal("unread should be 1")
+	}
+	ticket, err = f.repo.ChangeSupport(agent, ticket.ID, "", store.SupportInput{Action: "note", Content: "内部记录", Version: ticket.Version, RequestKey: "support-reply-t1-note"}, f.now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if unread() != 1 {
+		t.Fatal("note created a message")
+	}
+	other := mkTicket("support-reply-t2", "咨询二")
+	other, err = f.repo.ChangeSupport(agent, other.ID, "", store.SupportInput{Action: "message", Content: "客服回复二", Version: other.Version, RequestKey: "support-reply-t2-msg"}, f.now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if unread() != 2 {
+		t.Fatal("unread should be 2")
+	}
+	if err := f.repo.MarkSupportRepliesRead(ctx, ticket.ID, patient.Patient.ID, f.now); err != nil {
+		t.Fatal(err)
+	}
+	if unread() != 1 {
+		t.Fatal("only the opened ticket's replies should clear")
+	}
+	if err := f.repo.MarkSupportRepliesRead(ctx, other.ID, patient.Patient.ID, f.now); err != nil {
+		t.Fatal(err)
+	}
+	if unread() != 0 {
+		t.Fatal("unread should be 0")
+	}
+}

@@ -39,6 +39,8 @@ type PatientMessage struct {
 	Title         string     `json:"title"`
 	Body          string     `json:"body"`
 	AppointmentID string     `json:"appointmentId"`
+	// TicketID links a support-reply message to its ticket ("" for other kinds).
+	TicketID      string     `json:"ticketId"`
 	ReadAt        *time.Time `json:"readAt"`
 	CreatedAt     time.Time  `json:"createdAt"`
 }

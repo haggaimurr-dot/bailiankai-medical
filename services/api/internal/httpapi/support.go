@@ -128,6 +128,8 @@ func (a *API) registerSupportRoutes(r *gin.Engine) {
 				supportFailure(c, err)
 				return
 			}
+			// Entering the ticket detail clears its unread reply badge (P2 咨询-患者端).
+			_ = a.repo.(store.NotificationRepository).MarkSupportRepliesRead(c.Request.Context(), c.Param("ticketId"), patientID(c), a.now())
 			c.JSON(200, gin.H{"data": gin.H{"ticket": row, "events": events}, "meta": gin.H{"page": page, "pageSize": size, "total": total}})
 		})
 		group.GET("/:ticketId/attachments/:attachmentId", func(c *gin.Context) {

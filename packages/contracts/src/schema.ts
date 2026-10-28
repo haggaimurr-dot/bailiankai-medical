@@ -4604,10 +4604,11 @@ export interface components {
         PatientMessage: {
             id: string;
             /** @enum {string} */
-            kind: "appointment_status" | "reminder";
+            kind: "appointment_status" | "reminder" | "support_reply";
             title: string;
             body: string;
             appointmentId: string;
+            ticketId?: string;
             read: boolean;
             /** Format: date-time */
             createdAt: string;

@@ -45,10 +45,17 @@ func clinicPresentationDTO(p *model.ClinicPresentation) *apitypes.ClinicPresenta
 	return result
 }
 
+func strPtrOrNil(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
+}
+
 func patientMessageDTO(row model.PatientMessage) apitypes.PatientMessage {
 	return apitypes.PatientMessage{
 		Id: row.ID, Kind: apitypes.PatientMessageKind(row.Kind), Title: row.Title, Body: row.Body,
-		AppointmentId: row.AppointmentID, Read: row.ReadAt != nil, CreatedAt: row.CreatedAt.In(database.Shanghai),
+		AppointmentId: row.AppointmentID, TicketId: strPtrOrNil(row.TicketID), Read: row.ReadAt != nil, CreatedAt: row.CreatedAt.In(database.Shanghai),
 	}
 }
 

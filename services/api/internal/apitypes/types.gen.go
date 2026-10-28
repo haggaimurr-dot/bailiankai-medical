@@ -547,6 +547,7 @@ const (
 const (
 	PatientMessageKindAppointmentStatus PatientMessageKind = "appointment_status"
 	PatientMessageKindReminder          PatientMessageKind = "reminder"
+	PatientMessageKindSupportReply      PatientMessageKind = "support_reply"
 )
 
 // Defines values for PhotoAngle.
@@ -2813,6 +2814,7 @@ type PatientMessage struct {
 	Id            string             `json:"id"`
 	Kind          PatientMessageKind `json:"kind"`
 	Read          bool               `json:"read"`
+	TicketId      *string            `json:"ticketId,omitempty"`
 	Title         string             `json:"title"`
 }
 

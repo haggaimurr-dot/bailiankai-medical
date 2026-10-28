@@ -108,7 +108,9 @@ async function openMessage(message: PatientMessage) {
       // Still navigate; the message stays unread and can be retried.
     }
   }
-  if (message.appointmentId) {
+  if (message.ticketId) {
+    void router.push({ path: '/support', query: { ticket: message.ticketId } })
+  } else if (message.appointmentId) {
     void router.push({ name: 'appointment-detail', params: { id: message.appointmentId } })
   }
 }

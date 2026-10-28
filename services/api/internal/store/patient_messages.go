@@ -12,11 +12,19 @@ import (
 )
 
 // writePatientMessage inserts one inbox message inside the caller's transaction.
-func writePatientMessage(tx *gorm.DB, patientID, kind, title, body, appointmentID string, now time.Time) error {
+func writePatientMessage(tx *gorm.DB, patientID, kind, title, body, appointmentID, ticketID string, now time.Time) error {
 	return tx.Create(&model.PatientMessage{
 		ID: randomID("pmsg-"), PatientID: patientID, Kind: kind,
-		Title: title, Body: body, AppointmentID: appointmentID, CreatedAt: now,
+		Title: title, Body: body, AppointmentID: appointmentID, TicketID: ticketID, CreatedAt: now,
 	}).Error
+}
+
+// MarkSupportRepliesRead marks a ticket's unread support-reply messages read
+// when the patient opens the ticket detail (P2 咨询-患者端：进详情后角标清零).
+func (s *MySQL) MarkSupportRepliesRead(ctx context.Context, ticketID, patientID string, now time.Time) error {
+	return s.db.WithContext(ctx).Model(&model.PatientMessage{}).
+		Where("patient_id = ? AND ticket_id = ? AND kind = ? AND read_at IS NULL", patientID, ticketID, "support_reply").
+		Update("read_at", now).Error
 }
 
 // appointmentSubject renders "医生名 · YYYY-MM-DD HH:mm（院区名）" for an appointment.
@@ -76,7 +84,7 @@ func appointmentStatusMessage(tx *gorm.DB, a *model.Appointment, to, reason, det
 	default:
 		return nil
 	}
-	return writePatientMessage(tx, a.PatientID, "appointment_status", title, body, a.ID, now)
+	return writePatientMessage(tx, a.PatientID, "appointment_status", title, body, a.ID, "", now)
 }
 
 // AppointmentRemindResult is the per-appointment outcome of a batch remind.
@@ -124,7 +132,7 @@ func (s *MySQL) RemindAppointments(ctx context.Context, ids []string, now time.T
 			continue
 		}
 		err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-			return writePatientMessage(tx, row.PatientID, "reminder", "就诊提醒", "您的预约（"+appointmentSubject(tx, row.SlotID)+"）即将到院，请按时到访。如需改期或取消，请提前联系门店。", row.ID, now)
+			return writePatientMessage(tx, row.PatientID, "reminder", "就诊提醒", "您的预约（"+appointmentSubject(tx, row.SlotID)+"）即将到院，请按时到访。如需改期或取消，请提前联系门店。", row.ID, "", now)
 		})
 		if err != nil {
 			return results, err

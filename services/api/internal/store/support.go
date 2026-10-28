@@ -340,6 +340,13 @@ func (s *MySQL) ChangeSupport(ctx context.Context, id, patientID string, in Supp
 		if err := tx.Create(&event).Error; err != nil {
 			return err
 		}
+		// Staff reply: notify the patient in-app (P2 咨询-患者端). Patient-side
+		// messages and internal notes never create an inbox message.
+		if in.Action == "message" && patientID == "" {
+			if err := writePatientMessage(tx, row.PatientID, "support_reply", "客服回复了您的咨询", content, "", id, now); err != nil {
+				return err
+			}
+		}
 		for _, upload := range in.Attachments {
 			if err := tx.Create(&model.SupportAttachment{ID: randomID("support-file-"), TicketID: id, EventID: event.ID, Name: upload.Name, MimeType: http.DetectContentType(upload.Data), Size: len(upload.Data), Data: upload.Data}).Error; err != nil {
 				return err

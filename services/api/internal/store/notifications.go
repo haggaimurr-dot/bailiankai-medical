@@ -25,6 +25,7 @@ type NotificationRepository interface {
 	PatientMessages(context.Context, string, int, int) ([]model.PatientMessage, int64, error)
 	UnreadPatientMessageCount(context.Context, string) (int64, error)
 	MarkPatientMessageRead(context.Context, string, string, time.Time) error
+	MarkSupportRepliesRead(context.Context, string, string, time.Time) error
 }
 
 func (s *MySQL) MessageTemplates(ctx context.Context, public bool) ([]model.MessageTemplate, error) {
