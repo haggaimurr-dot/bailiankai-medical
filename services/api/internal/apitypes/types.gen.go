@@ -529,6 +529,7 @@ const (
 // Defines values for PatientMessageKind.
 const (
 	PatientMessageKindAppointmentStatus PatientMessageKind = "appointment_status"
+	PatientMessageKindReminder          PatientMessageKind = "reminder"
 )
 
 // Defines values for PhotoAngle.
@@ -893,6 +894,18 @@ type AppointmentCreate struct {
 type AppointmentPage struct {
 	Data []Appointment `json:"data"`
 	Meta PageMeta      `json:"meta"`
+}
+
+// AppointmentRemindRequest defines model for AppointmentRemindRequest.
+type AppointmentRemindRequest struct {
+	AppointmentIds []string `json:"appointmentIds"`
+}
+
+// AppointmentRemindResult defines model for AppointmentRemindResult.
+type AppointmentRemindResult struct {
+	AppointmentId string `json:"appointmentId"`
+	Reason        string `json:"reason"`
+	Sent          bool   `json:"sent"`
 }
 
 // AppointmentReschedule defines model for AppointmentReschedule.
@@ -3810,6 +3823,9 @@ type GetSlotRecommendationsParams struct {
 	// Limit 返回条数，默认 3，最大 10。
 	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
 }
+
+// RemindAppointmentsJSONRequestBody defines body for RemindAppointments for application/json ContentType.
+type RemindAppointmentsJSONRequestBody = AppointmentRemindRequest
 
 // RegisterAppointmentArrivalJSONRequestBody defines body for RegisterAppointmentArrival for application/json ContentType.
 type RegisterAppointmentArrivalJSONRequestBody = AppointmentArrival

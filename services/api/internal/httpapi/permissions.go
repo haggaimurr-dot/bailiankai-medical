@@ -70,7 +70,7 @@ func allowedEmployeeOperation(role, method, path string) bool {
 		return method == "GET" && (path == "/api/v1/admin/overview" || path == "/api/v1/admin/analytics")
 	}
 	if role == "customer_service" {
-		return (method == "GET" && (path == "/api/v1/admin/appointments" || path == "/api/v1/admin/appointments/:appointmentId" || path == "/api/v1/admin/patients")) || (method == "POST" && (path == "/api/v1/admin/appointments/:appointmentId/review" || path == "/api/v1/admin/appointments/:appointmentId/arrival"))
+		return (method == "GET" && (path == "/api/v1/admin/appointments" || path == "/api/v1/admin/appointments/:appointmentId" || path == "/api/v1/admin/patients")) || (method == "POST" && (path == "/api/v1/admin/appointments/:appointmentId/review" || path == "/api/v1/admin/appointments/:appointmentId/arrival" || path == "/api/v1/admin/appointments/remind"))
 	}
 	if !store.ClinicalRole(role) {
 		return false

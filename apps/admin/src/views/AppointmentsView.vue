@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { api, ApiError, canManageAppointments, errorMessage, type Appointment, type AppointmentReview } from '../api'
 import { auth } from '../auth'
 import AppIcon from '../components/AppIcon.vue'
@@ -40,11 +40,17 @@ const arrivalError = ref('')
 const arrivalSaving = ref(false)
 const arrivalRetryPending = ref(false)
 const now = ref(Date.now())
+const tableRef = ref()
+const selected = ref<Appointment[]>([])
+const reminding = ref(false)
+const remindResult = ref('')
 let detailRequestVersion = 0
 let refreshTimer: ReturnType<typeof setInterval> | undefined
 
 const lastRefresh = computed(() => store.refreshedAt ? slotTime(store.refreshedAt.toISOString()) : '尚未同步')
-const scopeLabel = computed(() => `${store.date || '全部日期'} · ${schedule.doctors.find((doctor) => doctor.id === store.doctorId)?.name || '全部医生'}`)
+const visibleClinics = computed(() => schedule.clinics.filter((clinic) => !auth.employee || auth.employee.clinicIds.includes(clinic.id)))
+const filteredDoctors = computed(() => schedule.doctors.filter((doctor) => !store.clinicId || doctor.clinicId === store.clinicId))
+const scopeLabel = computed(() => `${store.clinicId ? visibleClinics.value.find((clinic) => clinic.id === store.clinicId)?.name || '全部院区' : '全部院区'} · ${store.date || '全部日期'} · ${schedule.doctors.find((doctor) => doctor.id === store.doctorId)?.name || '全部医生'}`)
 const reasonError = computed(() => !reason.value.trim() ? '请填写拒绝原因，便于患者了解处理结果。' : reason.value.trim().length > 200 ? '拒绝原因不能超过 200 字。' : '')
 const reviewAllowed = computed(() => Boolean(detail.value && detail.value.status === 'pending' && detail.value.canReview && new Date(detail.value.confirmationDeadline).getTime() > now.value))
 const arrivalAllowed = computed(() => Boolean(detail.value && !detail.value.arrivedAt && detail.value.canRegisterArrival && ['confirmed', 'completed'].includes(detail.value.status) && ['manager', 'customer_service', 'doctor', 'clinician'].includes(auth.employee?.role || '')))
@@ -71,11 +77,53 @@ async function changeDate(value: string | null) {
   await store.applyFilters()
 }
 
+async function changeClinic(value: string | null) {
+  store.clinicId = value || ''
+  if (store.doctorId && !filteredDoctors.value.some((doctor) => doctor.id === store.doctorId)) store.doctorId = ''
+  await store.applyFilters()
+}
+
 async function resetFilters() {
   store.status = ''
   store.date = ''
   store.doctorId = ''
+  store.clinicId = ''
   await store.applyFilters()
+}
+
+function onSelectionChange(rows: Appointment[]) {
+  selected.value = rows
+}
+
+async function remindSelected() {
+  if (selected.value.length === 0 || reminding.value) return
+  remindResult.value = ''
+  try {
+    await ElMessageBox.confirm(`将向 ${selected.value.length} 位患者发送就诊提醒（站内消息），确定发送？`, '批量提醒', { confirmButtonText: '发送提醒', cancelButtonText: '取消' })
+  } catch {
+    return
+  }
+  reminding.value = true
+  try {
+    const results = await api.remindAppointments(selected.value.map((row) => row.id))
+    const sent = results.filter((r) => r.sent).length
+    const failed = results.filter((r) => !r.sent)
+    if (failed.length === 0) {
+      ElMessage.success(`已向 ${sent} 位患者发送就诊提醒`)
+    } else {
+      remindResult.value = failed.map((r) => {
+        const row = store.appointments.find((item) => item.id === r.appointmentId)
+        return row ? `${row.doctorName} ${shanghaiDate(new Date(row.startsAt))} ${slotTime(row.startsAt)}：${r.reason}` : `${r.appointmentId.slice(-8).toUpperCase()}：${r.reason}`
+      }).join('；')
+      ElMessage.warning(`已提醒 ${sent} 条，${failed.length} 条未提醒，见下方提示`)
+    }
+    tableRef.value?.clearSelection()
+    selected.value = []
+  } catch (cause) {
+    ElMessage.error(errorMessage(cause))
+  } finally {
+    reminding.value = false
+  }
 }
 
 async function loadDetail() {
@@ -229,6 +277,7 @@ function refreshWhenVisible() {
 }
 
 onMounted(() => {
+  void schedule.refresh()
   void store.refresh()
   refreshTimer = setInterval(refreshWhenVisible, 30000)
   document.addEventListener('visibilitychange', refreshWhenVisible)
@@ -258,15 +307,19 @@ onBeforeUnmount(() => {
     <div class="panel-heading"><div><h2>预约列表 <span class="count-chip">{{ store.loading || store.error ? '—' : store.total }}</span></h2><p>患者联系信息仅在预约详情中展示。</p></div><span class="sync-meta"><span></span>最近同步 {{ lastRefresh }}</span></div>
     <div class="appointment-status-tabs" role="tablist" aria-label="预约状态筛选"><button v-for="item in statuses" :key="item.value" type="button" role="tab" :aria-selected="store.status === item.value" :class="{ active: store.status === item.value }" @click="selectStatus(item.value)">{{ item.label }}</button></div>
     <div class="filter-bar appointment-filter-bar">
-      <div class="filter-field"><label for="appointment-doctor-filter">医生</label><el-select id="appointment-doctor-filter" v-model="store.doctorId" clearable placeholder="全部医生" aria-label="预约医生筛选" @change="store.applyFilters()"><el-option v-for="doctor in schedule.doctors" :key="doctor.id" :label="doctor.name" :value="doctor.id" /></el-select></div>
+      <div class="filter-field"><label for="appointment-clinic-filter">院区</label><el-select id="appointment-clinic-filter" v-model="store.clinicId" clearable placeholder="全部院区" aria-label="预约院区筛选" @change="changeClinic"><el-option v-for="clinic in visibleClinics" :key="clinic.id" :label="clinic.name" :value="clinic.id" /></el-select></div>
+      <div class="filter-field"><label for="appointment-doctor-filter">医生</label><el-select id="appointment-doctor-filter" v-model="store.doctorId" clearable placeholder="全部医生" aria-label="预约医生筛选" @change="store.applyFilters()"><el-option v-for="doctor in filteredDoctors" :key="doctor.id" :label="doctor.name" :value="doctor.id" /></el-select></div>
       <div class="filter-field date-filter"><label for="appointment-date-filter">就诊日期</label><el-date-picker id="appointment-date-filter" :model-value="store.date" type="date" value-format="YYYY-MM-DD" format="YYYY 年 MM 月 DD 日" clearable placeholder="全部日期" aria-label="预约日期筛选" @update:model-value="changeDate" /></div>
-      <el-button class="today-button" :disabled="!store.date && !store.doctorId && !store.status" @click="resetFilters">重置筛选</el-button>
+      <el-button class="today-button" :disabled="!store.date && !store.doctorId && !store.clinicId && !store.status" @click="resetFilters">重置筛选</el-button>
+      <el-button v-if="canManageAppointments" type="primary" :disabled="selected.length === 0 || reminding" :loading="reminding" @click="remindSelected">批量提醒{{ selected.length ? `（${selected.length}）` : '' }}</el-button>
       <span class="appointment-filter-note">按提交时间从新到旧排序</span>
     </div>
+    <el-alert v-if="remindResult" :title="`部分提醒未发送：${remindResult}`" type="warning" show-icon closable class="remind-result-alert" @close="remindResult = ''" />
 
     <div v-if="store.error" class="state-block error-state" role="alert"><span class="state-symbol">!</span><h3>预约数据暂未加载</h3><p>{{ store.error }}</p><el-button type="primary" :loading="store.refreshing" @click="store.refresh()">重新加载预约</el-button></div>
     <div v-else v-loading="store.loading" class="schedule-table-wrap" :aria-busy="store.loading">
-      <el-table :data="store.appointments" row-key="id" class="schedule-table appointment-table" :empty-text="store.loading ? '正在加载预约…' : '当前筛选下暂无预约，可调整筛选条件或稍后刷新。'">
+      <el-table ref="tableRef" :data="store.appointments" row-key="id" class="schedule-table appointment-table" :empty-text="store.loading ? '正在加载预约…' : '当前筛选下暂无预约，可调整筛选条件或稍后刷新。'" @selection-change="onSelectionChange">
+        <el-table-column v-if="canManageAppointments" type="selection" width="48" />
         <el-table-column label="预约编号" min-width="145"><template #default="{ row }"><div class="appointment-code" :data-appointment-id="row.id" :title="row.id">{{ shortId(row.id) }}</div><small class="appointment-row-demo">演示预约</small></template></el-table-column>
         <el-table-column label="医生 / 院区" min-width="170"><template #default="{ row }"><div class="appointment-doctor-cell"><strong>{{ row.doctorName }}</strong><small>{{ row.clinicName }}</small></div></template></el-table-column>
         <el-table-column label="就诊时间" min-width="173"><template #default="{ row }"><div class="appointment-time-cell"><strong>{{ shanghaiDate(new Date(row.startsAt)) }}</strong><small>{{ slotTime(row.startsAt) }}–{{ slotTime(row.endsAt) }}</small></div></template></el-table-column>

@@ -1737,6 +1737,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/appointments/remind": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description 批量提醒所选预约的患者（站内消息）；逐条返回成功或失败原因。 */
+        post: operations["remindAppointments"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/appointments/{appointmentId}/review": {
         parameters: {
             query?: never;
@@ -4539,7 +4556,7 @@ export interface components {
         PatientMessage: {
             id: string;
             /** @enum {string} */
-            kind: "appointment_status";
+            kind: "appointment_status" | "reminder";
             title: string;
             body: string;
             appointmentId: string;
@@ -4551,6 +4568,14 @@ export interface components {
             data: components["schemas"]["PatientMessage"][];
             total: number;
             unreadCount: number;
+        };
+        AppointmentRemindRequest: {
+            appointmentIds: string[];
+        };
+        AppointmentRemindResult: {
+            appointmentId: string;
+            sent: boolean;
+            reason: string;
         };
         MessageTemplateChange: {
             clinicId: string;
@@ -10365,6 +10390,36 @@ export interface operations {
                 };
             };
             default: components["responses"]["Error"];
+        };
+    };
+    remindAppointments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AppointmentRemindRequest"];
+            };
+        };
+        responses: {
+            /** @description 逐条提醒结果 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["AppointmentRemindResult"][];
+                    };
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            503: components["responses"]["Error"];
         };
     };
     reviewAppointment: {

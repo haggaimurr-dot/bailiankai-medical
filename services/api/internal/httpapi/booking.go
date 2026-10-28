@@ -50,6 +50,7 @@ func (a *API) registerBookingRoutes(r *gin.Engine) {
 	admin := booking.Group("/admin/appointments", a.authenticate)
 	admin.GET("", a.adminAppointments)
 	admin.GET("/:appointmentId", a.requireAppointmentScope, a.adminAppointment)
+	admin.POST("/remind", a.remindAppointments)
 	admin.POST("/:appointmentId/review", a.requireAppointmentScope, a.reviewAppointment)
 	admin.POST("/:appointmentId/arrival", a.requireAppointmentScope, a.registerArrival)
 	admin.POST("/:appointmentId/suspension-reschedule", a.requireAppointmentScope, a.suspensionReschedule)
@@ -416,4 +417,33 @@ func (a *API) reviewAppointment(c *gin.Context) {
 		return
 	}
 	c.JSON(200, apitypes.AppointmentResult{Data: a.employeeAppointmentDTO(c, row)})
+}
+
+// remindAppointments sends a visit-reminder inbox message for each listed
+// appointment and reports the per-item outcome.
+func (a *API) remindAppointments(c *gin.Context) {
+	var body apitypes.RemindAppointmentsJSONRequestBody
+	if !decodeObject(c, &body, []string{"appointmentIds"}, nil) {
+		return
+	}
+	ids := make([]string, 0, len(body.AppointmentIds))
+	for _, id := range body.AppointmentIds {
+		if strings.TrimSpace(id) != "" {
+			ids = append(ids, strings.TrimSpace(id))
+		}
+	}
+	if len(ids) == 0 || len(ids) > 50 {
+		fail(c, 400, "INVALID_BODY", "请勾选 1–50 条预约")
+		return
+	}
+	results, err := a.booking.RemindAppointments(c.Request.Context(), ids, a.now())
+	if err != nil {
+		a.bookingError(c, err, false)
+		return
+	}
+	dtos := make([]apitypes.AppointmentRemindResult, 0, len(results))
+	for _, r := range results {
+		dtos = append(dtos, apitypes.AppointmentRemindResult{AppointmentId: r.AppointmentID, Sent: r.Sent, Reason: r.Reason})
+	}
+	c.JSON(200, gin.H{"data": dtos})
 }

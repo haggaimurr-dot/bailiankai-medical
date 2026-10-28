@@ -7,6 +7,7 @@ export const useAppointmentsStore = defineStore('appointments', () => {
   const status = ref<Appointment['status'] | ''>('')
   const date = ref('')
   const doctorId = ref('')
+  const clinicId = ref('')
   const page = ref(1)
   const pageSize = ref(20)
   const total = ref(0)
@@ -23,12 +24,12 @@ export const useAppointmentsStore = defineStore('appointments', () => {
     if (!options.quiet) loading.value = true
     refreshing.value = true
     error.value = ''
-    const filters = { status: status.value, date: date.value, doctorId: doctorId.value, page: page.value, pageSize: pageSize.value }
+    const filters = { status: status.value, date: date.value, doctorId: doctorId.value, clinicId: clinicId.value, page: page.value, pageSize: pageSize.value }
     try {
       const mainRequest = api.appointments(filters)
       const countRequest = filters.status === 'pending'
         ? mainRequest
-        : api.appointments({ date: filters.date, doctorId: filters.doctorId, status: 'pending', page: 1, pageSize: 1 })
+        : api.appointments({ date: filters.date, doctorId: filters.doctorId, clinicId: filters.clinicId, status: 'pending', page: 1, pageSize: 1 })
       const [listResult, countResult] = await Promise.allSettled([mainRequest, countRequest])
       if (version !== requestVersion) return
       if (countResult.status === 'fulfilled') {
@@ -74,5 +75,5 @@ export const useAppointmentsStore = defineStore('appointments', () => {
     await refresh()
   }
 
-  return { appointments, status, date, doctorId, page, pageSize, total, pendingTotal, loading, refreshing, error, countError, refreshedAt, refresh, applyFilters, selectPage }
+  return { appointments, status, date, doctorId, clinicId, page, pageSize, total, pendingTotal, loading, refreshing, error, countError, refreshedAt, refresh, applyFilters, selectPage }
 })

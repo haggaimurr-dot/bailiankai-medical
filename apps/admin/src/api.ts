@@ -210,6 +210,7 @@ export const api = {
   resolveArrivalScan: (token: string) => request<Appointment>('/admin/arrival-scans/resolve', adminRequest({ method: 'POST', body: JSON.stringify({token}) })),
   confirmArrivalScan: (token: string) => request<Appointment>('/admin/arrival-scans/confirm', adminRequest({ method: 'POST', body: JSON.stringify({token}) })),
   suspensionReschedule: (id: string, body: components['schemas']['SuspensionReschedule']) => request<Appointment>(`/admin/appointments/${encodeURIComponent(id)}/suspension-reschedule`, adminRequest({method:'POST',body:JSON.stringify(body)})),
+  remindAppointments: (appointmentIds: string[]) => requestEnvelope<components['schemas']['AppointmentRemindResult'][]>('/admin/appointments/remind', adminRequest({ method: 'POST', body: JSON.stringify({ appointmentIds }) })),
   registerArrival: (id: string, body: components['schemas']['AppointmentArrival']) => request<Appointment>(`/admin/appointments/${encodeURIComponent(id)}/arrival`, adminRequest({ method: 'POST', body: JSON.stringify(body) })),
   setEmployeeClinics: (id: string, clinicIds: string[], version: number) => request<Employee>(`/admin/employees/${encodeURIComponent(id)}/clinics`, adminRequest({ method: 'POST', body: JSON.stringify({ clinicIds, version }) })),
   employeeEvents: (id: string) => request<EmployeeEvent[]>(`/admin/employees/${encodeURIComponent(id)}/events`, adminRequest()),

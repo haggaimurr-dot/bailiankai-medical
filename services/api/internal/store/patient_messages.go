@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"time"
 
@@ -18,13 +19,11 @@ func writePatientMessage(tx *gorm.DB, patientID, kind, title, body, appointmentI
 	}).Error
 }
 
-// appointmentStatusMessage builds the inbox message for an appointment status
-// change. `to` is the new status; `detail` carries the reschedule "old → new"
-// text for reschedules, or the literal "claim" for a waitlist claim.
-func appointmentStatusMessage(tx *gorm.DB, a *model.Appointment, to, reason, detail string, now time.Time) error {
+// appointmentSubject renders "医生名 · YYYY-MM-DD HH:mm（院区名）" for an appointment.
+func appointmentSubject(tx *gorm.DB, slotID string) string {
 	var slot model.Slot
 	doctorName, clinicName, when := "", "", ""
-	if err := tx.First(&slot, "id = ?", a.SlotID).Error; err == nil {
+	if err := tx.First(&slot, "id = ?", slotID).Error; err == nil {
 		when = slot.StartsAt.In(database.Shanghai).Format("2006-01-02 15:04")
 		var doctor model.Doctor
 		if err := tx.First(&doctor, "id = ?", slot.DoctorID).Error; err == nil {
@@ -42,6 +41,14 @@ func appointmentStatusMessage(tx *gorm.DB, a *model.Appointment, to, reason, det
 	if clinicName != "" {
 		subject += "（" + clinicName + "）"
 	}
+	return subject
+}
+
+// appointmentStatusMessage builds the inbox message for an appointment status
+// change. `to` is the new status; `detail` carries the reschedule "old → new"
+// text for reschedules, or the literal "claim" for a waitlist claim.
+func appointmentStatusMessage(tx *gorm.DB, a *model.Appointment, to, reason, detail string, now time.Time) error {
+	subject := appointmentSubject(tx, a.SlotID)
 	var title, body string
 	switch to {
 	case "confirmed":
@@ -70,6 +77,62 @@ func appointmentStatusMessage(tx *gorm.DB, a *model.Appointment, to, reason, det
 		return nil
 	}
 	return writePatientMessage(tx, a.PatientID, "appointment_status", title, body, a.ID, now)
+}
+
+// AppointmentRemindResult is the per-appointment outcome of a batch remind.
+type AppointmentRemindResult struct {
+	AppointmentID string
+	Sent          bool
+	Reason        string
+}
+
+// RemindAppointments sends a "就诊提醒" inbox message to the patient of each
+// appointment. Each id is processed independently so one bad id cannot block
+// the rest; failures are reported per item instead of aborting the batch.
+func (s *MySQL) RemindAppointments(ctx context.Context, ids []string, now time.Time) ([]AppointmentRemindResult, error) {
+	results := make([]AppointmentRemindResult, 0, len(ids))
+	seen := make(map[string]bool, len(ids))
+	for _, id := range ids {
+		if id == "" || seen[id] {
+			continue
+		}
+		seen[id] = true
+		result := AppointmentRemindResult{AppointmentID: id}
+		accessible, err := s.CanAccessAppointment(ctx, id, false)
+		if err != nil {
+			return results, err
+		}
+		if !accessible {
+			result.Reason = "预约不存在或无权访问"
+			results = append(results, result)
+			continue
+		}
+		var row model.Appointment
+		if err := s.db.WithContext(ctx).First(&row, "id = ?", id).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				result.Reason = "预约不存在或无权访问"
+				results = append(results, result)
+				continue
+			}
+			return results, err
+		}
+		switch row.Status {
+		case "pending", "confirmed", "waiting":
+		default:
+			result.Reason = "当前状态无需提醒"
+			results = append(results, result)
+			continue
+		}
+		err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+			return writePatientMessage(tx, row.PatientID, "reminder", "就诊提醒", "您的预约（"+appointmentSubject(tx, row.SlotID)+"）即将到院，请按时到访。如需改期或取消，请提前联系门店。", row.ID, now)
+		})
+		if err != nil {
+			return results, err
+		}
+		result.Sent = true
+		results = append(results, result)
+	}
+	return results, nil
 }
 
 func (s *MySQL) PatientMessages(ctx context.Context, patientID string, page, size int) ([]model.PatientMessage, int64, error) {

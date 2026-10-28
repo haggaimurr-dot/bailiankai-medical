@@ -73,6 +73,7 @@ type BookingRepository interface {
 	ListAppointments(context.Context, AppointmentFilter, time.Time) (AppointmentPage, error)
 	CancelAppointment(context.Context, string, string, int, time.Time) (model.Appointment, error)
 	ReviewAppointment(context.Context, string, ReviewInput, time.Time) (model.Appointment, error)
+	RemindAppointments(context.Context, []string, time.Time) ([]AppointmentRemindResult, error)
 	ExpirePending(context.Context, time.Time) (int, error)
 }
 
