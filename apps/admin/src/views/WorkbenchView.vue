@@ -53,7 +53,7 @@ async function load() {
   if (busy.value) return
   const request = ++generation
   busy.value = true; errors.value = []
-  const results = await Promise.allSettled([api.handoffReceipts('pending'), api.followups('submitted'), api.followups('alert'), loadNotifications(), ...(canExportJobs.value ? [api.recordExports(1)] : []), ...(manager.value ? [api.loginAnomalyCount()] : [])])
+  const results = await Promise.allSettled([api.handoffReceipts('pending'), api.followups('submitted'), api.followups('alert'), loadNotifications(), ...(canExportJobs.value ? [api.recordExports(1)] : [])])
   if (request !== generation) return
   pending.value = null; overdue.value = null; supervisor.value = null; submitted.value = null; alerts.value = null; loginAnomalies.value = null
   exportInProgress.value = null; exportReady.value = null; exportFailed.value = null
@@ -65,9 +65,8 @@ async function load() {
   if (abnormal.status === 'fulfilled') alerts.value = abnormal.value.meta.total
   else errors.value.push(`异常处理：${errorMessage(abnormal.reason)}`)
   if (manager.value) {
-    const anomalyResult = results[canExportJobs.value ? 5 : 4]
-    if (anomalyResult?.status === 'fulfilled') loginAnomalies.value = anomalyResult.value.count
-    else if (anomalyResult?.status === 'rejected') errors.value.push(`登录异常：${errorMessage(anomalyResult.reason)}`)
+    try { loginAnomalies.value = (await api.loginAnomalyCount()).count }
+    catch (cause) { errors.value.push(`登录异常：${errorMessage(cause)}`) }
   }
   if (canExportJobs.value) {
     const exportsResult = results[4]
