@@ -41,13 +41,16 @@ func (a *API) registerAssessmentRoutes(r *gin.Engine) {
 	admin := r.Group("/api/v1/admin/assessments", a.authenticate, a.assessmentAvailable)
 	admin.GET("", a.listAssessments)
 	admin.GET("/reviewers", a.assessmentReviewers)
-	admin.GET("/consent-policy", a.getAssessmentConsentPolicy)
-	admin.POST("/consent-policy", a.createAssessmentConsentPolicy)
 	admin.GET("/:assessmentId", a.getAssessment)
 	admin.GET("/:assessmentId/photos/:photoRef/content", a.assessmentPhoto)
 	admin.GET("/:assessmentId/events", a.assessmentEvents)
 	admin.POST("/:assessmentId/assignment", a.changeAssessment)
 	admin.POST("/:assessmentId/reviews", a.changeAssessment)
+	// Consent text versioning lives outside the per-assessment routes so the
+	// path matches the contract (/admin/assessment-consent-policy).
+	policyAdmin := r.Group("/api/v1/admin/assessment-consent-policy", a.authenticate, a.assessmentAvailable)
+	policyAdmin.GET("", a.getAssessmentConsentPolicy)
+	policyAdmin.POST("", a.createAssessmentConsentPolicy)
 }
 func (a *API) assessmentAvailable(c *gin.Context) {
 	c.Header("Cache-Control", "no-store")

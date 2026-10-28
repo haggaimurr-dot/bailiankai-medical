@@ -30,6 +30,7 @@ function startPolicyEdit() {
   if (!policy.value) return
   policyContent.value = policy.value.policy.content; policyVersion.value = ''; policyEditing.value = true
 }
+const policyBy = (createdBy: string) => createdBy === auth.employee?.id ? '本人' : (createdBy || '系统')
 async function savePolicy() {
   if (policySaving.value || !policyContent.value.trim()) return
   policySaving.value = true; error.value = ''; success.value = ''
@@ -176,7 +177,7 @@ onBeforeUnmount(() => { alive = false; generation++; if(timer) clearInterval(tim
   <el-button v-if="pending" :loading="saving" @click="write()">重试原操作</el-button>
   <div v-if="!id && auth.employee?.role==='manager'" class="surface panel">
     <h2>AI 用途授权文案</h2>
-    <p v-if="policy">当前版本 {{policy.policy.version}} · {{time(policy.policy.createdAt)}} · 发布人 {{policy.policy.createdBy || '系统'}}</p>
+    <p v-if="policy">当前版本 {{policy.policy.version}} · {{time(policy.policy.createdAt)}} · 发布人 {{policyBy(policy.policy.createdBy)}}</p>
     <p v-if="policy">{{policy.policy.content}}</p>
     <p v-else>授权文案加载中或暂不可用。</p>
     <el-button :disabled="!policy || policySaving" @click="startPolicyEdit">编辑文案并发布新版</el-button>
@@ -189,7 +190,7 @@ onBeforeUnmount(() => { alive = false; generation++; if(timer) clearInterval(tim
       <el-button type="primary" :loading="policySaving" :disabled="!policyContent.trim()" @click="savePolicy">发布新版</el-button>
       <el-button :disabled="policySaving" @click="policyEditing=false">取消</el-button>
     </template>
-    <details v-if="policy && policy.history.length>1"><summary>历史版本（{{policy.history.length}}）</summary><p v-for="item in policy.history" :key="item.version">{{item.version}} · {{time(item.createdAt)}} · {{item.createdBy || '系统'}}</p></details>
+    <details v-if="policy && policy.history.length>1"><summary>历史版本（{{policy.history.length}}）</summary><p v-for="item in policy.history" :key="item.version">{{item.version}} · {{time(item.createdAt)}} · {{policyBy(item.createdBy)}}</p></details>
   </div>
   <div v-if="!id" class="surface panel">
     <p v-if="mode==='entry'">评估由患者从小程序“AI 辅助评估”入口独立创建并明确授权。工作人员可在下方队列分配复核医生。</p>
