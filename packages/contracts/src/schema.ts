@@ -7714,7 +7714,9 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PatientMessageList"];
+                    "application/json": {
+                        data: components["schemas"]["PatientMessageList"];
+                    };
                 };
             };
             400: components["responses"]["Error"];

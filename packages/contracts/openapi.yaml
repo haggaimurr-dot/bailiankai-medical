@@ -127,7 +127,11 @@ paths:
           description: 站内消息列表
           content:
             application/json:
-              schema: {$ref: '#/components/schemas/PatientMessageList'}
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {$ref: '#/components/schemas/PatientMessageList'}
         '400': {$ref: '#/components/responses/Error'}
         '401': {$ref: '#/components/responses/Error'}
         '403': {$ref: '#/components/responses/Error'}

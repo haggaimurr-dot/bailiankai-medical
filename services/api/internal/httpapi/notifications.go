@@ -89,7 +89,7 @@ func (a *API) registerNotificationRoutes(r *gin.Engine) {
 		for _, row := range rows {
 			data = append(data, patientMessageDTO(row))
 		}
-		c.JSON(200, apitypes.PatientMessageList{Data: data, Total: int(total), UnreadCount: int(unread)})
+		c.JSON(200, gin.H{"data": apitypes.PatientMessageList{Data: data, Total: int(total), UnreadCount: int(unread)}})
 	})
 	me.GET("/unread-count", func(c *gin.Context) {
 		unread, err := a.repo.(store.NotificationRepository).UnreadPatientMessageCount(c.Request.Context(), currentPatient(c).ID)
