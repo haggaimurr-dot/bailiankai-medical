@@ -187,6 +187,7 @@ onMounted(async () => {
     catch (cause) { ElMessage.error(errorMessage(cause)) }
   })()])
   if (typeof route.query.patientId === 'string') await selectPatient(route.query.patientId)
+  if (route.query.exports === 'open') recordExports.value?.openJobs()
 })
 onBeforeUnmount(() => { requestVersion++; listVersion++; releasePhotos() })
 </script>

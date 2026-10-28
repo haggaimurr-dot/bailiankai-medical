@@ -14,6 +14,16 @@ const notices = ref<Notice[]>([]), notificationPage = ref(1), notificationTotal 
 const notificationError = ref(''), busy = ref(false), reading = ref('')
 const pending = ref<number | null>(null), overdue = ref<number | null>(null), supervisor = ref<number | null>(null)
 const submitted = ref<number | null>(null), alerts = ref<number | null>(null)
+const exportInProgress = ref<number | null>(null), exportReady = ref<number | null>(null), exportFailed = ref<number | null>(null)
+const canExportJobs = computed(() => ['manager', 'doctor', 'clinician', 'nurse'].includes(auth.employee?.role || ''))
+const exportDetail = computed(() => {
+  if (exportInProgress.value === null) return '导出任务进度与完成提醒'
+  const parts: string[] = []
+  if (exportInProgress.value > 0) parts.push(`生成中 ${exportInProgress.value} 项`)
+  if ((exportReady.value ?? 0) > 0) parts.push(`可下载 ${exportReady.value} 项`)
+  if ((exportFailed.value ?? 0) > 0) parts.push(`生成失败 ${exportFailed.value} 项`)
+  return parts.length ? parts.join(' · ') : '暂无进行中的导出任务'
+})
 const errors = ref<string[]>([])
 let generation = 0, notificationGeneration = 0, timer: ReturnType<typeof setInterval> | undefined
 const levelNames = { 1: '紧急', 2: '重要', 3: '一般' } as const
@@ -25,6 +35,7 @@ const cards = computed(() => [
   ] : []),
   { title: '随访待回评', count: submitted.value, detail: '查看患者反馈并提交医护回评', to: '/followups?status=submitted', level: 2 as const },
   { title: '异常待处理', count: alerts.value, detail: '核实异常并记录处理结果', to: '/followups?status=alert', level: 1 as const },
+  ...(canExportJobs.value ? [{ title: '档案导出', count: exportInProgress.value === null ? null : exportInProgress.value + (exportReady.value ?? 0) + (exportFailed.value ?? 0), detail: exportDetail.value, to: '/patients?exports=open', level: (((exportReady.value ?? 0) > 0 || (exportFailed.value ?? 0) > 0) ? 2 : 3) as const }] : []),
 ].sort((a, b) => a.level - b.level))
 function timestamp(value: string) { return new Intl.DateTimeFormat('zh-CN', { timeZone: 'Asia/Shanghai', dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value)) }
 async function loadNotifications() {
@@ -40,9 +51,10 @@ async function load() {
   if (busy.value) return
   const request = ++generation
   busy.value = true; errors.value = []
-  const results = await Promise.allSettled([api.handoffReceipts('pending'), api.followups('submitted'), api.followups('alert'), loadNotifications()])
+  const results = await Promise.allSettled([api.handoffReceipts('pending'), api.followups('submitted'), api.followups('alert'), loadNotifications(), ...(canExportJobs.value ? [api.recordExports(1)] : [])])
   if (request !== generation) return
   pending.value = null; overdue.value = null; supervisor.value = null; submitted.value = null; alerts.value = null
+  exportInProgress.value = null; exportReady.value = null; exportFailed.value = null
   const [handoffs, reviews, abnormal] = results
   if (handoffs.status === 'fulfilled') { pending.value = handoffs.value.meta.total; overdue.value = handoffs.value.meta.overdueTotal; supervisor.value = handoffs.value.meta.todoTotal }
   else errors.value.push(`交接待办：${errorMessage(handoffs.reason)}`)
@@ -50,6 +62,16 @@ async function load() {
   else errors.value.push(`随访回评：${errorMessage(reviews.reason)}`)
   if (abnormal.status === 'fulfilled') alerts.value = abnormal.value.meta.total
   else errors.value.push(`异常处理：${errorMessage(abnormal.reason)}`)
+  if (canExportJobs.value) {
+    const exportsResult = results[4]
+    if (exportsResult?.status === 'fulfilled') {
+      const nowMs = Date.now()
+      const jobs = exportsResult.value.data
+      exportInProgress.value = jobs.filter(job => job.status === 'queued' || job.status === 'processing').length
+      exportReady.value = jobs.filter(job => job.status === 'ready' && job.expiresAt && Date.parse(job.expiresAt) > nowMs && job.downloadCount === 0).length
+      exportFailed.value = jobs.filter(job => job.status === 'failed').length
+    } else if (exportsResult?.status === 'rejected') errors.value.push(`档案导出：${errorMessage(exportsResult.reason)}`)
+  }
   busy.value = false
 }
 async function read(notice: Notice, open = false) {
