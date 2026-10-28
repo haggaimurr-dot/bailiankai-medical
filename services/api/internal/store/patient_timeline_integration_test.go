@@ -119,8 +119,33 @@ func TestPatientTimelineAndAdviceReceipts(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = f.repo.ConfirmAdviceRead(ctx, patient.Patient.ID, "plan", input.PlanVersionID, planState.AdviceVersion, f.now); err != nil {
+	firstAdviceReceipt, err := f.repo.ConfirmAdviceRead(ctx, patient.Patient.ID, "plan", input.PlanVersionID, planState.AdviceVersion, f.now)
+	if err != nil || firstAdviceReceipt.TodosCreated != 1 {
+		t.Fatalf("first plan confirmation todosCreated=%d err=%v", firstAdviceReceipt.TodosCreated, err)
+	}
+	// Confirming the plan advice splits its instructions into one follow-up
+	// todo per line, due at the end of the confirmation day; a repeated
+	// confirmation must not create duplicates.
+	adviceReceipt, err := f.repo.ConfirmAdviceRead(ctx, patient.Patient.ID, "plan", input.PlanVersionID, planState.AdviceVersion, f.now)
+	if err != nil || adviceReceipt.TodosCreated != 0 {
+		t.Fatalf("duplicate plan confirmation created todos: %+v err=%v", adviceReceipt, err)
+	}
+	_, adviceTasks, err := f.repo.FollowupWorkspace(ctx, appointment.ID, patient.Patient.ID)
+	if err != nil {
 		t.Fatal(err)
+	}
+	adviceTodos := []model.FollowupTask{}
+	for _, task := range adviceTasks {
+		if strings.HasPrefix(task.Title, "【护理】") && task.Title == "【护理】演示" {
+			adviceTodos = append(adviceTodos, task)
+		}
+	}
+	if len(adviceTodos) != 1 {
+		t.Fatalf("advice todos=%d, want 1 (tasks=%d)", len(adviceTodos), len(adviceTasks))
+	}
+	wantDue := time.Date(f.now.Year(), f.now.Month(), f.now.Day(), 23, 59, 59, 0, f.now.Location())
+	if !adviceTodos[0].DueAt.Equal(wantDue) || adviceTodos[0].Status != "pending" {
+		t.Fatalf("advice todo due=%v status=%s, want due=%v pending", adviceTodos[0].DueAt, adviceTodos[0].Status, wantDue)
 	}
 	newState, err := f.repo.PatientAdvice(ctx, patient.Patient.ID, "plan", published.ID)
 	if err != nil || newState.ReadAt != nil {

@@ -236,6 +236,33 @@ async function submit() {
   }
 }
 
+// Advice-derived todos (titles prefixed 【护理】/【复诊】/【注意事项】) are
+// plain care steps, not symptom reports: the patient marks them done without
+// having to invent symptoms. The submit records '已按医嘱完成' as the
+// response so staff can tell a completed todo from a symptom report.
+const isAdviceTodo = (task: FollowupTask) => /^(【护理】|【复诊】|【注意事项】)/.test(task.title)
+async function markAdviceDone() {
+  const task = selected.value
+  if (!task || saving.value || !isAdviceTodo(task)) return
+  saving.value = true
+  notice.value = ''
+  try {
+    const updated = await patientApi.submitFollowup(
+      task.id,
+      { version: task.version, symptoms: '已按医嘱完成', severity: 0, concern: false },
+      session.patientId,
+    )
+    tasks.value = tasks.value.map((t) => (t.id === task.id ? updated : t))
+    syncForm(updated)
+    notice.value = '已标记完成，等待医护回评。'
+    showToast('已标记完成')
+  } catch (cause) {
+    notice.value = `${errorMessage(cause)} 可重试或刷新查看提交结果。`
+  } finally {
+    saving.value = false
+  }
+}
+
 function openCarePlan() {
   const t = treatment.value
   if (!t) return
@@ -397,6 +424,9 @@ onBeforeUnmount(() => {
         <div v-if="notice" class="notice-box">{{ notice }}</div>
         <button v-if="selected.status === 'pending'" class="primary" :disabled="saving" @click="submit">
           {{ saving ? '提交中…' : '提交随访反馈' }}
+        </button>
+        <button v-if="selected.status === 'pending' && isAdviceTodo(selected)" class="ghost" :disabled="saving" style="margin-top: 8px" @click="markAdviceDone">
+          {{ saving ? '提交中…' : '标记已完成' }}
         </button>
         <button class="ghost" style="margin-top: 8px" @click="load">刷新随访结果</button>
         <input ref="fileInput" type="file" accept="image/*" hidden @change="onPhotoChosen" />

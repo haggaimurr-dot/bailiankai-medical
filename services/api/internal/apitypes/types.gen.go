@@ -839,6 +839,9 @@ const (
 type AdviceReceipt struct {
 	AdviceVersion string    `json:"adviceVersion"`
 	ReadAt        time.Time `json:"readAt"`
+
+	// TodosCreated 本次确认新生成的医嘱待办条数；重复确认时为 0
+	TodosCreated *int `json:"todosCreated,omitempty"`
 }
 
 // ApiError defines model for ApiError.

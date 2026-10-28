@@ -21,6 +21,7 @@ const versions = ref<CarePlanVersion[]>([])
 const readState = ref<Record<string, { adviceVersion: string; readAt: string | null }>>({})
 const readError = ref('')
 const confirmingId = ref('')
+const todosCreated = ref(0)
 
 async function load() {
   loading.value = true
@@ -83,6 +84,7 @@ async function confirmRead(version: CarePlanVersion) {
   try {
     const receipt = await patientApi.confirmAdviceRead('plan', version.id, state.adviceVersion, session.patientId)
     readState.value = { ...readState.value, [version.id]: { adviceVersion: receipt.adviceVersion, readAt: receipt.readAt } }
+    todosCreated.value = receipt.todosCreated || 0
     showToast('已确认阅读')
   } catch {
     readError.value = '阅读确认未完成，请重试。若多次失败，请联系负责医护确认。'
@@ -156,6 +158,11 @@ onMounted(load)
       </section>
 
       <div v-if="readError" class="error-box">{{ readError }}</div>
+      <div v-if="todosCreated > 0" class="card">
+        <h2>已按医嘱生成 {{ todosCreated }} 条待办</h2>
+        <p class="muted">每条医嘱对应一条待办，可在「我的待办」中查看与完成；也会出现在恢复日历当天。</p>
+        <button class="primary" @click="router.push('/followups')">查看我的待办</button>
+      </div>
       <p class="muted">方案按版本保留。若对内容有疑问，请联系负责医护。</p>
       <button class="ghost" @click="router.back()">返回</button>
     </template>

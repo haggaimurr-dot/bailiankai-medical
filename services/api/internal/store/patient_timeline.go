@@ -3,10 +3,14 @@ package store
 import (
 	"context"
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
+	"unicode/utf8"
 
+	"example.com/bailiankai/api/internal/model"
+	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
 
@@ -34,6 +38,9 @@ type AdviceReceipt struct {
 	ResourceID    string    `gorm:"primaryKey" json:"-"`
 	AdviceVersion string    `gorm:"primaryKey" json:"adviceVersion"`
 	ReadAt        time.Time `json:"readAt"`
+	// TodosCreated is the number of follow-up todos created by this
+	// confirmation (0 on a repeated confirmation). Not a column.
+	TodosCreated int `gorm:"-" json:"todosCreated,omitempty"`
 }
 
 type PatientTimelineRepository interface {
@@ -125,11 +132,95 @@ func (s *MySQL) ConfirmAdviceRead(ctx context.Context, patientID, kind, id, vers
 	if version == "" || adviceVersion(event.Advice) != version {
 		return receipt, ErrConflict
 	}
-	if err := s.db.WithContext(ctx).Clauses(clause.OnConflict{DoNothing: true}).Create(&receipt).Error; err != nil {
+	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		res := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&receipt)
+		if res.Error != nil {
+			return res.Error
+		}
+		if res.RowsAffected == 1 && kind == "plan" && strings.TrimSpace(event.Advice) != "" {
+			count, err := createAdviceTodos(tx, patientID, event, now)
+			if err != nil {
+				return err
+			}
+			receipt.TodosCreated = count
+		}
+		return nil
+	})
+	if err != nil {
 		return receipt, err
 	}
 	err = s.db.WithContext(ctx).Where("patient_id = ? AND kind = ? AND resource_id = ? AND advice_version = ?", patientID, kind, id, version).First(&receipt).Error
 	return receipt, err
+}
+
+// adviceTodoKind classifies one instruction line so the generated todo shows
+// its kind in the title prefix (followup_tasks has no kind column).
+func adviceTodoKind(line string) string {
+	for _, word := range []string{"复诊", "复查", "到院", "面诊", "回院"} {
+		if strings.Contains(line, word) {
+			return "【复诊】"
+		}
+	}
+	for _, word := range []string{"注意", "避免", "不要", "忌", "不可", "禁止", "慎用", "小心", "切勿"} {
+		if strings.Contains(line, word) {
+			return "【注意事项】"
+		}
+	}
+	return "【护理】"
+}
+
+func adviceTodoTitle(prefix, line string) string {
+	title := prefix + line
+	if utf8.RuneCountInString(title) > 100 {
+		title = string([]rune(title)[:100])
+	}
+	return title
+}
+
+// createAdviceTodos splits a published plan version's instructions into one
+// follow-up task per non-empty line, so the patient sees them in 我的待办
+// and on the recovery calendar and can mark each done. It runs in the same
+// transaction as the read receipt, and only on the first confirmation, so a
+// repeated confirmation never creates duplicates. The assignee is the
+// appointment's doctor (a follow-up staff row); if the doctor is not on the
+// staff roster the todos are skipped rather than failing the confirmation.
+// Due at the end of the confirmation day: the items are today's care todos.
+func createAdviceTodos(tx *gorm.DB, patientID string, event TimelineEvent, now time.Time) (int, error) {
+	appointment, err := loadAppointment(tx, event.AppointmentID, patientID)
+	if err != nil {
+		return 0, err
+	}
+	var staff model.FollowupStaff
+	if err := tx.First(&staff, "id = ?", appointment.DoctorID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return 0, nil
+		}
+		return 0, err
+	}
+	var treatmentID string
+	var treatment model.Treatment
+	if err := tx.Select("id").Where("appointment_id = ?", event.AppointmentID).Order("treated_at DESC").First(&treatment).Error; err == nil {
+		treatmentID = treatment.ID
+	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return 0, err
+	}
+	due := time.Date(now.Year(), now.Month(), now.Day(), 23, 59, 59, 0, now.Location())
+	lines := []string{}
+	for _, line := range strings.Split(event.Advice, "\n") {
+		if trimmed := strings.TrimSpace(line); trimmed != "" {
+			lines = append(lines, trimmed)
+		}
+	}
+	if len(lines) > 10 {
+		lines = lines[:10]
+	}
+	for _, line := range lines {
+		task := model.FollowupTask{ID: randomID("followup-"), AppointmentID: event.AppointmentID, TreatmentID: treatmentID, PatientID: patientID, AssigneeID: staff.ID, AssignedAt: now, Title: adviceTodoTitle(adviceTodoKind(line), line), DueAt: due, Status: "pending", Version: 1}
+		if err := tx.Create(&task).Error; err != nil {
+			return 0, err
+		}
+	}
+	return len(lines), nil
 }
 
 func (s *MySQL) PatientAdvice(ctx context.Context, patientID, kind, id string) (TimelineEvent, error) {

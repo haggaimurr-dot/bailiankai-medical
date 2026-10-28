@@ -3099,6 +3099,8 @@ export interface components {
             adviceVersion: string;
             /** Format: date-time */
             readAt: string;
+            /** @description 本次确认新生成的医嘱待办条数；重复确认时为 0 */
+            todosCreated?: number;
         };
         CaseSourcePair: {
             beforeSourceId: string;
