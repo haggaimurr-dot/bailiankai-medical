@@ -88,7 +88,13 @@ Page<ProfileData, ProfileMethods>({
     if (this.data.busy || !patient) return;
     if (!event.detail.code) { this.setData({ notice: '未完成授权，账号手机号保持原状态。' }); return; }
     this.setData({ busy: true, error: '', notice: '' });
-    try { this.accept(await patientApi.authorizePhone(event.detail.code, patient.version || 1, patient.id)); this.setData({ notice: '账号手机号已更新。' }); }
+    try {
+      // 手机号变更二次确认：微信一键授权返回授权码后，先弹确认框；
+      // 点取消不调接口、不改号；点确认才更新并记录授权时间。
+      const isChange = patient.phoneAuthorization === 'granted' && !!patient.phone;
+      if (!await confirmDialog(isChange ? '确认更新账号手机号' : '确认授权账号手机号', isChange ? '将使用本次微信授权的手机号更新账号手机号，原号码将被替换。确认更新？' : '将使用本次微信授权的手机号作为账号手机号。确认授权？', isChange ? '确认更新' : '确认授权')) { this.setData({ notice: '已取消，账号手机号保持不变。' }); return; }
+      this.accept(await patientApi.authorizePhone(event.detail.code, patient.version || 1, patient.id)); this.setData({ notice: '账号手机号已更新。' });
+    }
     catch (error) { await this.handleError(error); }
     finally { this.setData({ busy: false }); }
   },
