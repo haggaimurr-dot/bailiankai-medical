@@ -390,7 +390,12 @@ func (s *MySQL) FollowupQueue(ctx context.Context, f FollowupFilter) ([]model.Fo
 		return nil, 0, err
 	}
 	rows := make([]model.FollowupTask, 0)
-	err := q.Order("CASE followup_tasks.status WHEN 'alert' THEN 0 WHEN 'submitted' THEN 1 WHEN 'pending' THEN 2 ELSE 3 END, due_at, followup_tasks.id").Offset((f.Page - 1) * f.PageSize).Limit(f.PageSize).Find(&rows).Error
+	// Queue order: overdue unsubmitted tasks first (longest overdue first via
+	// due_at ASC), then abnormal tasks awaiting handling, then submitted
+	// awaiting review, then pending, then the rest; id is the deterministic
+	// tie-break. The cutoff is inlined as a literal because GORM's Order()
+	// silently drops clause.Expr values.
+	err := q.Order("CASE WHEN followup_tasks.status = 'pending' AND followup_tasks.due_at < '" + f.Now.Format("2006-01-02 15:04:05") + "' THEN 0 WHEN followup_tasks.status = 'alert' THEN 1 WHEN followup_tasks.status = 'submitted' THEN 2 WHEN followup_tasks.status = 'pending' THEN 3 ELSE 4 END, due_at, followup_tasks.id").Offset((f.Page - 1) * f.PageSize).Limit(f.PageSize).Find(&rows).Error
 	return rows, total, err
 }
 func (s *MySQL) FollowupTask(ctx context.Context, id, patientID string) (model.FollowupTask, error) {
