@@ -82,8 +82,11 @@ func TestKnowledgeLifecycleMySQL(t *testing.T) {
 	sourceOnly := input
 	sourceOnly.SourceText = "仅修改来源"
 	change(manager, "update", sourceOnly)
-	if article.ReviewStatus != "pending" || article.ReviewedAt != nil {
-		t.Fatal("source-only edit retained approval", article)
+	// Resubmission resets the status to pending but retains the last
+	// review's note, reviewer and time (89d74fc), so the author can
+	// revise against the rejection opinion.
+	if article.ReviewStatus != "pending" || article.ReviewedAt == nil || article.ReviewerName == "" {
+		t.Fatal("source-only edit should reset status but retain review", article)
 	}
 	public, err = f.repo.KnowledgeArticle(ctx, article.ID, true)
 	if err != nil || public.(model.KnowledgePublicArticle).SourceText != "来源第一版" {
@@ -93,8 +96,8 @@ func TestKnowledgeLifecycleMySQL(t *testing.T) {
 	input.Body = "未审正文"
 	input.SourceText = "未审来源"
 	change(manager, "update", input)
-	if article.ReviewStatus != "pending" || article.ReviewedAt != nil || article.ReviewerName != "" {
-		t.Fatal("editing did not clear review", article)
+	if article.ReviewStatus != "pending" || article.ReviewedAt == nil || article.ReviewerName == "" {
+		t.Fatal("editing should reset status but retain review", article)
 	}
 	pending, count, err := f.repo.KnowledgeArticles(manager, store.KnowledgeFilter{ReviewStatus: "pending", Status: "published", Page: 1, PageSize: 20})
 	if err != nil || count != 1 || pending.([]model.KnowledgeArticle)[0].ID != article.ID {
