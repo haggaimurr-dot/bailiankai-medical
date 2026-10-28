@@ -12,6 +12,14 @@ const form = ref<components['schemas']['MessageTemplateChange']>({ clinicId: '',
 const labels: Record<string, string> = { queued: '待发送', sending: '发送中', sent: '已发送', retry: '等待重试', blocked: '待授权', failed: '发送失败', unknown: '结果不明', cancelled: '已取消', merged: '已合并' }
 const mergeSetting = ref<components['schemas']['NotificationMergeSetting']>({ mergeWindowMinutes: 60, mergeEnabled: true, version: 1, updatedBy: null, updatedAt: '' })
 const mergeSaving = ref(false)
+const backlogSetting = ref<components['schemas']['NotificationBacklogSetting']>({ maxPending: 20, maxOldestMinutes: 30, version: 1, updatedBy: null, updatedAt: '' })
+const backlog = ref<components['schemas']['NotificationBacklog'] | null>(null)
+const backlogSaving = ref(false)
+async function saveBacklogSetting() {
+  backlogSaving.value = true; error.value = ''
+  try { backlogSetting.value = await api.saveNotificationBacklogSetting({ maxPending: backlogSetting.value.maxPending, maxOldestMinutes: backlogSetting.value.maxOldestMinutes, version: backlogSetting.value.version }); await load() }
+  catch (e) { error.value = errorMessage(e) } finally { backlogSaving.value = false }
+}
 async function saveMergeSetting() {
   mergeSaving.value = true; error.value = ''
   try { mergeSetting.value = await api.saveNotificationMergeSetting({ mergeWindowMinutes: mergeSetting.value.mergeWindowMinutes, mergeEnabled: mergeSetting.value.mergeEnabled, version: mergeSetting.value.version }); await load() }
@@ -28,8 +36,8 @@ function selectTemplate() {
 async function load() {
   loading.value = true; error.value = ''
   try {
-    const [ts, cs, queue, ms] = await Promise.all([api.messageTemplates(), api.clinics(), api.notificationQueue(status.value, page.value, category.value), api.notificationMergeSetting()])
-    templates.value = ts; clinics.value = cs.filter(c => auth.employee?.clinicIds.includes(c.id)); rows.value = queue.data; total.value = queue.meta.total; mergeSetting.value = ms
+    const [ts, cs, queue, ms, bs, bl] = await Promise.all([api.messageTemplates(), api.clinics(), api.notificationQueue(status.value, page.value, category.value), api.notificationMergeSetting(), api.notificationBacklogSetting(), api.notificationBacklog()])
+    templates.value = ts; clinics.value = cs.filter(c => auth.employee?.clinicIds.includes(c.id)); rows.value = queue.data; total.value = queue.meta.total; mergeSetting.value = ms; backlogSetting.value = bs; backlog.value = bl
     if (!form.value.clinicId && clinics.value[0]) { form.value.clinicId = clinics.value[0].id; selectTemplate() }
   } catch (e) { error.value = errorMessage(e) } finally { loading.value = false }
 }
@@ -70,6 +78,15 @@ onMounted(load)
     </el-form>
     <p>同一患者发送时间落在窗口内的普通提醒合并为一条摘要发送（只消耗一次订阅机会）；逾期提醒为紧急提醒，立即单独发送、不参与合并。关闭合并后普通提醒各自单独发送。</p>
     <el-button type="primary" :loading="mergeSaving" @click="saveMergeSetting">保存合并设置</el-button>
+  </el-card>
+  <el-card class="message-card"><template #header>队列积压告警</template>
+    <p v-if="backlog">当前待发送 {{ backlog.pendingCount }} 条<span v-if="backlog.oldestAgeMinutes !== null">，最老一条已等 {{ backlog.oldestAgeMinutes }} 分钟</span><el-tag v-if="backlog.breached" type="danger" style="margin-left: 8px">已超阈值</el-tag><el-tag v-else type="success" style="margin-left: 8px">正常</el-tag></p>
+    <el-form label-position="left" label-width="140px" class="template-grid">
+      <el-form-item label="积压条数阈值"><el-input-number v-model="backlogSetting.maxPending" :min="1" :max="1000" :disabled="backlogSaving" /></el-form-item>
+      <el-form-item label="最老等待（分钟）"><el-input-number v-model="backlogSetting.maxOldestMinutes" :min="1" :max="1440" :disabled="backlogSaving" /></el-form-item>
+    </el-form>
+    <p>待发送提醒（待发送与等待重试）达到条数阈值，或最老一条超过发送时间达到分钟阈值，工作台即向主管提示积压；队列恢复后提示自动解除。发送与重试逻辑不变。</p>
+    <el-button type="primary" :loading="backlogSaving" @click="saveBacklogSetting">保存告警阈值</el-button>
   </el-card>
   <el-card class="message-card"><template #header><div class="queue-header"><span>通知队列</span><div class="queue-filters"><el-select v-model="category" clearable placeholder="全部失败原因" :disabled="loading" @change="page = 1; load()"><el-option v-for="(label, key) in categoryLabels" :key="key" :label="label" :value="key" /></el-select><el-select v-model="status" clearable placeholder="全部状态" :disabled="loading" @change="page = 1; load()"><el-option v-for="(label, key) in labels" :key="key" :label="label" :value="key" /></el-select></div></div></template>
     <el-table v-loading="loading" :data="rows" empty-text="暂无通知；启用模板后自动生成临近到期的提醒">

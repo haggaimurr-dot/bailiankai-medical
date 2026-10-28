@@ -727,6 +727,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/messages/backlog-settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getNotificationBacklogSetting"];
+        put: operations["updateNotificationBacklogSetting"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/messages/backlog": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getNotificationBacklog"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/messages/queue": {
         parameters: {
             query?: never;
@@ -4481,6 +4513,37 @@ export interface components {
             updatedBy: string | null;
             /** Format: date-time */
             updatedAt: string;
+        };
+        NotificationBacklogSetting: {
+            /** @description 待发送提醒达到此条数即告警 */
+            maxPending: number;
+            /** @description 最老一条待发送提醒超过发送时间此分钟数即告警 */
+            maxOldestMinutes: number;
+            version: number;
+            updatedBy: string | null;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        NotificationBacklogSettingResult: {
+            data: components["schemas"]["NotificationBacklogSetting"];
+        };
+        NotificationBacklogSettingUpdate: {
+            maxPending: number;
+            maxOldestMinutes: number;
+            version: number;
+        };
+        NotificationBacklog: {
+            /** @description 待发送提醒条数（queued 与 retry 状态之和） */
+            pendingCount: number;
+            /** @description 最老一条待发送提醒超过发送时间的分钟数；队列为空时为 null */
+            oldestAgeMinutes: number | null;
+            maxPending: number;
+            maxOldestMinutes: number;
+            /** @description 任一阈值达到即为 true */
+            breached: boolean;
+        };
+        NotificationBacklogResult: {
+            data: components["schemas"]["NotificationBacklog"];
         };
         NotificationMergeSettingResult: {
             data: components["schemas"]["NotificationMergeSetting"];
@@ -8353,6 +8416,73 @@ export interface operations {
                     "application/json": components["schemas"]["ApiError"];
                 };
             };
+        };
+    };
+    getNotificationBacklogSetting: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 主管查看队列积压告警阈值 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationBacklogSettingResult"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    updateNotificationBacklogSetting: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NotificationBacklogSettingUpdate"];
+            };
+        };
+        responses: {
+            /** @description 主管更新队列积压告警阈值 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationBacklogSettingResult"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getNotificationBacklog: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 主管查看消息队列积压情况 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationBacklogResult"];
+                };
+            };
+            default: components["responses"]["Error"];
         };
     };
     listNotificationQueue: {

@@ -2580,6 +2580,49 @@ type NotificationAttempt struct {
 // NotificationAttemptFailureCategory 失败原因分类，由 code 归类；无失败时为空
 type NotificationAttemptFailureCategory string
 
+// NotificationBacklog defines model for NotificationBacklog.
+type NotificationBacklog struct {
+	// Breached 任一阈值达到即为 true
+	Breached         bool `json:"breached"`
+	MaxOldestMinutes int  `json:"maxOldestMinutes"`
+	MaxPending       int  `json:"maxPending"`
+
+	// OldestAgeMinutes 最老一条待发送提醒超过发送时间的分钟数；队列为空时为 null
+	OldestAgeMinutes *int `json:"oldestAgeMinutes"`
+
+	// PendingCount 待发送提醒条数（queued 与 retry 状态之和）
+	PendingCount int `json:"pendingCount"`
+}
+
+// NotificationBacklogResult defines model for NotificationBacklogResult.
+type NotificationBacklogResult struct {
+	Data NotificationBacklog `json:"data"`
+}
+
+// NotificationBacklogSetting defines model for NotificationBacklogSetting.
+type NotificationBacklogSetting struct {
+	// MaxOldestMinutes 最老一条待发送提醒超过发送时间此分钟数即告警
+	MaxOldestMinutes int `json:"maxOldestMinutes"`
+
+	// MaxPending 待发送提醒达到此条数即告警
+	MaxPending int       `json:"maxPending"`
+	UpdatedAt  time.Time `json:"updatedAt"`
+	UpdatedBy  *string   `json:"updatedBy"`
+	Version    int       `json:"version"`
+}
+
+// NotificationBacklogSettingResult defines model for NotificationBacklogSettingResult.
+type NotificationBacklogSettingResult struct {
+	Data NotificationBacklogSetting `json:"data"`
+}
+
+// NotificationBacklogSettingUpdate defines model for NotificationBacklogSettingUpdate.
+type NotificationBacklogSettingUpdate struct {
+	MaxOldestMinutes int `json:"maxOldestMinutes"`
+	MaxPending       int `json:"maxPending"`
+	Version          int `json:"version"`
+}
+
 // NotificationMergeSetting defines model for NotificationMergeSetting.
 type NotificationMergeSetting struct {
 	// MergeEnabled 关闭后普通提醒不再合并，各自单独发送
@@ -4146,6 +4189,9 @@ type CreateKnowledgeCategoryJSONRequestBody CreateKnowledgeCategoryJSONBody
 
 // UpdateKnowledgeCategoryJSONRequestBody defines body for UpdateKnowledgeCategory for application/json ContentType.
 type UpdateKnowledgeCategoryJSONRequestBody UpdateKnowledgeCategoryJSONBody
+
+// UpdateNotificationBacklogSettingJSONRequestBody defines body for UpdateNotificationBacklogSetting for application/json ContentType.
+type UpdateNotificationBacklogSettingJSONRequestBody = NotificationBacklogSettingUpdate
 
 // UpdateNotificationMergeSettingJSONRequestBody defines body for UpdateNotificationMergeSetting for application/json ContentType.
 type UpdateNotificationMergeSettingJSONRequestBody = NotificationMergeSettingUpdate

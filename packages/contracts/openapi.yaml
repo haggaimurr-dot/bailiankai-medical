@@ -182,6 +182,31 @@ paths:
   /api/v1/me/messages/templates: {"get": {"operationId": "listMeMessageTemplates", "security": [{"PatientBearer": []}], "responses": {"200": {"description": "消息操作结果", "content": {"application/json": {"schema": {"type": "object", "required": ["data"], "properties": {"data": {"type": "array", "items": {"$ref": "#/components/schemas/MessageTemplate"}}}}}}}, "400": {"description": "参数、权限、状态或服务错误", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ApiError"}}}}, "401": {"description": "参数、权限、状态或服务错误", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ApiError"}}}}, "403": {"description": "参数、权限、状态或服务错误", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ApiError"}}}}, "404": {"description": "参数、权限、状态或服务错误", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ApiError"}}}}, "409": {"description": "参数、权限、状态或服务错误", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ApiError"}}}}, "503": {"description": "参数、权限、状态或服务错误", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ApiError"}}}}}}}
   /api/v1/admin/messages/templates: {"get": {"operationId": "listAdminMessageTemplates", "security": [{"EmployeeBearer": []}], "responses": {"200": {"description": "消息操作结果", "content": {"application/json": {"schema": {"type": "object", "required": ["data"], "properties": {"data": {"type": "array", "items": {"$ref": "#/components/schemas/MessageTemplate"}}}}}}}, "400": {"description": "参数、权限、状态或服务错误", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ApiError"}}}}, "401": {"description": "参数、权限、状态或服务错误", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ApiError"}}}}, "403": {"description": "参数、权限、状态或服务错误", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ApiError"}}}}, "404": {"description": "参数、权限、状态或服务错误", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ApiError"}}}}, "409": {"description": "参数、权限、状态或服务错误", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ApiError"}}}}, "503": {"description": "参数、权限、状态或服务错误", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ApiError"}}}}}}, "put": {"operationId": "saveMessageTemplate", "security": [{"EmployeeBearer": []}], "responses": {"200": {"description": "消息操作结果", "content": {"application/json": {"schema": {"type": "object", "required": ["data"], "properties": {"data": {"$ref": "#/components/schemas/MessageTemplate"}}}}}}, "400": {"description": "参数、权限、状态或服务错误", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ApiError"}}}}, "401": {"description": "参数、权限、状态或服务错误", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ApiError"}}}}, "403": {"description": "参数、权限、状态或服务错误", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ApiError"}}}}, "404": {"description": "参数、权限、状态或服务错误", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ApiError"}}}}, "409": {"description": "参数、权限、状态或服务错误", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ApiError"}}}}, "503": {"description": "参数、权限、状态或服务错误", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ApiError"}}}}}, "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/MessageTemplateChange"}}}}}}
   /api/v1/me/messages/consents: {"get": {"operationId": "getMessageConsents", "security": [{"PatientBearer": []}], "responses": {"200": {"description": "消息操作结果", "content": {"application/json": {"schema": {"type": "object", "required": ["data"], "properties": {"data": {"type": "array", "items": {"$ref": "#/components/schemas/MessageConsent"}}}}}}}, "400": {"description": "参数、权限、状态或服务错误", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ApiError"}}}}, "401": {"description": "参数、权限、状态或服务错误", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ApiError"}}}}, "403": {"description": "参数、权限、状态或服务错误", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ApiError"}}}}, "404": {"description": "参数、权限、状态或服务错误", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ApiError"}}}}, "409": {"description": "参数、权限、状态或服务错误", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ApiError"}}}}, "503": {"description": "参数、权限、状态或服务错误", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ApiError"}}}}}}, "post": {"operationId": "setMessageConsent", "security": [{"PatientBearer": []}], "responses": {"200": {"description": "消息操作结果", "content": {"application/json": {"schema": {"type": "object", "required": ["data"], "properties": {"data": {"$ref": "#/components/schemas/MessageSaved"}}}}}}, "400": {"description": "参数、权限、状态或服务错误", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ApiError"}}}}, "401": {"description": "参数、权限、状态或服务错误", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ApiError"}}}}, "403": {"description": "参数、权限、状态或服务错误", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ApiError"}}}}, "404": {"description": "参数、权限、状态或服务错误", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ApiError"}}}}, "409": {"description": "参数、权限、状态或服务错误", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ApiError"}}}}, "503": {"description": "参数、权限、状态或服务错误", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ApiError"}}}}}, "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/MessageConsentChange"}}}}}}
+  /api/v1/admin/messages/backlog-settings:
+    get:
+      operationId: getNotificationBacklogSetting
+      security: [{EmployeeBearer: []}]
+      responses:
+        '200': {description: 主管查看队列积压告警阈值, content: {application/json: {schema: {$ref: '#/components/schemas/NotificationBacklogSettingResult'}}}}
+        default: {$ref: '#/components/responses/Error'}
+    put:
+      operationId: updateNotificationBacklogSetting
+      security: [{EmployeeBearer: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/NotificationBacklogSettingUpdate'}
+      responses:
+        '200': {description: 主管更新队列积压告警阈值, content: {application/json: {schema: {$ref: '#/components/schemas/NotificationBacklogSettingResult'}}}}
+        default: {$ref: '#/components/responses/Error'}
+  /api/v1/admin/messages/backlog:
+    get:
+      operationId: getNotificationBacklog
+      security: [{EmployeeBearer: []}]
+      responses:
+        '200': {description: 主管查看消息队列积压情况, content: {application/json: {schema: {$ref: '#/components/schemas/NotificationBacklogResult'}}}}
+        default: {$ref: '#/components/responses/Error'}
   /api/v1/admin/messages/queue: {"get": {"operationId": "listNotificationQueue", "security": [{"EmployeeBearer": []}], "responses": {"200": {"description": "消息操作结果", "content": {"application/json": {"schema": {"type": "object", "required": ["data", "meta"], "properties": {"data": {"type": "array", "items": {"$ref": "#/components/schemas/Notification"}}, "meta": {"type": "object", "required": ["page", "pageSize", "total"], "properties": {"page": {"type": "integer"}, "pageSize": {"type": "integer"}, "total": {"type": "integer"}}}}}}}}, "400": {"description": "参数、权限、状态或服务错误", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ApiError"}}}}, "401": {"description": "参数、权限、状态或服务错误", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ApiError"}}}}, "403": {"description": "参数、权限、状态或服务错误", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ApiError"}}}}, "404": {"description": "参数、权限、状态或服务错误", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ApiError"}}}}, "409": {"description": "参数、权限、状态或服务错误", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ApiError"}}}}, "503": {"description": "参数、权限、状态或服务错误", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ApiError"}}}}}, "parameters": [{"in": "query", "name": "status", "schema": {"type": "string"}}, {"in": "query", "name": "failureCategory", "schema": {"type": "string", "enum": ["authorization", "template", "rate_limit", "transient", "source", "other"]}}, {"in": "query", "name": "page", "schema": {"type": "integer"}}, {"in": "query", "name": "pageSize", "schema": {"type": "integer"}}]}}
   /api/v1/admin/messages/queue/{resourceId}/attempts: {"get": {"operationId": "listNotificationAttempts", "security": [{"EmployeeBearer": []}], "responses": {"200": {"description": "消息操作结果", "content": {"application/json": {"schema": {"type": "object", "required": ["data"], "properties": {"data": {"type": "array", "items": {"$ref": "#/components/schemas/NotificationAttempt"}}}}}}}, "400": {"description": "参数、权限、状态或服务错误", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ApiError"}}}}, "401": {"description": "参数、权限、状态或服务错误", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ApiError"}}}}, "403": {"description": "参数、权限、状态或服务错误", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ApiError"}}}}, "404": {"description": "参数、权限、状态或服务错误", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ApiError"}}}}, "409": {"description": "参数、权限、状态或服务错误", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ApiError"}}}}, "503": {"description": "参数、权限、状态或服务错误", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ApiError"}}}}}, "parameters": [{"in": "path", "name": "resourceId", "required": true, "schema": {"type": "string"}}]}}
   /api/v1/admin/messages/queue/{resourceId}/retry: {"post": {"operationId": "retryBlockedNotification", "security": [{"EmployeeBearer": []}], "responses": {"200": {"description": "消息操作结果", "content": {"application/json": {"schema": {"type": "object", "required": ["data"], "properties": {"data": {"$ref": "#/components/schemas/MessageSaved"}}}}}}, "400": {"description": "参数、权限、状态或服务错误", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ApiError"}}}}, "401": {"description": "参数、权限、状态或服务错误", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ApiError"}}}}, "403": {"description": "参数、权限、状态或服务错误", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ApiError"}}}}, "404": {"description": "参数、权限、状态或服务错误", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ApiError"}}}}, "409": {"description": "参数、权限、状态或服务错误", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ApiError"}}}}, "503": {"description": "参数、权限、状态或服务错误", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ApiError"}}}}}, "parameters": [{"in": "path", "name": "resourceId", "required": true, "schema": {"type": "string"}}]}}
@@ -4213,6 +4238,41 @@ components:
         version: {type: integer, minimum: 1}
         updatedBy: {type: string, nullable: true}
         updatedAt: {type: string, format: date-time}
+    NotificationBacklogSetting:
+      type: object
+      required: [maxPending, maxOldestMinutes, version, updatedBy, updatedAt]
+      properties:
+        maxPending: {type: integer, minimum: 1, maximum: 1000, description: 待发送提醒达到此条数即告警}
+        maxOldestMinutes: {type: integer, minimum: 1, maximum: 1440, description: 最老一条待发送提醒超过发送时间此分钟数即告警}
+        version: {type: integer, minimum: 1}
+        updatedBy: {type: string, nullable: true}
+        updatedAt: {type: string, format: date-time}
+    NotificationBacklogSettingResult:
+      type: object
+      required: [data]
+      properties:
+        data: {$ref: '#/components/schemas/NotificationBacklogSetting'}
+    NotificationBacklogSettingUpdate:
+      type: object
+      required: [maxPending, maxOldestMinutes, version]
+      properties:
+        maxPending: {type: integer, minimum: 1, maximum: 1000}
+        maxOldestMinutes: {type: integer, minimum: 1, maximum: 1440}
+        version: {type: integer, minimum: 1}
+    NotificationBacklog:
+      type: object
+      required: [pendingCount, oldestAgeMinutes, maxPending, maxOldestMinutes, breached]
+      properties:
+        pendingCount: {type: integer, description: 待发送提醒条数（queued 与 retry 状态之和）}
+        oldestAgeMinutes: {type: integer, nullable: true, description: 最老一条待发送提醒超过发送时间的分钟数；队列为空时为 null}
+        maxPending: {type: integer}
+        maxOldestMinutes: {type: integer}
+        breached: {type: boolean, description: 任一阈值达到即为 true}
+    NotificationBacklogResult:
+      type: object
+      required: [data]
+      properties:
+        data: {$ref: '#/components/schemas/NotificationBacklog'}
     NotificationMergeSettingResult:
       type: object
       required: [data]

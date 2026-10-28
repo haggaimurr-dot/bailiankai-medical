@@ -27,6 +27,9 @@ type NotificationRepository interface {
 	RetryNotification(context.Context, string, time.Time) error
 	NotificationMergeSetting(context.Context) (model.NotificationMergeSetting, error)
 	UpdateNotificationMergeSetting(context.Context, int, bool, int, string, time.Time) (model.NotificationMergeSetting, error)
+	NotificationBacklogSetting(context.Context) (model.NotificationBacklogSetting, error)
+	UpdateNotificationBacklogSetting(context.Context, int, int, int, string, time.Time) (model.NotificationBacklogSetting, error)
+	NotificationBacklog(context.Context, time.Time) (model.NotificationBacklog, error)
 	PatientMessages(context.Context, string, int, int) ([]model.PatientMessage, int64, error)
 	UnreadPatientMessageCount(context.Context, string) (int64, error)
 	MarkPatientMessageRead(context.Context, string, string, time.Time) error
@@ -107,6 +110,68 @@ func (s *MySQL) UpdateNotificationMergeSetting(ctx context.Context, windowMinute
 		return tx.Save(&setting).Error
 	})
 	return setting, err
+}
+
+// NotificationBacklogSetting returns the global queue-backlog alert
+// threshold (singleton id=1, seeded by migration 00083: 20 pending or the
+// oldest waiting 30 minutes past its send time).
+func (s *MySQL) NotificationBacklogSetting(ctx context.Context) (model.NotificationBacklogSetting, error) {
+	var setting model.NotificationBacklogSetting
+	err := s.db.WithContext(ctx).Where("id = 1").First(&setting).Error
+	return setting, err
+}
+
+func (s *MySQL) UpdateNotificationBacklogSetting(ctx context.Context, maxPending, maxOldestMinutes, version int, actorID string, now time.Time) (model.NotificationBacklogSetting, error) {
+	var setting model.NotificationBacklogSetting
+	if maxPending < 1 || maxPending > 1000 || maxOldestMinutes < 1 || maxOldestMinutes > 1440 || version < 1 {
+		return setting, ErrCareState
+	}
+	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id = 1").First(&setting).Error; err != nil {
+			return err
+		}
+		if setting.Version != version {
+			return ErrConflict
+		}
+		if setting.MaxPending == maxPending && setting.MaxOldestMinutes == maxOldestMinutes {
+			return nil
+		}
+		setting.MaxPending = maxPending
+		setting.MaxOldestMinutes = maxOldestMinutes
+		setting.Version++
+		setting.UpdatedBy = &actorID
+		setting.UpdatedAt = now
+		return tx.Save(&setting).Error
+	})
+	return setting, err
+}
+
+// NotificationBacklog snapshots the unsent queue: queued + retry rows are
+// the backlog (merged rows ride on their digest, sent/failed/cancelled rows
+// are no longer waiting). The oldest age counts minutes past the oldest
+// row's send time and is nil when the queue is empty.
+func (s *MySQL) NotificationBacklog(ctx context.Context, now time.Time) (model.NotificationBacklog, error) {
+	setting, err := s.NotificationBacklogSetting(ctx)
+	if err != nil {
+		return model.NotificationBacklog{}, err
+	}
+	var row struct {
+		Count  int64
+		Oldest *time.Time
+	}
+	if err := s.db.WithContext(ctx).Table("notifications").Select("COUNT(*) AS count, MIN(send_at) AS oldest").Where("status IN ?", []string{"queued", "retry"}).Scan(&row).Error; err != nil {
+		return model.NotificationBacklog{}, err
+	}
+	backlog := model.NotificationBacklog{PendingCount: int(row.Count), MaxPending: setting.MaxPending, MaxOldestMinutes: setting.MaxOldestMinutes}
+	if row.Oldest != nil {
+		age := int(now.Sub(*row.Oldest).Minutes())
+		if age < 0 {
+			age = 0
+		}
+		backlog.OldestAgeMinutes = &age
+	}
+	backlog.Breached = backlog.PendingCount >= setting.MaxPending || (backlog.OldestAgeMinutes != nil && *backlog.OldestAgeMinutes >= setting.MaxOldestMinutes)
+	return backlog, nil
 }
 
 func (s *MySQL) MessageConsents(ctx context.Context, patient string) ([]model.MessageConsent, error) {

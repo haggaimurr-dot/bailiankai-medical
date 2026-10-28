@@ -17,6 +17,14 @@ func mergeSettingDTO(row model.NotificationMergeSetting) gin.H {
 	return gin.H{"mergeWindowMinutes": row.MergeWindowMinutes, "mergeEnabled": row.MergeEnabled, "version": row.Version, "updatedBy": row.UpdatedBy, "updatedAt": row.UpdatedAt}
 }
 
+func backlogSettingDTO(row model.NotificationBacklogSetting) gin.H {
+	return gin.H{"maxPending": row.MaxPending, "maxOldestMinutes": row.MaxOldestMinutes, "version": row.Version, "updatedBy": row.UpdatedBy, "updatedAt": row.UpdatedAt}
+}
+
+func backlogDTO(row model.NotificationBacklog) gin.H {
+	return gin.H{"pendingCount": row.PendingCount, "oldestAgeMinutes": row.OldestAgeMinutes, "maxPending": row.MaxPending, "maxOldestMinutes": row.MaxOldestMinutes, "breached": row.Breached}
+}
+
 func (a *API) registerNotificationRoutes(r *gin.Engine) {
 	available := func(c *gin.Context) {
 		c.Header("Cache-Control", "no-store")
@@ -166,6 +174,42 @@ func (a *API) registerNotificationRoutes(r *gin.Engine) {
 			return
 		}
 		c.JSON(200, gin.H{"data": mergeSettingDTO(row)})
+	})
+	admin.GET("/backlog-settings", func(c *gin.Context) {
+		row, err := a.repo.(store.NotificationRepository).NotificationBacklogSetting(c.Request.Context())
+		if err != nil {
+			knowledgeFailure(c, err)
+			return
+		}
+		c.JSON(200, gin.H{"data": backlogSettingDTO(row)})
+	})
+	admin.PUT("/backlog-settings", func(c *gin.Context) {
+		var body struct {
+			MaxPending       int `json:"maxPending"`
+			MaxOldestMinutes int `json:"maxOldestMinutes"`
+			Version          int `json:"version"`
+		}
+		if !decodeObject(c, &body, []string{"maxPending", "maxOldestMinutes", "version"}, nil) {
+			return
+		}
+		if body.MaxPending < 1 || body.MaxPending > 1000 || body.MaxOldestMinutes < 1 || body.MaxOldestMinutes > 1440 || body.Version < 1 {
+			fail(c, 400, "INVALID_BACKLOG_SETTING", "积压条数须为 1–1000，最老等待须为 1–1440 分钟")
+			return
+		}
+		row, err := a.repo.(store.NotificationRepository).UpdateNotificationBacklogSetting(c.Request.Context(), body.MaxPending, body.MaxOldestMinutes, body.Version, currentEmployee(c).ID, a.now())
+		if err != nil {
+			knowledgeFailure(c, err)
+			return
+		}
+		c.JSON(200, gin.H{"data": backlogSettingDTO(row)})
+	})
+	admin.GET("/backlog", func(c *gin.Context) {
+		row, err := a.repo.(store.NotificationRepository).NotificationBacklog(c.Request.Context(), a.now())
+		if err != nil {
+			knowledgeFailure(c, err)
+			return
+		}
+		c.JSON(200, gin.H{"data": backlogDTO(row)})
 	})
 	admin.GET("/queue", func(c *gin.Context) {
 		if !validQuery(c, "status", "failureCategory", "page", "pageSize") {

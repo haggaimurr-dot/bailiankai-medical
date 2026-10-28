@@ -85,6 +85,32 @@ type NotificationMergeSetting struct {
 	UpdatedBy          *string   `json:"updatedBy"`
 	UpdatedAt          time.Time `json:"updatedAt"`
 }
+// NotificationBacklogSetting is the queue-backlog alert threshold
+// (P2 后端-消息队列：队列积压告警）: alert the manager when the number of
+// unsent reminders (queued + retry) reaches MaxPending, or the oldest
+// unsent reminder has waited MaxOldestMinutes past its send time.
+// Singleton row id=1, like the merge and handoff settings.
+type NotificationBacklogSetting struct {
+	ID               int       `gorm:"primaryKey"`
+	MaxPending       int       `json:"maxPending"`
+	MaxOldestMinutes int       `json:"maxOldestMinutes"`
+	Version          int       `json:"version"`
+	UpdatedBy        *string   `json:"updatedBy"`
+	UpdatedAt        time.Time `json:"updatedAt"`
+}
+
+// NotificationBacklog is the live queue snapshot behind the alert: how many
+// reminders are waiting to be sent and how long the oldest one has waited.
+// Breached is true when either threshold is reached. It is computed at
+// read time and never persisted.
+type NotificationBacklog struct {
+	PendingCount     int  `json:"pendingCount"`
+	OldestAgeMinutes *int `json:"oldestAgeMinutes"`
+	MaxPending       int  `json:"maxPending"`
+	MaxOldestMinutes int  `json:"maxOldestMinutes"`
+	Breached         bool `json:"breached"`
+}
+
 type NotificationAttempt struct {
 	ID             string    `gorm:"primaryKey" json:"id"`
 	NotificationID string    `json:"notificationId"`
