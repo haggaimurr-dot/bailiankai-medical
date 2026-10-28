@@ -42,7 +42,13 @@ const comparisonRows = computed(() => {
 })
 const visibleComparisonRows = computed(() => comparisonRows.value.filter(row => !onlyChanges.value || row.changed))
 const changedCount = computed(() => comparisonRows.value.filter(row => row.changed).length)
-const editorDirty = computed(() => JSON.stringify(content()) !== JSON.stringify(workspace.value.draft || latestFrom(workspace.value.versions)?.content || { summary: '', stages: [{ title: '', body: '' }], instructions: '' }))
+const editorDirty = computed(() => {
+  const base = workspace.value.draft || latestFrom(workspace.value.versions)?.content || { summary: '', stages: [{ title: '', body: '' }], instructions: '' }
+  // 服务端 draft 由 Go map 序列化，键序与本地 content() 不同；直接 JSON.stringify 比较永真，
+  // 会导致自动保存死循环且发布按钮一直禁用。先按同一字段顺序规范化再比较。
+  const normalized: CarePlanContent = { summary: base.summary || '', stages: (base.stages?.length ? base.stages : [{ title: '', body: '' }]).map(s => ({ title: s.title || '', body: s.body || '' })), instructions: base.instructions || '' }
+  return JSON.stringify(content()) !== JSON.stringify(normalized)
+})
 
 const conflictRows = computed(() => {
   if (!conflict.value) return []
@@ -243,6 +249,8 @@ async function saveDraft(silent = false) {
 
 async function openConflict() {
   if (!selected.value) return
+  if (autosaveTimer) clearTimeout(autosaveTimer)
+  autosaveTimer = undefined
   try {
     const plan = await api.carePlan(selected.value.id)
     const server = plan.draft || latestFrom(plan.versions)?.content || { summary: '', stages: [{ title: '', body: '' }], instructions: '' }
