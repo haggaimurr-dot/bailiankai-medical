@@ -35,7 +35,7 @@ const cards = computed(() => [
   ] : []),
   { title: '随访待回评', count: submitted.value, detail: '查看患者反馈并提交医护回评', to: '/followups?status=submitted', level: 2 as const },
   { title: '异常待处理', count: alerts.value, detail: '核实异常并记录处理结果', to: '/followups?status=alert', level: 1 as const },
-  ...(canExportJobs.value ? [{ title: '档案导出', count: exportInProgress.value === null ? null : exportInProgress.value + (exportReady.value ?? 0) + (exportFailed.value ?? 0), detail: exportDetail.value, to: '/patients?exports=open', level: (((exportReady.value ?? 0) > 0 || (exportFailed.value ?? 0) > 0) ? 2 : 3) as const }] : []),
+  ...(canExportJobs.value ? [{ title: '档案导出', count: exportInProgress.value === null ? null : exportInProgress.value + (exportReady.value ?? 0) + (exportFailed.value ?? 0), detail: exportDetail.value, to: '/patients?exports=open', level: (((exportReady.value ?? 0) > 0 || (exportFailed.value ?? 0) > 0) ? 2 : 3) as 2 | 3 }] : []),
 ].sort((a, b) => a.level - b.level))
 function timestamp(value: string) { return new Intl.DateTimeFormat('zh-CN', { timeZone: 'Asia/Shanghai', dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value)) }
 async function loadNotifications() {
