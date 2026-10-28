@@ -16,10 +16,25 @@ type PatientRecordSummary struct {
 	DisplayName      string              `json:"displayName"`
 	CreatedAt        time.Time           `json:"createdAt"`
 	AppointmentCount int64               `json:"appointmentCount"`
+	// Phone 仅用于服务端脱敏，不序列化；PhoneMasked 为脱敏后展示值。
+	Phone      string `json:"-"`
+	PhoneMasked string `json:"phoneMasked,omitempty"`
+}
+
+// maskPhone 脱敏手机号：11 位显示前 3 位 + **** + 后 4 位；8-10 位同理；
+// 7 位及以下不保留任何数字，只显示 ****，避免短号被反推。
+func maskPhone(phone string) string {
+	if phone == "" {
+		return ""
+	}
+	if len(phone) > 7 {
+		return phone[:3] + "****" + phone[len(phone)-4:]
+	}
+	return "****"
 }
 
 type PatientRecordRepository interface {
-	PatientDirectory(context.Context, string, int, int) ([]PatientRecordSummary, int64, error)
+	PatientDirectory(context.Context, string, int, int, string) ([]PatientRecordSummary, int64, error)
 	PatientRecordAppointments(context.Context, string) (PatientRecordSummary, []model.Appointment, error)
 	PatientConsultations(context.Context, string, ...DateRange) ([]model.Consultation, error)
 	CreateConsultation(context.Context, model.Consultation) (model.Consultation, error)
@@ -45,13 +60,13 @@ func (s *MySQL) patientDirectoryQuery(ctx context.Context) *gorm.DB {
 	return query
 }
 
-func (s *MySQL) PatientDirectory(ctx context.Context, search string, page, size int) ([]PatientRecordSummary, int64, error) {
-	return s.patientDirectory(ctx, search, page, size, "")
+func (s *MySQL) PatientDirectory(ctx context.Context, search string, page, size int, phoneLast4 string) ([]PatientRecordSummary, int64, error) {
+	return s.patientDirectory(ctx, search, page, size, "", phoneLast4)
 }
-func (s *MySQL) PatientDirectoryWithTag(ctx context.Context, search string, page, size int, tag string) ([]PatientRecordSummary, int64, error) {
-	return s.patientDirectory(ctx, search, page, size, tag)
+func (s *MySQL) PatientDirectoryWithTag(ctx context.Context, search string, page, size int, tag string, phoneLast4 string) ([]PatientRecordSummary, int64, error) {
+	return s.patientDirectory(ctx, search, page, size, tag, phoneLast4)
 }
-func (s *MySQL) patientDirectory(ctx context.Context, search string, page, size int, tag string) ([]PatientRecordSummary, int64, error) {
+func (s *MySQL) patientDirectory(ctx context.Context, search string, page, size int, tag string, phoneLast4 string) ([]PatientRecordSummary, int64, error) {
 	query := s.patientDirectoryQuery(ctx)
 	if tag != "" {
 		charts := clinicScope(ctx, s.db.WithContext(ctx).Table("patient_charts"), "clinic_id").Where("JSON_CONTAINS(tags, ?) = 1", jsonTags([]string{tag}))
@@ -61,12 +76,21 @@ func (s *MySQL) patientDirectory(ctx context.Context, search string, page, size 
 		escaped := strings.NewReplacer("!", "!!", "%", "!%", "_", "!_").Replace(search)
 		query = query.Where("(patients.display_name LIKE ? ESCAPE '!' OR patients.id = ?)", "%"+escaped+"%", search)
 	}
+	if phoneLast4 != "" {
+		query = query.Where("RIGHT(patients.phone, 4) = ?", phoneLast4)
+	}
 	var total int64
 	rows := make([]PatientRecordSummary, 0)
 	if err := query.Count(&total).Error; err != nil {
 		return rows, total, err
 	}
-	err := query.Select("patients.id, patients.display_name, patients.created_at, (patients.wechat_open_id IS NOT NULL) AS wechat_bound, (?) AS appointment_count", s.patientAppointmentsQuery(ctx).Select("COUNT(*)").Where("appointments.patient_id = patients.id")).Order("patients.created_at DESC, patients.id").Offset((page - 1) * size).Limit(size).Scan(&rows).Error
+	err := query.Select("patients.id, patients.display_name, patients.created_at, patients.phone, (patients.wechat_open_id IS NOT NULL) AS wechat_bound, (?) AS appointment_count", s.patientAppointmentsQuery(ctx).Select("COUNT(*)").Where("appointments.patient_id = patients.id")).Order("patients.created_at DESC, patients.id").Offset((page - 1) * size).Limit(size).Scan(&rows).Error
+	if err == nil {
+		for i := range rows {
+			rows[i].PhoneMasked = maskPhone(rows[i].Phone)
+			rows[i].Phone = ""
+		}
+	}
 	if err == nil && len(rows) > 0 {
 		ids := make([]string, 0, len(rows))
 		for _, row := range rows {
@@ -89,7 +113,9 @@ func (s *MySQL) patientDirectory(ctx context.Context, search string, page, size 
 func (s *MySQL) PatientRecordAppointments(ctx context.Context, id string) (PatientRecordSummary, []model.Appointment, error) {
 	var patient PatientRecordSummary
 	rows := make([]model.Appointment, 0)
-	result := s.patientDirectoryQuery(ctx).Select("patients.id, patients.display_name, patients.created_at, (patients.wechat_open_id IS NOT NULL) AS wechat_bound").Where("patients.id = ?", id).Scan(&patient)
+	result := s.patientDirectoryQuery(ctx).Select("patients.id, patients.display_name, patients.created_at, patients.phone, (patients.wechat_open_id IS NOT NULL) AS wechat_bound").Where("patients.id = ?", id).Scan(&patient)
+	patient.PhoneMasked = maskPhone(patient.Phone)
+	patient.Phone = ""
 	if result.Error != nil {
 		return patient, rows, result.Error
 	}

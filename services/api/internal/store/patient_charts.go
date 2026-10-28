@@ -10,7 +10,7 @@ import (
 )
 
 type PatientChartRepository interface {
-	PatientDirectoryWithTag(context.Context, string, int, int, string) ([]PatientRecordSummary, int64, error)
+	PatientDirectoryWithTag(context.Context, string, int, int, string, string) ([]PatientRecordSummary, int64, error)
 	CreatePatientChart(context.Context, string, model.PatientChart, time.Time) (PatientRecordSummary, error)
 	SavePatientChart(context.Context, string, model.PatientChart) (model.PatientChart, error)
 	ConsultationTemplates(context.Context) ([]model.ConsultationTemplate, error)

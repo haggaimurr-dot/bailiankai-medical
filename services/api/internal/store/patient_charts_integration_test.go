@@ -26,7 +26,7 @@ func TestPatientChartsWithoutAppointments(t *testing.T) {
 		f.db.Where("id = ?", patient.ID).Delete(&model.Patient{})
 	})
 	for _, allowed := range []context.Context{doctor, manager} {
-		rows, total, err := f.repo.PatientDirectory(allowed, "独立档案", 1, 20)
+		rows, total, err := f.repo.PatientDirectory(allowed, "独立档案", 1, 20, "")
 		if err != nil || total != 1 || len(rows) != 1 || rows[0].Profile == nil || rows[0].AppointmentCount != 0 {
 			t.Fatalf("direct directory: %+v %d %v", rows, total, err)
 		}
@@ -46,11 +46,11 @@ func TestPatientChartsWithoutAppointments(t *testing.T) {
 	if _, err := f.repo.CreateConsultation(outsider, model.Consultation{PatientID: patient.ID, ClinicID: "clinic-demo", RecordedAt: f.now}); !errors.Is(err, store.ErrNotFound) {
 		t.Fatal("outsider wrote consultation", err)
 	}
-	tagged, total, err := f.repo.PatientDirectoryWithTag(manager, "", 1, 20, "敏感肌")
+	tagged, total, err := f.repo.PatientDirectoryWithTag(manager, "", 1, 20, "敏感肌", "")
 	if err != nil || total != 1 || len(tagged) != 1 {
 		t.Fatal("tag filter failed", err)
 	}
-	_, total, err = f.repo.PatientDirectoryWithTag(manager, "", 1, 20, "不存在")
+	_, total, err = f.repo.PatientDirectoryWithTag(manager, "", 1, 20, "不存在", "")
 	if err != nil || total != 0 {
 		t.Fatal("tag filter returned unmatched patients", err)
 	}

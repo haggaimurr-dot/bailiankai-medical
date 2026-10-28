@@ -2849,11 +2849,14 @@ type PatientRecord struct {
 
 // PatientRecordSummary defines model for PatientRecordSummary.
 type PatientRecordSummary struct {
-	AppointmentCount int           `json:"appointmentCount"`
-	CreatedAt        time.Time     `json:"createdAt"`
-	DisplayName      string        `json:"displayName"`
-	Id               string        `json:"id"`
-	Profile          *PatientChart `json:"profile,omitempty"`
+	AppointmentCount int       `json:"appointmentCount"`
+	CreatedAt        time.Time `json:"createdAt"`
+	DisplayName      string    `json:"displayName"`
+	Id               string    `json:"id"`
+
+	// PhoneMasked 脱敏手机号，如 138****1005；无手机号为空
+	PhoneMasked *string       `json:"phoneMasked,omitempty"`
+	Profile     *PatientChart `json:"profile,omitempty"`
 
 	// WechatBound 是否已绑定微信身份
 	WechatBound *bool `json:"wechatBound,omitempty"`
@@ -3633,10 +3636,13 @@ type ListNotificationQueueParamsFailureCategory string
 // ListPatientRecordsParams defines parameters for ListPatientRecords.
 type ListPatientRecordsParams struct {
 	// Tag 精确匹配患者标签，可跨页筛选
-	Tag      *string `form:"tag,omitempty" json:"tag,omitempty"`
-	Search   *string `form:"search,omitempty" json:"search,omitempty"`
-	Page     *int    `form:"page,omitempty" json:"page,omitempty"`
-	PageSize *int    `form:"pageSize,omitempty" json:"pageSize,omitempty"`
+	Tag    *string `form:"tag,omitempty" json:"tag,omitempty"`
+	Search *string `form:"search,omitempty" json:"search,omitempty"`
+
+	// PhoneLast4 手机号后四位，与姓名/编号/标签组合筛选
+	PhoneLast4 *string `form:"phoneLast4,omitempty" json:"phoneLast4,omitempty"`
+	Page       *int    `form:"page,omitempty" json:"page,omitempty"`
+	PageSize   *int    `form:"pageSize,omitempty" json:"pageSize,omitempty"`
 }
 
 // GetPatientRecordParams defines parameters for GetPatientRecord.

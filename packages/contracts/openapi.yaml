@@ -551,6 +551,7 @@ paths:
       parameters:
         - { name: tag, in: query, schema: { type: string, maxLength: 24 }, description: 精确匹配患者标签，可跨页筛选 }
         - { name: search, in: query, schema: { type: string, maxLength: 64 } }
+        - { name: phoneLast4, in: query, schema: { type: string, pattern: '^[0-9]{4}$' }, description: 手机号后四位，与姓名/编号/标签组合筛选 }
         - { name: page, in: query, schema: { type: integer, minimum: 1, maximum: 100000, default: 1 } }
         - { name: pageSize, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
       responses:
@@ -3023,6 +3024,7 @@ components:
         displayName: { type: string }
         createdAt: { type: string, format: date-time }
         appointmentCount: { type: integer }
+        phoneMasked: { type: string, description: 脱敏手机号，如 138****1005；无手机号为空 }
         profile: {$ref: '#/components/schemas/PatientChart'}
     PatientDirectoryPage:
       type: object

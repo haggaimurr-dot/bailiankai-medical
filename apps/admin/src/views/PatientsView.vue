@@ -25,6 +25,9 @@ const tagFilter = ref('')
 const visiblePatients = computed(() => patients.value)
 const availableTags = computed(() => [...new Set(patients.value.flatMap(patient => patient.profile?.tags || []))])
 const search = ref('')
+const phoneLast4 = ref('')
+// 脱敏手机号：11 位显示前 3 位 + **** + 后 4 位；7 位及以下只显示 ****
+const maskPhone = (value: string) => value && value.length > 7 ? value.slice(0, 3) + '****' + value.slice(-4) : value ? '****' : ''
 const page = ref(1)
 const total = ref(0)
 const selectedPatientIds = ref<string[]>([])
@@ -87,7 +90,7 @@ async function loadList() {
   loading.value = true
   error.value = ''
   try {
-    const result = await api.patients(search.value.trim(), page.value, tagFilter.value)
+    const result = await api.patients(search.value.trim(), page.value, tagFilter.value, phoneLast4.value.replace(/\D/g, '').slice(0, 4))
     if (version !== listVersion) return
     patients.value = result.data
     selectedPatientIds.value = selectedPatientIds.value.filter(id => result.data.some(patient => patient.id === id))
@@ -198,20 +201,20 @@ onBeforeUnmount(() => { requestVersion++; listVersion++; releasePhotos() })
   <div class="patient-layout">
     <section class="panel patient-directory" v-loading="loading">
       <h2>患者目录 <small>{{ total }} 位</small></h2>
-      <form class="patient-search" @submit.prevent="applySearch"><el-input v-model="search" placeholder="姓名 / 患者编号" clearable maxlength="64" /><el-button native-type="submit">搜索</el-button></form>
+      <form class="patient-search" @submit.prevent="applySearch"><el-input v-model="search" placeholder="姓名 / 患者编号" clearable maxlength="64" /><el-input v-model="phoneLast4" placeholder="手机号后四位" clearable maxlength="4" inputmode="numeric" class="phone-last4" @input="phoneLast4 = phoneLast4.replace(/\D/g, '').slice(0, 4)" /><el-button native-type="submit">搜索</el-button></form>
       <el-select aria-label="患者标签筛选" v-model="tagFilter" clearable filterable allow-create default-first-option placeholder="按患者标签筛选" class="tag-filter" @change="applySearch"><el-option v-for="tag in availableTags" :key="tag" :value="tag" :label="tag" /></el-select>
       <div v-if="canExport && patients.length" class="patient-selection"><el-checkbox :model-value="allVisibleSelected" :indeterminate="selectedPatients.length > 0 && !allVisibleSelected" @change="selectVisible">选择本页患者</el-checkbox><el-button size="small" :disabled="!selectedPatients.length" @click="recordExports?.openCreate('selected')">导出已选（{{ selectedPatients.length }}）</el-button><small>每次最多导出 20 位患者</small></div>
       <el-empty v-if="!loading && !visiblePatients.length" description="暂无匹配患者" />
       <div v-for="patient in visiblePatients" :key="patient.id" class="patient-directory-item"><el-checkbox v-if="canExport" :model-value="selectedPatientIds.includes(patient.id)" :aria-label="'选择患者 ' + (patient.displayName || patient.id)" :disabled="!selectedPatientIds.includes(patient.id) && selectedPatientIds.length >= 20" @change="togglePatientSelection(patient.id, $event)" /><button class="patient-row" :class="{ active: record?.patient.id === patient.id }" :disabled="saving" @click="selectPatient(patient.id)">
-        <strong>{{ patient.displayName || '未设置姓名' }}</strong><span>{{ patient.appointmentCount }} 次预约</span><small>{{ patient.id }} · {{ patient.wechatBound ? '已绑定微信' : '未绑定微信' }}</small><div class="patient-tags"><el-tag v-for="tag in patient.profile?.tags" :key="tag" size="small">{{ tag }}</el-tag></div>
+        <strong>{{ patient.displayName || '未设置姓名' }}</strong><span>{{ patient.appointmentCount }} 次预约</span><span v-if="patient.phoneMasked">手机号：{{ patient.phoneMasked }}</span><small>{{ patient.id }} · {{ patient.wechatBound ? '已绑定微信' : '未绑定微信' }}</small><div class="patient-tags"><el-tag v-for="tag in patient.profile?.tags" :key="tag" size="small">{{ tag }}</el-tag></div>
       </button></div>
       <el-pagination v-if="total > 20" v-model:current-page="page" :total="total" :page-size="20" layout="prev, pager, next" small @current-change="loadList" />
     </section>
     <section class="panel patient-detail" v-loading="detailLoading">
       <el-empty v-if="!record && !detailLoading" description="从患者目录选择患者，查看完整档案" />
       <template v-if="record">
-        <header class="patient-header"><div><h2>{{ record.patient.displayName || '未设置姓名' }}</h2><p>患者编号：{{ record.patient.id }}</p><p>建档时间：{{ formatTime(record.patient.createdAt) }}</p></div><div class="record-header-actions"><el-tag :type="record.patient.wechatBound ? 'success' : 'info'">{{ record.patient.wechatBound ? '已绑定微信' : '未绑定微信' }}</el-tag><el-button v-if="canWrite && record.patient.profile" :disabled="saving" @click="bindingDialog?.open(record.patient)">微信身份绑定</el-button><el-button v-if="canWrite" :disabled="saving" @click="chartDialog?.open(record.patient, consultationClinicId)">编辑资料 / 标签</el-button><el-button v-if="canExport" @click="recordExports?.openCreate('current')">导出此档案</el-button></div></header>
-        <div v-if="record.patient.profile" class="patient-profile"><span>性别：{{ { unknown: '未填写', female: '女', male: '男' }[record.patient.profile.gender] }}</span><span>出生日期：{{ record.patient.profile.birthDate || '未填写' }}</span><span>联系手机号：{{ record.patient.profile.contactPhone || '未填写' }}</span></div>
+        <header class="patient-header"><div><h2>{{ record.patient.displayName || '未设置姓名' }}</h2><p>患者编号：{{ record.patient.id }}</p><p v-if="record.patient.phoneMasked">手机号：{{ record.patient.phoneMasked }}</p><p>建档时间：{{ formatTime(record.patient.createdAt) }}</p></div><div class="record-header-actions"><el-tag :type="record.patient.wechatBound ? 'success' : 'info'">{{ record.patient.wechatBound ? '已绑定微信' : '未绑定微信' }}</el-tag><el-button v-if="canWrite && record.patient.profile" :disabled="saving" @click="bindingDialog?.open(record.patient)">微信身份绑定</el-button><el-button v-if="canWrite" :disabled="saving" @click="chartDialog?.open(record.patient, consultationClinicId)">编辑资料 / 标签</el-button><el-button v-if="canExport" @click="recordExports?.openCreate('current')">导出此档案</el-button></div></header>
+        <div v-if="record.patient.profile" class="patient-profile"><span>性别：{{ { unknown: '未填写', female: '女', male: '男' }[record.patient.profile.gender] }}</span><span>出生日期：{{ record.patient.profile.birthDate || '未填写' }}</span><span>联系手机号：{{ maskPhone(record.patient.profile.contactPhone) || '未填写' }}</span></div>
         <div class="patient-tags"><el-tag v-for="tag in record.patient.profile?.tags" :key="tag">{{ tag }}</el-tag></div>
         <p class="access-note">仅显示当前账号有权查看的资料；医护问诊记录仅本人和管理员可见。照片预览仍需患者有效授权。</p>
         <el-tabs v-model="tab">
@@ -281,6 +284,7 @@ onBeforeUnmount(() => { requestVersion++; listVersion++; releasePhotos() })
 .patient-directory h2, .patient-header h2 { margin: 0 0 12px; font-size: 20px; }
 .patient-directory h2 small { font-size: 12px; font-weight: normal; color: #7a8a9e; }
 .patient-search { display: flex; gap: 8px; margin-bottom: 16px; }
+.patient-search .phone-last4 { max-width: 140px; }
 .record-page-actions, .record-header-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 .record-page-actions .el-button + .el-button { margin-left: 0; }
 .patient-selection { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin: 0 0 14px; }

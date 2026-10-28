@@ -3340,6 +3340,8 @@ export interface components {
             /** Format: date-time */
             createdAt: string;
             appointmentCount: number;
+            /** @description 脱敏手机号，如 138****1005；无手机号为空 */
+            phoneMasked?: string;
             profile?: components["schemas"]["PatientChart"];
         };
         PatientDirectoryPage: {
@@ -8989,6 +8991,8 @@ export interface operations {
                 /** @description 精确匹配患者标签，可跨页筛选 */
                 tag?: string;
                 search?: string;
+                /** @description 手机号后四位，与姓名/编号/标签组合筛选 */
+                phoneLast4?: string;
                 page?: number;
                 pageSize?: number;
             };

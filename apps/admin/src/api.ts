@@ -166,7 +166,7 @@ export const api = {
   retryNotification: (id: string) => request('/admin/messages/queue/' + encodeURIComponent(id) + '/retry', adminRequest({ method: 'POST' })),
   createSlots: (slots: components['schemas']['SlotCreate'][]) => request<Slot[]>('/admin/slots', adminRequest({ method: 'POST', body: JSON.stringify({ slots }) })),
   suspendSlots: (slots: components['schemas']['SlotReference'][], reason: string) => request<Slot[]>('/admin/slots/suspend', adminRequest({ method: 'POST', body: JSON.stringify({ slots, reason }) })),
-  patients: (search = '', page = 1, tag = '') => requestEnvelope<components['schemas']['PatientDirectoryPage']>('/admin/patients' + query({ search, page, tag, pageSize: 20 }), adminRequest()),
+  patients: (search = '', page = 1, tag = '', phoneLast4 = '') => requestEnvelope<components['schemas']['PatientDirectoryPage']>('/admin/patients' + query({ search, page, tag, phoneLast4, pageSize: 20 }), adminRequest()),
   createPatientChart: (body: components['schemas']['PatientChartCreate']) => request<PatientRecordSummary>('/admin/patients', adminRequest({ method: 'POST', body: JSON.stringify(body) })),
   createPatientBindingCode: (id: string) => request<components['schemas']['PatientBindingCode']>('/admin/patients/' + encodeURIComponent(id) + '/wechat-binding', adminRequest({ method: 'POST' })),
   revokePatientBindingCode: async (id: string) => {

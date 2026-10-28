@@ -3,6 +3,7 @@ package httpapi
 import (
 	"encoding/json"
 	"errors"
+	"regexp"
 	"strconv"
 	"strings"
 	"unicode/utf8"
@@ -51,7 +52,7 @@ func (a *API) patientRecordError(c *gin.Context, err error) {
 
 func (a *API) patientDirectory(c *gin.Context) {
 	for key, values := range c.Request.URL.Query() {
-		if (key != "search" && key != "tag" && key != "page" && key != "pageSize") || len(values) != 1 {
+		if (key != "search" && key != "tag" && key != "page" && key != "pageSize" && key != "phoneLast4") || len(values) != 1 {
 			fail(c, 400, "INVALID_QUERY", "查询参数无效")
 			return
 		}
@@ -70,6 +71,11 @@ func (a *API) patientDirectory(c *gin.Context) {
 	}
 	search := strings.TrimSpace(c.Query("search"))
 	tag := strings.TrimSpace(c.Query("tag"))
+	phoneLast4 := strings.TrimSpace(c.Query("phoneLast4"))
+	if phoneLast4 != "" && !regexp.MustCompile(`^[0-9]{4}$`).MatchString(phoneLast4) {
+		fail(c, 400, "INVALID_QUERY", "手机号后四位须为 4 位数字")
+		return
+	}
 	if err != nil || size < 1 || size > 100 || utf8.RuneCountInString(search) > 64 || utf8.RuneCountInString(tag) > 24 {
 		fail(c, 400, "INVALID_QUERY", "查询参数无效")
 		return
@@ -81,9 +87,9 @@ func (a *API) patientDirectory(c *gin.Context) {
 		if !ok {
 			return
 		}
-		rows, total, err = repo.PatientDirectoryWithTag(c.Request.Context(), search, page, size, tag)
+		rows, total, err = repo.PatientDirectoryWithTag(c.Request.Context(), search, page, size, tag, phoneLast4)
 	} else {
-		rows, total, err = a.repo.(store.PatientRecordRepository).PatientDirectory(c.Request.Context(), search, page, size)
+		rows, total, err = a.repo.(store.PatientRecordRepository).PatientDirectory(c.Request.Context(), search, page, size, phoneLast4)
 	}
 	if err != nil {
 		a.patientRecordError(c, err)

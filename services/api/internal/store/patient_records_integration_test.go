@@ -38,11 +38,11 @@ func TestPatientRecordsAggregateAndScope(t *testing.T) {
 	if appointments[0].ID != first.ID && appointments[0].ID != second.ID {
 		t.Fatal("unexpected appointment")
 	}
-	rows, total, err := fixture.repo.PatientDirectory(manager, "档案", 1, 20)
+	rows, total, err := fixture.repo.PatientDirectory(manager, "档案", 1, 20, "")
 	if err != nil || total != 1 || len(rows) != 1 || rows[0].ID != profile.ID || rows[0].AppointmentCount != 2 {
 		t.Fatalf("directory: %+v %d %v", rows, total, err)
 	}
-	rows, total, err = fixture.repo.PatientDirectory(manager, "%", 1, 20)
+	rows, total, err = fixture.repo.PatientDirectory(manager, "%", 1, 20, "")
 	if err != nil || total != 0 || len(rows) != 0 {
 		t.Fatal("search wildcard escaped incorrectly", err)
 	}
@@ -126,5 +126,41 @@ func TestPatientRecordsAggregateAndScope(t *testing.T) {
 	}
 	if _, err := fixture.repo.CreateConsultation(manager, model.Consultation{PatientID: idlePatient.ID, ChiefComplaint: "无预约问诊", RecordedBy: account.ID, RecordedAt: fixture.now}); err != nil {
 		t.Fatal("consultation requires appointment", err)
+	}
+}
+
+func TestPatientDirectoryPhoneLast4(t *testing.T) {
+	fixture := newBookingFixture(t)
+	ctx := context.Background()
+	patient := fixture.patient()
+	if _, err := fixture.repo.UpdatePatientProfile(ctx, patient.Patient.ID, "后四位患者", patient.Patient.Version); err != nil {
+		t.Fatal(err)
+	}
+	if err := fixture.db.Model(&model.Patient{}).Where("id = ?", patient.Patient.ID).Update("phone", "13800001005").Error; err != nil {
+		t.Fatal(err)
+	}
+	manager := store.WithEmployeeScope(ctx, "manager", "", []string{"clinic-demo"})
+	rows, total, err := fixture.repo.PatientDirectory(manager, "", 1, 20, "1005")
+	if err != nil || total != 1 || len(rows) != 1 || rows[0].ID != patient.Patient.ID {
+		t.Fatalf("phone last4 match: %+v %d %v", rows, total, err)
+	}
+	if rows[0].PhoneMasked != "138****1005" {
+		t.Fatalf("phone not masked: %q", rows[0].PhoneMasked)
+	}
+	if rows[0].Phone != "" {
+		t.Fatal("raw phone leaked in directory response")
+	}
+	rows, total, err = fixture.repo.PatientDirectory(manager, "", 1, 20, "9999")
+	if err != nil || total != 0 || len(rows) != 0 {
+		t.Fatalf("wrong last4 should match none: %+v %d %v", rows, total, err)
+	}
+	// 组合条件：姓名 + 后四位同时命中才返回
+	rows, total, err = fixture.repo.PatientDirectory(manager, "后四位", 1, 20, "1005")
+	if err != nil || total != 1 {
+		t.Fatalf("combined name+last4 should match: %+v %d %v", rows, total, err)
+	}
+	rows, total, err = fixture.repo.PatientDirectory(manager, "后四位", 1, 20, "1006")
+	if err != nil || total != 0 {
+		t.Fatalf("combined name+wrong last4 should match none: %+v %d %v", rows, total, err)
 	}
 }
