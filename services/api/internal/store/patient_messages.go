@@ -143,7 +143,34 @@ func (s *MySQL) RemindAppointments(ctx context.Context, ids []string, now time.T
 	return results, nil
 }
 
+// ensurePrivacyPolicyMessage 隐私政策变更通知：患者尚未就当前版本表态
+// （无同意记录，或最近一次同意记录的版本不是当前版）时，为当前版补一条
+// 站内通知；每版只补一条，重复打开收件箱不重复发。发布新版即改
+// PrivacyPolicyVersion 并部署，通知在患者下次打开收件箱或拉取未读数时生成。
+func (s *MySQL) ensurePrivacyPolicyMessage(ctx context.Context, patientID string, now time.Time) error {
+	var latest model.PrivacyConsentEvent
+	err := s.db.WithContext(ctx).Where("patient_id = ?", patientID).Order("recorded_at DESC, id DESC").First(&latest).Error
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return err
+	}
+	if err == nil && latest.PolicyVersion == PrivacyPolicyVersion {
+		return nil
+	}
+	title := "隐私政策已更新（" + PrivacyPolicyVersion + "）"
+	var count int64
+	if err := s.db.WithContext(ctx).Model(&model.PatientMessage{}).Where("patient_id = ? AND kind = ? AND title = ?", patientID, "privacy_policy", title).Count(&count).Error; err != nil {
+		return err
+	}
+	if count > 0 {
+		return nil
+	}
+	return writePatientMessage(s.db.WithContext(ctx), patientID, "privacy_policy", title, "隐私政策已更新至 "+PrivacyPolicyVersion+"，请阅读新版政策；如不同意，可在「我的资料」中撤回同意。", "", "", now)
+}
+
 func (s *MySQL) PatientMessages(ctx context.Context, patientID string, page, size int) ([]model.PatientMessage, int64, error) {
+	if err := s.ensurePrivacyPolicyMessage(ctx, patientID, time.Now()); err != nil {
+		return nil, 0, err
+	}
 	rows := make([]model.PatientMessage, 0)
 	q := s.db.WithContext(ctx).Model(&model.PatientMessage{}).Where("patient_id = ?", patientID)
 	var total int64
@@ -155,6 +182,9 @@ func (s *MySQL) PatientMessages(ctx context.Context, patientID string, page, siz
 }
 
 func (s *MySQL) UnreadPatientMessageCount(ctx context.Context, patientID string) (int64, error) {
+	if err := s.ensurePrivacyPolicyMessage(ctx, patientID, time.Now()); err != nil {
+		return 0, err
+	}
 	var total int64
 	err := s.db.WithContext(ctx).Model(&model.PatientMessage{}).Where("patient_id = ? AND read_at IS NULL", patientID).Count(&total).Error
 	return total, err

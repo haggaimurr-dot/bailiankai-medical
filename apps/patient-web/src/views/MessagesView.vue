@@ -112,6 +112,8 @@ async function openMessage(message: PatientMessage) {
     void router.push({ path: '/support', query: { ticket: message.ticketId } })
   } else if (message.appointmentId) {
     void router.push({ name: 'appointment-detail', params: { id: message.appointmentId } })
+  } else if (message.kind === 'privacy_policy') {
+    void router.push('/profile')
   }
 }
 

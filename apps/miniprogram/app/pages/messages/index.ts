@@ -41,6 +41,7 @@ Page<{ templates: Template[]; inbox: (PatientMessage & { timeLabel: string })[];
    try { await patientApi.markPatientMessageRead(id, this.data.patientId); this.setData({ inbox: this.data.inbox.map(m => (m.id === id ? { ...m, read: true } : m)), unreadCount: Math.max(0, this.data.unreadCount - 1) }); } catch { /* 仍跳转；未读状态下次再试 */ }
   }
   if (message.appointmentId) wx.navigateTo({ url: `/pages/appointment-detail/index?id=${encodeURIComponent(message.appointmentId)}` });
+  else if (message.kind === 'privacy_policy') wx.navigateTo({ url: '/pages/profile/index' });
  },
  async persist(change) {
   const patientId = this.data.patientId;

@@ -133,3 +133,46 @@ func TestEmployeeClinicAssignmentAndSessionRevocation(t *testing.T) {
 		t.Fatalf("doctor linked to nurse: %v", err)
 	}
 }
+
+func TestPrivacyPolicyUpdateNotifiesPatient(t *testing.T) {
+	fixture := newBookingFixture(t)
+	ctx := context.Background()
+	// 无同意记录的患者：打开收件箱即收到当前版变更通知，且只发一条
+	fresh, err := fixture.repo.NewPatientSession(ctx, fixture.now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rows, total, err := fixture.repo.PatientMessages(ctx, fresh.Patient.ID, 1, 20)
+	if err != nil || total != 1 || len(rows) != 1 || rows[0].Kind != "privacy_policy" {
+		t.Fatalf("privacy notice missing: %+v %d %v", rows, total, err)
+	}
+	if rows[0].Title != "隐私政策已更新（"+store.PrivacyPolicyVersion+"）" {
+		t.Fatalf("unexpected title: %q", rows[0].Title)
+	}
+	unread, err := fixture.repo.UnreadPatientMessageCount(ctx, fresh.Patient.ID)
+	if err != nil || unread != 1 {
+		t.Fatalf("unread: %d %v", unread, err)
+	}
+	rows, total, err = fixture.repo.PatientMessages(ctx, fresh.Patient.ID, 1, 20)
+	if err != nil || total != 1 {
+		t.Fatalf("duplicate notice: %d %v", total, err)
+	}
+	// 已就当前版表态的患者不再收到
+	consented := fixture.patient()
+	rows, total, err = fixture.repo.PatientMessages(ctx, consented.Patient.ID, 1, 20)
+	if err != nil || total != 0 {
+		t.Fatalf("consented patient should get none: %d %v", total, err)
+	}
+	// 发布新版：已表态的患者也收到新版通知，且只发一条
+	previous := store.PrivacyPolicyVersion
+	store.PrivacyPolicyVersion = "2099-01-01.v9"
+	t.Cleanup(func() { store.PrivacyPolicyVersion = previous })
+	rows, total, err = fixture.repo.PatientMessages(ctx, consented.Patient.ID, 1, 20)
+	if err != nil || total != 1 || len(rows) != 1 || rows[0].Kind != "privacy_policy" {
+		t.Fatalf("new version notice missing: %+v %d %v", rows, total, err)
+	}
+	rows, total, err = fixture.repo.PatientMessages(ctx, consented.Patient.ID, 1, 20)
+	if err != nil || total != 1 {
+		t.Fatalf("new version duplicate: %d %v", total, err)
+	}
+}

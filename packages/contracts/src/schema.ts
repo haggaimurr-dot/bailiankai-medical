@@ -4606,7 +4606,7 @@ export interface components {
         PatientMessage: {
             id: string;
             /** @enum {string} */
-            kind: "appointment_status" | "reminder" | "support_reply";
+            kind: "appointment_status" | "reminder" | "support_reply" | "privacy_policy";
             title: string;
             body: string;
             appointmentId: string;
