@@ -37,6 +37,17 @@ function onBrandLogoError() {
   if (useBundledLogo.value) logoGone.value = true
   else logoFailed.value = true
 }
+// Doctor avatar: management-configured URL first; bundled in-repo asset as fallback
+// (bundled file ships with every build, so a deploy can never wipe the avatar).
+const avatarFailed = ref<Record<string, boolean>>({})
+const avatarGone = ref<Record<string, boolean>>({})
+const useBundledAvatar = (doctor: DoctorRow) => !doctor.avatarUrl || !!avatarFailed.value[doctor.id]
+const doctorAvatarSrc = (doctor: DoctorRow) => (useBundledAvatar(doctor) ? '/doctor-avatar.jpg' : (doctor.avatarUrl as string))
+const avatarVisible = (doctor: DoctorRow) => !!doctor.avatarUrl && !avatarGone.value[doctor.id]
+function onAvatarError(doctor: DoctorRow) {
+  if (useBundledAvatar(doctor)) avatarGone.value[doctor.id] = true
+  else avatarFailed.value[doctor.id] = true
+}
 let requestId = 0
 
 const clinicActions = computed(() => clinics.value.map((row) => ({ name: row.name })))
@@ -47,6 +58,8 @@ async function load(clinicId?: string) {
   error.value = ''
   logoFailed.value = false
   logoGone.value = false
+  avatarFailed.value = {}
+  avatarGone.value = {}
   doctors.value = []
   clinics.value = []
   clinic.value = null
@@ -227,7 +240,7 @@ onUnmounted(() => { requestId += 1 })
       <template v-else-if="doctors.length">
         <section v-for="doctor in doctors" :key="doctor.id" class="card doctor-card" @click="openDoctorDetail(doctor)">
           <div class="row">
-            <img v-if="doctor.avatarUrl" class="avatar" :src="doctor.avatarUrl" loading="lazy" alt="" />
+            <img v-if="avatarVisible(doctor)" class="avatar" :src="doctorAvatarSrc(doctor)" loading="lazy" alt="" @error="onAvatarError(doctor)" />
             <span v-else class="avatar initials">{{ doctor.initials }}</span>
             <div class="grow">
               <div class="doctor-name">{{ doctor.name }}</div>
@@ -240,6 +253,7 @@ onUnmounted(() => { requestId += 1 })
           <div class="row doctor-action">
             <span class="muted grow">专业方向 · 服务与面诊说明</span>
             <button class="ghost small" @click.stop="openDoctorDetail(doctor)">查看医生详情</button>
+            <button class="primary small" @click.stop="openSchedule(doctor.id)">立即预约</button>
           </div>
         </section>
       </template>
