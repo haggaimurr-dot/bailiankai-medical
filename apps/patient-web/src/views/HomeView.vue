@@ -27,6 +27,16 @@ const presentation = ref<ClinicPresentation | null>(null)
 const articles = ref<KnowledgeArticle[]>([])
 const knowledgeError = ref('')
 const clinicPickerShow = ref(false)
+// Brand logo: management-configured URL first; bundled in-repo asset as fallback
+// (bundled file ships with every build, so a deploy can never wipe the logo).
+const logoFailed = ref(false)
+const logoGone = ref(false)
+const useBundledLogo = computed(() => !presentation.value?.logoUrl || logoFailed.value)
+const brandLogoSrc = computed(() => (useBundledLogo.value ? '/brand-logo.png' : (presentation.value?.logoUrl as string)))
+function onBrandLogoError() {
+  if (useBundledLogo.value) logoGone.value = true
+  else logoFailed.value = true
+}
 let requestId = 0
 
 const clinicActions = computed(() => clinics.value.map((row) => ({ name: row.name })))
@@ -35,6 +45,8 @@ async function load(clinicId?: string) {
   const id = ++requestId
   loading.value = true
   error.value = ''
+  logoFailed.value = false
+  logoGone.value = false
   doctors.value = []
   clinics.value = []
   clinic.value = null
@@ -125,7 +137,10 @@ onUnmounted(() => { requestId += 1 })
           <div class="brand-title">{{ presentation?.brandName || '百莲凯医疗美容' }}</div>
           <div class="muted">{{ presentation?.tagline || '用心沟通 · 陪伴每一步' }}</div>
         </div>
-        <img v-if="presentation?.logoUrl" class="brand-logo" :src="presentation.logoUrl" alt="" />
+        <picture v-if="!logoGone" class="brand-logo-pic">
+          <source v-if="useBundledLogo" srcset="/brand-logo.webp" type="image/webp" />
+          <img class="brand-logo" :src="brandLogoSrc" @error="onBrandLogoError" alt="百莲凯医疗美容" />
+        </picture>
         <span v-else class="brand-seal">＋</span>
       </div>
 
@@ -212,7 +227,7 @@ onUnmounted(() => { requestId += 1 })
       <template v-else-if="doctors.length">
         <section v-for="doctor in doctors" :key="doctor.id" class="card doctor-card" @click="openDoctorDetail(doctor)">
           <div class="row">
-            <img v-if="doctor.avatarUrl" class="avatar" :src="doctor.avatarUrl" alt="" />
+            <img v-if="doctor.avatarUrl" class="avatar" :src="doctor.avatarUrl" loading="lazy" alt="" />
             <span v-else class="avatar initials">{{ doctor.initials }}</span>
             <div class="grow">
               <div class="doctor-name">{{ doctor.name }}</div>
@@ -276,6 +291,7 @@ onUnmounted(() => { requestId += 1 })
 .brand-line { display: flex; align-items: center; gap: 10px; }
 .brand-title { font-size: 19px; font-weight: 700; }
 .brand-logo { height: 34px; width: auto; max-width: 140px; object-fit: contain; }
+.brand-logo-pic { display: inline-flex; flex: none; }
 .brand-seal { font-size: 26px; color: var(--brand); font-weight: 800; }
 .hero { border-radius: 16px; padding: 20px 18px; color: #fff; background: linear-gradient(135deg, #1763c6, #0d4c9c); }
 .eyebrow { font-size: 11px; letter-spacing: 2px; color: var(--brand); font-weight: 700; }
