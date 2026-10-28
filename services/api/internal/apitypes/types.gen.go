@@ -1875,12 +1875,15 @@ type EmployeeCreateRole string
 
 // EmployeeEvent defines model for EmployeeEvent.
 type EmployeeEvent struct {
-	Action     EmployeeEventAction `json:"action"`
-	ActorId    string              `json:"actorId"`
-	ActorName  string              `json:"actorName"`
-	CreatedAt  time.Time           `json:"createdAt"`
-	EmployeeId string              `json:"employeeId"`
-	Id         string              `json:"id"`
+	Action    EmployeeEventAction `json:"action"`
+	ActorId   string              `json:"actorId"`
+	ActorName string              `json:"actorName"`
+	CreatedAt time.Time           `json:"createdAt"`
+
+	// Details 变更前后差异，如 {"before": {...}, "after": {...}}；无差异时为 null
+	Details    *map[string]interface{} `json:"details"`
+	EmployeeId string                  `json:"employeeId"`
+	Id         string                  `json:"id"`
 }
 
 // EmployeeEventAction defines model for EmployeeEvent.Action.

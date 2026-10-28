@@ -3594,6 +3594,10 @@ export interface components {
             actorName: string;
             /** @enum {string} */
             action: "created" | "activated" | "deactivated" | "password-reset" | "clinics-updated" | "clinic-created" | "doctor-linked" | "password-changed" | "access-updated";
+            /** @description 变更前后差异，如 {"before": {...}, "after": {...}}；无差异时为 null */
+            details?: {
+                [key: string]: unknown;
+            } | null;
             /** Format: date-time */
             createdAt: string;
         };

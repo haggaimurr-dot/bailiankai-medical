@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"strings"
 	"time"
@@ -33,12 +34,25 @@ type EmployeeRepository interface {
 	CanAccessFollowupPhoto(context.Context, string) (bool, error)
 }
 
-func accountEvent(tx *gorm.DB, ctx context.Context, employeeID, action string, now time.Time) error {
+func accountEvent(tx *gorm.DB, ctx context.Context, employeeID, action string, details string, now time.Time) error {
 	actorID := "system"
 	if value, ok := ctx.Value(employeeActorKey{}).(string); ok && value != "" {
 		actorID = value
 	}
-	return tx.Create(&model.EmployeeAccountEvent{ID: randomID("account-event-"), EmployeeID: employeeID, ActorID: actorID, Action: action, CreatedAt: now}).Error
+	return tx.Create(&model.EmployeeAccountEvent{ID: randomID("account-event-"), EmployeeID: employeeID, ActorID: actorID, Action: action, Details: details, CreatedAt: now}).Error
+}
+
+// eventDetails marshals a before/after diff for a permission change event.
+// Either side may be nil; both nil yields "" (no diff recorded).
+func eventDetails(before, after any) string {
+	if before == nil && after == nil {
+		return ""
+	}
+	encoded, err := json.Marshal(map[string]any{"before": before, "after": after})
+	if err != nil {
+		return ""
+	}
+	return string(encoded)
 }
 
 func employeeToken() (string, error) {
@@ -151,7 +165,7 @@ func (s *MySQL) CreateEmployee(ctx context.Context, username, displayName, passw
 			}
 			return err
 		}
-		return accountEvent(tx, ctx, account.ID, "created", now)
+		return accountEvent(tx, ctx, account.ID, "created", "", now)
 	})
 	return account, err
 }
@@ -168,6 +182,7 @@ func (s *MySQL) SetEmployeeActive(ctx context.Context, id string, version int, a
 		if account.Active == active {
 			return ErrCareState
 		}
+		beforeActive := account.Active
 		if !active && account.Role == "manager" {
 			var managers []model.EmployeeAccount
 			if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("role = ? AND active = ?", "manager", true).Find(&managers).Error; err != nil {
@@ -187,9 +202,9 @@ func (s *MySQL) SetEmployeeActive(ctx context.Context, id string, version int, a
 			}
 		}
 		if active {
-			return accountEvent(tx, ctx, id, "activated", now)
+			return accountEvent(tx, ctx, id, "activated", eventDetails(map[string]any{"active": beforeActive}, map[string]any{"active": active}), now)
 		}
-		return accountEvent(tx, ctx, id, "deactivated", now)
+		return accountEvent(tx, ctx, id, "deactivated", eventDetails(map[string]any{"active": beforeActive}, map[string]any{"active": active}), now)
 	})
 	return account, err
 }
@@ -218,7 +233,7 @@ func (s *MySQL) ResetEmployeePassword(ctx context.Context, id string, version in
 		if err := tx.Model(&model.EmployeeSession{}).Where("employee_id = ? AND revoked_at IS NULL", id).Update("revoked_at", now).Error; err != nil {
 			return err
 		}
-		return accountEvent(tx, ctx, id, "password-reset", now)
+		return accountEvent(tx, ctx, id, "password-reset", "", now)
 	})
 	return account, err
 }
@@ -269,7 +284,7 @@ func (s *MySQL) ChangeEmployeePassword(ctx context.Context, id string, version i
 		if err := tx.Model(&model.EmployeeSession{}).Where("employee_id = ? AND revoked_at IS NULL", id).Update("revoked_at", now).Error; err != nil {
 			return err
 		}
-		return accountEvent(tx, ctx, id, "password-changed", now)
+		return accountEvent(tx, ctx, id, "password-changed", "", now)
 	})
 	return account, err
 }
@@ -312,6 +327,11 @@ func (s *MySQL) SetEmployeeAccess(ctx context.Context, id string, version int, r
 				return ErrAccountExists
 			}
 		}
+		beforeRole := account.Role
+		beforeStaffID := ""
+		if account.StaffID != nil {
+			beforeStaffID = *account.StaffID
+		}
 		account.Role = role
 		account.StaffID = nil
 		if staffID != "" {
@@ -328,7 +348,7 @@ func (s *MySQL) SetEmployeeAccess(ctx context.Context, id string, version int, r
 		if err := tx.Model(&model.EmployeeSession{}).Where("employee_id = ? AND revoked_at IS NULL", id).Update("revoked_at", now).Error; err != nil {
 			return err
 		}
-		return accountEvent(tx, ctx, id, "access-updated", now)
+		return accountEvent(tx, ctx, id, "access-updated", eventDetails(map[string]any{"role": beforeRole, "staffId": beforeStaffID}, map[string]any{"role": role, "staffId": staffID}), now)
 	})
 	return account, err
 }

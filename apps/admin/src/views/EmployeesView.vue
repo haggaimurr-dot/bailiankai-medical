@@ -34,6 +34,31 @@ async function saveEdit() {
 const histories = ref<Record<string, EmployeeEvent[]>>({})
 const actionNames: Record<EmployeeEvent['action'], string> = { created: '创建账号', activated: '启用账号', deactivated: '停用账号', 'password-reset': '重置密码', 'clinics-updated': '变更院区授权', 'clinic-created': '新增院区并授权', 'doctor-linked': '关联医生资料', 'password-changed': '个人修改密码', 'access-updated': '调整角色与关联人员' }
 function timestamp(value: string) { return new Intl.DateTimeFormat('zh-CN', { timeZone: 'Asia/Shanghai', dateStyle: 'short', timeStyle: 'short' }).format(new Date(value)) }
+function staffName(id?: string) { return id ? staff.value.find((person) => person.id === id)?.displayName || '未关联' : '未关联' }
+function clinicNames(ids?: unknown) {
+  if (!Array.isArray(ids)) return '无'
+  return ids.length ? ids.map((id) => clinics.value.find((clinic) => clinic.id === id)?.name || id).join('、') : '无'
+}
+// Renders the before → after diff recorded on a permission-change event.
+function eventDetail(event: EmployeeEvent) {
+  const details = event.details as { before?: Record<string, unknown>; after?: Record<string, unknown> } | undefined
+  if (!details || !details.before || !details.after) return ''
+  const before = details.before, after = details.after
+  const parts: string[] = []
+  if ('role' in before || 'role' in after) {
+    if (before.role !== after.role) parts.push(`角色：${roleNames[before.role as Employee['role']] || before.role || '未设置'} → ${roleNames[after.role as Employee['role']] || after.role || '未设置'}`)
+  }
+  if ('staffId' in before || 'staffId' in after) {
+    if (before.staffId !== after.staffId) parts.push(`关联人员：${staffName(before.staffId as string)} → ${staffName(after.staffId as string)}`)
+  }
+  if ('clinicIds' in before || 'clinicIds' in after) {
+    if (JSON.stringify(before.clinicIds) !== JSON.stringify(after.clinicIds)) parts.push(`授权院区：${clinicNames(before.clinicIds)} → ${clinicNames(after.clinicIds)}`)
+  }
+  if ('active' in before || 'active' in after) {
+    if (before.active !== after.active) parts.push(`状态：${before.active ? '启用' : '停用'} → ${after.active ? '启用' : '停用'}`)
+  }
+  return parts.join('；')
+}
 async function load() {
   loading.value = true; error.value = ''
   try { [employees.value, staff.value, clinics.value, matrix.value] = await Promise.all([api.employees(), api.followupStaff(), api.clinics(), api.employeePermissions()]); clinics.value = clinics.value.filter(clinic => auth.employee?.clinicIds.includes(clinic.id)) }
@@ -83,7 +108,7 @@ onMounted(() => { void load() })
   <div class="employees-page"><div class="heading"><div><div class="eyebrow">EMPLOYEE ACCESS</div><h1>员工与权限</h1><p>主管开通个人账号，并关联随访人员。账号停用后会话立即失效。</p></div><el-button :disabled="saving" @click="load">刷新</el-button></div>
     <el-alert v-if="error" type="error" :closable="false" :title="error" />
     <div class="grid"><section class="panel"><h2>开通账号</h2><el-form label-position="top"><el-form-item label="登录账号"><el-input v-model="username" maxlength="40" placeholder="小写字母开头，可用数字、点、横线" /></el-form-item><el-form-item label="员工姓名"><el-input v-model="displayName" maxlength="80" /></el-form-item><el-form-item label="初始密码"><el-input v-model="password" type="password" show-password autocomplete="new-password" placeholder="至少 12 位，请线下交给本人" /></el-form-item><el-form-item label="角色"><el-select v-model="role"><el-option v-for="(label, value) in roleNames" :key="value" :label="label" :value="value" /></el-select></el-form-item><el-form-item :label="['clinician', 'doctor', 'nurse'].includes(role) ? '关联随访人员（必选）' : '关联随访人员（可选）'"><el-select v-model="staffId" clearable placeholder="选择人员"><el-option v-for="person in createStaff" :key="person.id" :label="person.displayName" :value="person.id" /></el-select></el-form-item><el-form-item label="授权院区（必选）"><el-select v-model="clinicIds" multiple><el-option v-for="clinic in clinics" :key="clinic.id" :label="clinic.name" :value="clinic.id" /></el-select></el-form-item><el-button type="primary" :loading="saving" @click="create">创建员工账号</el-button></el-form></section>
-      <section class="panel"><h2>已开通账号</h2><el-skeleton v-if="loading" :rows="4" animated /><div v-else-if="!employees.length" class="empty">暂无员工账号</div><div v-for="account in employees" :key="account.id" class="account"><div><strong>{{ account.displayName }}</strong><p>{{ account.username }} · {{ roleNames[account.role] }}<span v-if="account.staffId"> · {{ staff.find(item => item.id === account.staffId)?.displayName || account.staffId }}</span></p><el-button size="small" text @click="showHistory(account)">查看账号操作记录</el-button><div v-for="event in histories[account.id] || []" :key="event.id" class="account-event">{{ timestamp(event.createdAt) }} · {{ event.actorName }} · {{ actionNames[event.action] }}</div></div><div><el-tag :type="account.active ? 'success' : 'info'">{{ account.active ? '启用' : '停用' }}</el-tag><el-button size="small" :disabled="saving" @click="openEdit(account, 'clinics')">院区授权</el-button><el-button size="small" :disabled="saving" @click="openEdit(account, 'access')">角色与人员</el-button><el-button size="small" :disabled="saving" @click="resetPassword(account)">重置密码</el-button><el-button v-if="account.id !== auth.employee?.id" size="small" :disabled="saving" @click="toggle(account)">{{ account.active ? '停用' : '启用' }}</el-button></div></div></section></div>
+      <section class="panel"><h2>已开通账号</h2><el-skeleton v-if="loading" :rows="4" animated /><div v-else-if="!employees.length" class="empty">暂无员工账号</div><div v-for="account in employees" :key="account.id" class="account"><div><strong>{{ account.displayName }}</strong><p>{{ account.username }} · {{ roleNames[account.role] }}<span v-if="account.staffId"> · {{ staff.find(item => item.id === account.staffId)?.displayName || account.staffId }}</span></p><el-button size="small" text @click="showHistory(account)">查看账号操作记录</el-button><div v-for="event in histories[account.id] || []" :key="event.id" class="account-event">{{ timestamp(event.createdAt) }} · {{ event.actorName }} · {{ actionNames[event.action] }}<span v-if="eventDetail(event)">：{{ eventDetail(event) }}</span></div></div><div><el-tag :type="account.active ? 'success' : 'info'">{{ account.active ? '启用' : '停用' }}</el-tag><el-button size="small" :disabled="saving" @click="openEdit(account, 'clinics')">院区授权</el-button><el-button size="small" :disabled="saving" @click="openEdit(account, 'access')">角色与人员</el-button><el-button size="small" :disabled="saving" @click="resetPassword(account)">重置密码</el-button><el-button v-if="account.id !== auth.employee?.id" size="small" :disabled="saving" @click="toggle(account)">{{ account.active ? '停用' : '启用' }}</el-button></div></div></section></div>
     <section class="panel matrix"><h2>角色权限矩阵</h2><p>允许表示角色具备操作权限；患者资料仍受授权院区及本人负责范围限制。兼容旧账号的医护角色沿用医生权限。</p><el-table :data="matrix" border><el-table-column prop="label" label="页面 / 操作" min-width="180" /><el-table-column v-for="(label, value) in roleNames" :key="value" :label="label" min-width="120"><template #default="{ row }"><el-tag :type="row.roles[value] ? 'success' : 'info'">{{ row.roles[value] ? '允许' : '无权' }}</el-tag></template></el-table-column></el-table></section>
     <el-dialog :model-value="!!editing" :title="editMode === 'access' ? '调整角色与关联人员' : '调整院区授权'" width="520px" :close-on-click-modal="false" :show-close="!saving" @close="editing = null">
       <el-alert title="保存后该员工所有会话立即失效；关联人员调整不会自动转移诊疗与随访任务。" type="warning" :closable="false" />

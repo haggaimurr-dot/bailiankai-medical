@@ -29,6 +29,9 @@ type EmployeeAccountEvent struct {
 	EmployeeID string
 	ActorID    string
 	Action     string
-	CreatedAt  time.Time
-	ActorName  string `gorm:"->;-:migration"`
+	// Details is a JSON object {"before": {...}, "after": {...}} recording the
+	// permission change, empty for actions without a before/after diff.
+	Details   string `gorm:"type:text"`
+	CreatedAt time.Time
+	ActorName string `gorm:"->;-:migration"`
 }

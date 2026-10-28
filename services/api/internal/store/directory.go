@@ -85,7 +85,7 @@ func (s *MySQL) SaveDirectory(ctx context.Context, kind, id string, version int,
 				if err := tx.Model(&account).Updates(map[string]any{"clinic_ids": string(encoded), "version": account.Version + 1, "updated_at": now}).Error; err != nil {
 					return err
 				}
-				if err := accountEvent(tx, ctx, actor, "clinic-created", now); err != nil {
+				if err := accountEvent(tx, ctx, actor, "clinic-created", "", now); err != nil {
 					return err
 				}
 			}
@@ -217,7 +217,7 @@ func (s *MySQL) LinkDoctorEmployee(ctx context.Context, doctorID, employeeID str
 		if err := tx.Model(&model.EmployeeSession{}).Where("employee_id = ? AND revoked_at IS NULL", employeeID).Update("revoked_at", now).Error; err != nil {
 			return err
 		}
-		if err := accountEvent(tx, ctx, employeeID, "doctor-linked", now); err != nil {
+		if err := accountEvent(tx, ctx, employeeID, "doctor-linked", "", now); err != nil {
 			return err
 		}
 		doctor.Version++

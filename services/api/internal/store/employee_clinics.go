@@ -121,6 +121,7 @@ func (s *MySQL) SetEmployeeClinics(ctx context.Context, id string, version int, 
 		if account.Version != version {
 			return ErrConflict
 		}
+		beforeClinicIDs := append([]string(nil), account.ClinicIDs...)
 		if err := assignAccountClinics(tx, WithClinicAssignment(ctx, ids), &account); err != nil {
 			return err
 		}
@@ -136,7 +137,7 @@ func (s *MySQL) SetEmployeeClinics(ctx context.Context, id string, version int, 
 		if err := tx.Model(&model.EmployeeSession{}).Where("employee_id = ? AND revoked_at IS NULL", id).Update("revoked_at", now).Error; err != nil {
 			return err
 		}
-		return accountEvent(tx, ctx, id, "clinics-updated", now)
+		return accountEvent(tx, ctx, id, "clinics-updated", eventDetails(map[string]any{"clinicIds": beforeClinicIDs}, map[string]any{"clinicIds": ids}), now)
 	})
 	return account, err
 }

@@ -3271,6 +3271,7 @@ components:
         actorId: {type: string}
         actorName: {type: string}
         action: {type: string, enum: [created, activated, deactivated, password-reset, clinics-updated, clinic-created, doctor-linked, password-changed, access-updated]}
+        details: {type: object, nullable: true, additionalProperties: true, description: '变更前后差异，如 {"before": {...}, "after": {...}}；无差异时为 null'}
         createdAt: {type: string, format: date-time}
     EmployeeEventList:
       type: object

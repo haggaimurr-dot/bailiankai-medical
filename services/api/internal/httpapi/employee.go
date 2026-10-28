@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"regexp"
@@ -183,7 +184,14 @@ func (a *API) employeeEvents(c *gin.Context) {
 	}
 	data := make([]gin.H, 0, len(rows))
 	for _, row := range rows {
-		data = append(data, gin.H{"id": row.ID, "employeeId": row.EmployeeID, "actorId": row.ActorID, "actorName": row.ActorName, "action": row.Action, "createdAt": row.CreatedAt})
+		var details any
+		if strings.TrimSpace(row.Details) != "" {
+			var parsed map[string]any
+			if err := json.Unmarshal([]byte(row.Details), &parsed); err == nil {
+				details = parsed
+			}
+		}
+		data = append(data, gin.H{"id": row.ID, "employeeId": row.EmployeeID, "actorId": row.ActorID, "actorName": row.ActorName, "action": row.Action, "details": details, "createdAt": row.CreatedAt})
 	}
 	c.JSON(200, gin.H{"data": data})
 }
