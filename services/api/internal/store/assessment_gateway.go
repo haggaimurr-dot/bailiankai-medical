@@ -12,16 +12,90 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
+)
+
+// Gateway failure handling: after gatewayBreakerThreshold consecutive
+// transport/5xx failures the breaker opens for gatewayBreakerCooldown and
+// calls fail fast with MODEL_UNAVAILABLE (mapped to 503
+// "评估服务暂不可用，请稍后重试") instead of waiting on a dead gateway.
+// When the cooldown expires the next call first probes /healthz; only a
+// healthy gateway closes the breaker. Per-operation timeouts keep quality
+// checks snappy while leaving room for a vision model call in analyze.
+const (
+	gatewayBreakerThreshold = 3
+	gatewayBreakerCooldown  = 60 * time.Second
+	gatewayHealthTimeout    = 5 * time.Second
+	gatewayQualityTimeout   = 30 * time.Second
+	gatewayAnalyzeTimeout   = 150 * time.Second
 )
 
 // Gateway protocol v1 accepts normalized private image bytes and returns the
 // documented quality/result schemas. Vendor-specific model adapters live behind
 // this explicitly configured service; no deployment is silently simulated.
 type AssessmentGateway struct {
-	endpoint string
-	key      string
-	client   *http.Client
+	endpoint  string
+	key       string
+	client    *http.Client
+	mu        sync.Mutex
+	failures  int
+	openUntil time.Time
+}
+
+// allow reports whether a gateway call may proceed. A closed breaker allows
+// immediately; an open breaker whose cooldown expired is half-open probed via
+// /healthz, and only a healthy gateway closes it.
+func (g *AssessmentGateway) allow(ctx context.Context) bool {
+	g.mu.Lock()
+	closed := g.failures < gatewayBreakerThreshold || time.Now().After(g.openUntil)
+	if closed && g.failures >= gatewayBreakerThreshold {
+		// Cooldown expired: probe health before allowing traffic again.
+		g.mu.Unlock()
+		healthy := g.Health(ctx)
+		g.mu.Lock()
+		if healthy {
+			g.failures = 0
+			g.openUntil = time.Time{}
+		} else {
+			g.openUntil = time.Now().Add(gatewayBreakerCooldown)
+		}
+	}
+	open := g.failures >= gatewayBreakerThreshold && time.Now().Before(g.openUntil)
+	g.mu.Unlock()
+	return !open
+}
+
+func (g *AssessmentGateway) recordFailure() {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	g.failures++
+	if g.failures >= gatewayBreakerThreshold {
+		g.openUntil = time.Now().Add(gatewayBreakerCooldown)
+	}
+}
+
+func (g *AssessmentGateway) recordSuccess() {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	g.failures = 0
+	g.openUntil = time.Time{}
+}
+
+// Health probes the gateway /healthz endpoint with a short timeout.
+func (g *AssessmentGateway) Health(ctx context.Context) bool {
+	probeCtx, cancel := context.WithTimeout(ctx, gatewayHealthTimeout)
+	defer cancel()
+	req, err := http.NewRequestWithContext(probeCtx, http.MethodGet, g.endpoint+"/healthz", nil)
+	if err != nil {
+		return false
+	}
+	res, err := g.client.Do(req)
+	if err != nil {
+		return false
+	}
+	defer res.Body.Close()
+	return res.StatusCode >= 200 && res.StatusCode < 300
 }
 
 func NewAssessmentGateway(endpoint, key string) (*AssessmentGateway, error) {
@@ -77,6 +151,9 @@ func gatewayRequest(input AssessmentFrozenInput, data map[string][]byte) assessm
 	return request
 }
 func (g *AssessmentGateway) call(ctx context.Context, path, key string, request any, response any) error {
+	if !g.allow(ctx) {
+		return &AssessmentProviderError{Code: "MODEL_UNAVAILABLE", Retryable: true}
+	}
 	encoded, err := json.Marshal(request)
 	if err != nil {
 		return &AssessmentProviderError{Code: "MODEL_CONFIGURATION_ERROR"}
@@ -98,6 +175,7 @@ func (g *AssessmentGateway) call(ctx context.Context, path, key string, request 
 		if errors.Is(err, context.DeadlineExceeded) || errors.Is(ctx.Err(), context.DeadlineExceeded) {
 			code = "MODEL_TIMEOUT"
 		}
+		g.recordFailure()
 		return &AssessmentProviderError{Code: code, Retryable: true}
 	}
 	defer res.Body.Close()
@@ -117,6 +195,7 @@ func (g *AssessmentGateway) call(ctx context.Context, path, key string, request 
 		return &AssessmentProviderError{Code: "MODEL_RATE_LIMITED", Retryable: true, RetryAfter: delay}
 	}
 	if res.StatusCode >= 500 {
+		g.recordFailure()
 		return &AssessmentProviderError{Code: "MODEL_UNAVAILABLE", Retryable: true}
 	}
 	if res.StatusCode < 200 || res.StatusCode >= 300 {
@@ -126,13 +205,16 @@ func (g *AssessmentGateway) call(ctx context.Context, path, key string, request 
 	if err != nil || len(body) > 1<<20 || DecodeAssessmentJSON(body, response) != nil {
 		return &AssessmentProviderError{Code: "MODEL_OUTPUT_INVALID"}
 	}
+	g.recordSuccess()
 	return nil
 }
 func (g *AssessmentGateway) Check(ctx context.Context, input AssessmentFrozenInput, data map[string][]byte) (map[string]AssessmentQuality, error) {
 	var response struct {
 		Qualities map[string]AssessmentQuality `json:"qualities"`
 	}
-	err := g.call(ctx, "/quality", "", gatewayRequest(input, data), &response)
+	checkCtx, cancel := context.WithTimeout(ctx, gatewayQualityTimeout)
+	defer cancel()
+	err := g.call(checkCtx, "/quality", "", gatewayRequest(input, data), &response)
 	return response.Qualities, err
 }
 func (g *AssessmentGateway) Analyze(ctx context.Context, input AssessmentFrozenInput, data map[string][]byte, key string) (AssessmentAnalysis, string, error) {
@@ -140,6 +222,8 @@ func (g *AssessmentGateway) Analyze(ctx context.Context, input AssessmentFrozenI
 		Analysis          AssessmentAnalysis `json:"analysis"`
 		ProviderRequestID string             `json:"providerRequestId"`
 	}
-	err := g.call(ctx, "/analyze", key, gatewayRequest(input, data), &response)
+	analyzeCtx, cancel := context.WithTimeout(ctx, gatewayAnalyzeTimeout)
+	defer cancel()
+	err := g.call(analyzeCtx, "/analyze", key, gatewayRequest(input, data), &response)
 	return response.Analysis, response.ProviderRequestID, err
 }
