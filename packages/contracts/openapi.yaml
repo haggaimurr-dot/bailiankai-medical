@@ -816,6 +816,24 @@ paths:
       responses:
         '200': {description: 已更新, content: {application/json: {schema: {$ref: '#/components/schemas/EmployeeResult'}}}}
         default: {$ref: '#/components/responses/Error'}
+  /api/v1/admin/employees/login-attempts:
+    get:
+      operationId: listEmployeeLoginAttempts
+      security: [{EmployeeBearer: []}]
+      parameters:
+        - {name: username, in: query, schema: {type: string, maxLength: 40}, description: 按账号名过滤，不过滤查全部}
+        - {name: page, in: query, schema: {type: integer, minimum: 1, maximum: 100000, default: 1}}
+        - {name: pageSize, in: query, schema: {type: integer, minimum: 1, maximum: 100, default: 20}}
+      responses:
+        '200': {description: 主管查看员工登录日志, content: {application/json: {schema: {$ref: '#/components/schemas/EmployeeLoginAttemptPage'}}}}
+        default: {$ref: '#/components/responses/Error'}
+  /api/v1/admin/employees/login-anomaly-count:
+    get:
+      operationId: getEmployeeLoginAnomalyCount
+      security: [{EmployeeBearer: []}]
+      responses:
+        '200': {description: 主管查看最近 24 小时登录异常次数, content: {application/json: {schema: {type: object, required: [data], properties: {data: {type: object, required: [count], properties: {count: {type: integer}}}}}}}}
+        default: {$ref: '#/components/responses/Error'}
   /api/v1/admin/employees/{employeeId}/events:
     get:
       operationId: listEmployeeEvents
@@ -3293,9 +3311,29 @@ components:
         employeeId: {type: string}
         actorId: {type: string}
         actorName: {type: string}
-        action: {type: string, enum: [created, activated, deactivated, password-reset, clinics-updated, clinic-created, doctor-linked, password-changed, access-updated]}
+        action: {type: string, enum: [created, activated, deactivated, password-reset, clinics-updated, clinic-created, doctor-linked, password-changed, access-updated, login-anomaly]}
         details: {type: object, nullable: true, additionalProperties: true, description: '变更前后差异，如 {"before": {...}, "after": {...}}；无差异时为 null'}
         createdAt: {type: string, format: date-time}
+    EmployeeLoginAttempt:
+      type: object
+      required: [id, username, employeeId, success, clientIp, createdAt]
+      properties:
+        id: {type: string}
+        username: {type: string}
+        employeeId: {type: string, nullable: true, description: 账号存在时为账号 ID；未知账号登录失败时为空}
+        success: {type: boolean}
+        clientIp: {type: string, description: 服务端看到的客户端 IP；经代理时为 X-Forwarded-For 首个地址}
+        createdAt: {type: string, format: date-time}
+    EmployeeLoginAttemptPage:
+      type: object
+      required: [data, total, page, pageSize]
+      properties:
+        data:
+          type: array
+          items: {$ref: '#/components/schemas/EmployeeLoginAttempt'}
+        total: {type: integer}
+        page: {type: integer}
+        pageSize: {type: integer}
     EmployeeEventList:
       type: object
       required: [data]

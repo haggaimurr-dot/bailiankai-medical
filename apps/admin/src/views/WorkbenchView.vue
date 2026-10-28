@@ -15,6 +15,7 @@ const notificationError = ref(''), busy = ref(false), reading = ref('')
 const pending = ref<number | null>(null), overdue = ref<number | null>(null), supervisor = ref<number | null>(null)
 const submitted = ref<number | null>(null), alerts = ref<number | null>(null)
 const exportInProgress = ref<number | null>(null), exportReady = ref<number | null>(null), exportFailed = ref<number | null>(null)
+const loginAnomalies = ref<number | null>(null)
 const canExportJobs = computed(() => ['manager', 'doctor', 'clinician', 'nurse'].includes(auth.employee?.role || ''))
 const exportDetail = computed(() => {
   if (exportInProgress.value === null) return '导出任务进度与完成提醒'
@@ -36,6 +37,7 @@ const cards = computed(() => [
   { title: '随访待回评', count: submitted.value, detail: '查看患者反馈并提交医护回评', to: '/followups?status=submitted', level: 2 as const },
   { title: '异常待处理', count: alerts.value, detail: '核实异常并记录处理结果', to: '/followups?status=alert', level: 1 as const },
   ...(canExportJobs.value ? [{ title: '档案导出', count: exportInProgress.value === null ? null : exportInProgress.value + (exportReady.value ?? 0) + (exportFailed.value ?? 0), detail: exportDetail.value, to: '/patients?exports=open', level: (((exportReady.value ?? 0) > 0 || (exportFailed.value ?? 0) > 0) ? 2 : 3) as 2 | 3 }] : []),
+  ...(manager.value ? [{ title: '登录异常', count: loginAnomalies.value, detail: '连续输错密码的账号，查看登录日志', to: '/employees', level: 1 as const }] : []),
 ].sort((a, b) => a.level - b.level))
 function timestamp(value: string) { return new Intl.DateTimeFormat('zh-CN', { timeZone: 'Asia/Shanghai', dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value)) }
 async function loadNotifications() {
@@ -51,9 +53,9 @@ async function load() {
   if (busy.value) return
   const request = ++generation
   busy.value = true; errors.value = []
-  const results = await Promise.allSettled([api.handoffReceipts('pending'), api.followups('submitted'), api.followups('alert'), loadNotifications(), ...(canExportJobs.value ? [api.recordExports(1)] : [])])
+  const results = await Promise.allSettled([api.handoffReceipts('pending'), api.followups('submitted'), api.followups('alert'), loadNotifications(), ...(canExportJobs.value ? [api.recordExports(1)] : []), ...(manager.value ? [api.loginAnomalyCount()] : [])])
   if (request !== generation) return
-  pending.value = null; overdue.value = null; supervisor.value = null; submitted.value = null; alerts.value = null
+  pending.value = null; overdue.value = null; supervisor.value = null; submitted.value = null; alerts.value = null; loginAnomalies.value = null
   exportInProgress.value = null; exportReady.value = null; exportFailed.value = null
   const [handoffs, reviews, abnormal] = results
   if (handoffs.status === 'fulfilled') { pending.value = handoffs.value.meta.total; overdue.value = handoffs.value.meta.overdueTotal; supervisor.value = handoffs.value.meta.todoTotal }
@@ -62,6 +64,11 @@ async function load() {
   else errors.value.push(`随访回评：${errorMessage(reviews.reason)}`)
   if (abnormal.status === 'fulfilled') alerts.value = abnormal.value.meta.total
   else errors.value.push(`异常处理：${errorMessage(abnormal.reason)}`)
+  if (manager.value) {
+    const anomalyResult = results[canExportJobs.value ? 5 : 4]
+    if (anomalyResult?.status === 'fulfilled') loginAnomalies.value = anomalyResult.value.count
+    else if (anomalyResult?.status === 'rejected') errors.value.push(`登录异常：${errorMessage(anomalyResult.reason)}`)
+  }
   if (canExportJobs.value) {
     const exportsResult = results[4]
     if (exportsResult?.status === 'fulfilled') {

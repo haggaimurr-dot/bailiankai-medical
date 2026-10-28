@@ -295,6 +295,7 @@ const (
 	Created         EmployeeEventAction = "created"
 	Deactivated     EmployeeEventAction = "deactivated"
 	DoctorLinked    EmployeeEventAction = "doctor-linked"
+	LoginAnomaly    EmployeeEventAction = "login-anomaly"
 	PasswordChanged EmployeeEventAction = "password-changed"
 	PasswordReset   EmployeeEventAction = "password-reset"
 )
@@ -1966,6 +1967,27 @@ type EmployeeLogin struct {
 	Username string `json:"username"`
 }
 
+// EmployeeLoginAttempt defines model for EmployeeLoginAttempt.
+type EmployeeLoginAttempt struct {
+	// ClientIp 服务端看到的客户端 IP；经代理时为 X-Forwarded-For 首个地址
+	ClientIp  string    `json:"clientIp"`
+	CreatedAt time.Time `json:"createdAt"`
+
+	// EmployeeId 账号存在时为账号 ID；未知账号登录失败时为空
+	EmployeeId *string `json:"employeeId"`
+	Id         string  `json:"id"`
+	Success    bool    `json:"success"`
+	Username   string  `json:"username"`
+}
+
+// EmployeeLoginAttemptPage defines model for EmployeeLoginAttemptPage.
+type EmployeeLoginAttemptPage struct {
+	Data     []EmployeeLoginAttempt `json:"data"`
+	Page     int                    `json:"page"`
+	PageSize int                    `json:"pageSize"`
+	Total    int                    `json:"total"`
+}
+
 // EmployeeLoginResult defines model for EmployeeLoginResult.
 type EmployeeLoginResult struct {
 	Data struct {
@@ -3527,6 +3549,14 @@ type AdminCasesParams struct {
 	Status   *string `form:"status,omitempty" json:"status,omitempty"`
 	Category *string `form:"category,omitempty" json:"category,omitempty"`
 	Tag      *string `form:"tag,omitempty" json:"tag,omitempty"`
+}
+
+// ListEmployeeLoginAttemptsParams defines parameters for ListEmployeeLoginAttempts.
+type ListEmployeeLoginAttemptsParams struct {
+	// Username 按账号名过滤，不过滤查全部
+	Username *string `form:"username,omitempty" json:"username,omitempty"`
+	Page     *int    `form:"page,omitempty" json:"page,omitempty"`
+	PageSize *int    `form:"pageSize,omitempty" json:"pageSize,omitempty"`
 }
 
 // SetEmployeeClinicsJSONBody defines parameters for SetEmployeeClinics.

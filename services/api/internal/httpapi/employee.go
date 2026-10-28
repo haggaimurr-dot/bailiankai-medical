@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -53,7 +54,7 @@ func (a *API) loginEmployee(c *gin.Context) {
 		fail(c, 400, "INVALID_LOGIN", "账号或密码格式无效")
 		return
 	}
-	account, token, err := a.employees.LoginEmployee(c.Request.Context(), username, body.Password, a.now())
+	account, token, err := a.employees.LoginEmployee(store.WithLoginClientIP(c.Request.Context(), c.ClientIP()), username, body.Password, a.now())
 	if err != nil {
 		if errors.Is(err, store.ErrInvalidCredentials) {
 			fail(c, 401, "INVALID_CREDENTIALS", "账号或密码错误，或账号已停用")
@@ -166,6 +167,51 @@ func (a *API) resetEmployeePassword(c *gin.Context) {
 		return
 	}
 	c.JSON(200, gin.H{"data": employeeDTO(row)})
+}
+
+func (a *API) loginAttempts(c *gin.Context) {
+	if !validQuery(c, "username", "page", "pageSize") {
+		return
+	}
+	page, pageSize := 1, 20
+	for key, target := range map[string]*int{"page": &page, "pageSize": &pageSize} {
+		if value := c.Query(key); value != "" {
+			parsed, err := strconv.Atoi(value)
+			limit := 100000
+			if key == "pageSize" {
+				limit = 100
+			}
+			if err != nil || parsed < 1 || parsed > limit {
+				fail(c, 400, "INVALID_QUERY", "分页参数无效")
+				return
+			}
+			*target = parsed
+		}
+	}
+	username := strings.ToLower(strings.TrimSpace(c.Query("username")))
+	if username != "" && !usernamePattern.MatchString(username) {
+		fail(c, 400, "INVALID_USERNAME", "账号名格式无效")
+		return
+	}
+	rows, total, err := a.employees.LoginAttempts(c.Request.Context(), username, page, pageSize)
+	if err != nil {
+		a.unavailable(c, err)
+		return
+	}
+	data := make([]gin.H, 0, len(rows))
+	for _, row := range rows {
+		data = append(data, gin.H{"id": row.ID, "username": row.Username, "employeeId": row.EmployeeID, "success": row.Success, "clientIp": row.ClientIP, "createdAt": row.CreatedAt})
+	}
+	c.JSON(200, gin.H{"data": data, "total": total, "page": page, "pageSize": pageSize})
+}
+
+func (a *API) loginAnomalyCount(c *gin.Context) {
+	count, err := a.employees.LoginAnomalyCount(c.Request.Context(), a.now())
+	if err != nil {
+		a.unavailable(c, err)
+		return
+	}
+	c.JSON(200, gin.H{"data": gin.H{"count": count}})
 }
 
 func (a *API) employeeEvents(c *gin.Context) {

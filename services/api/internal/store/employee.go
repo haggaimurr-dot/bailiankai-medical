@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -19,6 +20,25 @@ import (
 var ErrInvalidCredentials = errors.New("invalid employee credentials")
 var ErrAccountExists = errors.New("employee username or staff already linked")
 
+// loginAnomalyThreshold is how many consecutive failed sign-ins for one
+// username raise a login-anomaly event for managers (P2 后台-账号）.
+const loginAnomalyThreshold = 5
+
+type loginClientIPKey struct{}
+
+// WithLoginClientIP carries the client IP the server saw into LoginEmployee
+// so the attempt log records it. Empty when unset (tests, old callers).
+func WithLoginClientIP(ctx context.Context, ip string) context.Context {
+	return context.WithValue(ctx, loginClientIPKey{}, ip)
+}
+
+func loginClientIP(ctx context.Context) string {
+	if ip, ok := ctx.Value(loginClientIPKey{}).(string); ok {
+		return ip
+	}
+	return ""
+}
+
 type EmployeeRepository interface {
 	LoginEmployee(context.Context, string, string, time.Time) (model.EmployeeAccount, string, error)
 	AuthenticateEmployee(context.Context, string, time.Time) (model.EmployeeAccount, error)
@@ -28,6 +48,8 @@ type EmployeeRepository interface {
 	SetEmployeeActive(context.Context, string, int, bool, time.Time) (model.EmployeeAccount, error)
 	ResetEmployeePassword(context.Context, string, int, string, time.Time) (model.EmployeeAccount, error)
 	EmployeeEvents(context.Context, string) ([]model.EmployeeAccountEvent, error)
+	LoginAttempts(context.Context, string, int, int) ([]model.EmployeeLoginAttempt, int64, error)
+	LoginAnomalyCount(context.Context, time.Time) (int64, error)
 	CanAccessAppointment(context.Context, string, bool) (bool, error)
 	CanAccessTask(context.Context, string) (bool, error)
 	CanAccessCarePhoto(context.Context, string) (bool, error)
@@ -78,7 +100,12 @@ func (s *MySQL) LoginEmployee(ctx context.Context, username, password string, no
 	if err == nil {
 		hash = account.PasswordHash
 	}
-	if bcrypt.CompareHashAndPassword([]byte(hash), []byte(password)) != nil || err != nil || !account.Active || (ClinicalRole(account.Role) && account.StaffID == nil) {
+	failed := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password)) != nil || err != nil || !account.Active || (ClinicalRole(account.Role) && account.StaffID == nil)
+	if failed {
+		s.recordLoginAttempt(ctx, username, nil, false, now)
+		if err == nil {
+			s.maybeLoginAnomaly(ctx, account, now)
+		}
 		return model.EmployeeAccount{}, "", ErrInvalidCredentials
 	}
 	if account.StaffID != nil {
@@ -98,7 +125,81 @@ func (s *MySQL) LoginEmployee(ctx context.Context, username, password string, no
 	if err := s.db.WithContext(ctx).Create(&session).Error; err != nil {
 		return account, "", err
 	}
+	s.recordLoginAttempt(ctx, username, &account.ID, true, now)
 	return account, token, nil
+}
+
+// recordLoginAttempt writes one audit row for a sign-in attempt. The audit
+// write is best-effort: a logging failure must not block the sign-in itself.
+func (s *MySQL) recordLoginAttempt(ctx context.Context, username string, employeeID *string, success bool, now time.Time) {
+	row := model.EmployeeLoginAttempt{ID: randomID("login-attempt-"), Username: username, EmployeeID: employeeID, Success: success, ClientIP: loginClientIP(ctx), CreatedAt: now}
+	if err := s.db.WithContext(ctx).Create(&row).Error; err != nil {
+		slog.Warn("login attempt audit failed", "error", err)
+	}
+}
+
+// maybeLoginAnomaly fires one login-anomaly event when a known account hits
+// loginAnomalyThreshold consecutive failures. It fires exactly on the
+// threshold-th failure, so a longer run does not spam events; a success
+// resets the run and a later episode can fire again.
+func (s *MySQL) maybeLoginAnomaly(ctx context.Context, account model.EmployeeAccount, now time.Time) {
+	// Read more than the threshold so a run longer than the threshold is
+	// counted as longer (and does not refire); only a run of exactly
+	// loginAnomalyThreshold fires.
+	var attempts []model.EmployeeLoginAttempt
+	if err := s.db.WithContext(ctx).Where("username = ?", account.Username).Order("created_at DESC, id DESC").Limit(loginAnomalyThreshold * 2).Find(&attempts).Error; err != nil {
+		slog.Warn("login anomaly check failed", "error", err)
+		return
+	}
+	consecutive := 0
+	for _, attempt := range attempts {
+		if !attempt.Success {
+			consecutive++
+			continue
+		}
+		break
+	}
+	if consecutive != loginAnomalyThreshold {
+		return
+	}
+	ip := loginClientIP(ctx)
+	newIP := false
+	if ip != "" {
+		var seen int64
+		if err := s.db.WithContext(ctx).Model(&model.EmployeeLoginAttempt{}).Where("employee_id = ? AND success = ? AND client_ip = ?", account.ID, true, ip).Count(&seen).Error; err == nil && seen == 0 {
+			newIP = true
+		}
+	}
+	details, _ := json.Marshal(map[string]any{"consecutiveFailures": consecutive, "clientIp": ip, "newIp": newIP})
+	if err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		return accountEvent(tx, ctx, account.ID, "login-anomaly", string(details), now)
+	}); err != nil {
+		slog.Warn("login anomaly event failed", "error", err)
+	}
+}
+
+// LoginAttempts lists sign-in attempts for managers (newest first); empty
+// username lists all accounts.
+func (s *MySQL) LoginAttempts(ctx context.Context, username string, page, size int) ([]model.EmployeeLoginAttempt, int64, error) {
+	rows := make([]model.EmployeeLoginAttempt, 0)
+	q := s.db.WithContext(ctx).Model(&model.EmployeeLoginAttempt{})
+	if username != "" {
+		q = q.Where("username = ?", strings.ToLower(username))
+	}
+	var total int64
+	if err := q.Count(&total).Error; err != nil {
+		return rows, 0, err
+	}
+	err := q.Order("created_at DESC, id DESC").Offset((page - 1) * size).Limit(size).Find(&rows).Error
+	return rows, total, err
+}
+
+// LoginAnomalyCount counts login-anomaly events in the last 24 hours for
+// the workbench alert card.
+func (s *MySQL) LoginAnomalyCount(ctx context.Context, now time.Time) (int64, error) {
+	var total int64
+	err := s.db.WithContext(ctx).Model(&model.EmployeeAccountEvent{}).Where("action = ? AND created_at >= ?", "login-anomaly", now.Add(-24*time.Hour)).Count(&total).Error
+	return total, err
 }
 
 func (s *MySQL) AuthenticateEmployee(ctx context.Context, token string, now time.Time) (model.EmployeeAccount, error) {

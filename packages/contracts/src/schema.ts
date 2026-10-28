@@ -1229,6 +1229,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/employees/login-attempts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listEmployeeLoginAttempts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/employees/login-anomaly-count": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getEmployeeLoginAnomalyCount"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/employees/{employeeId}/events": {
         parameters: {
             query?: never;
@@ -3645,13 +3677,30 @@ export interface components {
             actorId: string;
             actorName: string;
             /** @enum {string} */
-            action: "created" | "activated" | "deactivated" | "password-reset" | "clinics-updated" | "clinic-created" | "doctor-linked" | "password-changed" | "access-updated";
+            action: "created" | "activated" | "deactivated" | "password-reset" | "clinics-updated" | "clinic-created" | "doctor-linked" | "password-changed" | "access-updated" | "login-anomaly";
             /** @description 变更前后差异，如 {"before": {...}, "after": {...}}；无差异时为 null */
             details?: {
                 [key: string]: unknown;
             } | null;
             /** Format: date-time */
             createdAt: string;
+        };
+        EmployeeLoginAttempt: {
+            id: string;
+            username: string;
+            /** @description 账号存在时为账号 ID；未知账号登录失败时为空 */
+            employeeId: string | null;
+            success: boolean;
+            /** @description 服务端看到的客户端 IP；经代理时为 X-Forwarded-For 首个地址 */
+            clientIp: string;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        EmployeeLoginAttemptPage: {
+            data: components["schemas"]["EmployeeLoginAttempt"][];
+            total: number;
+            page: number;
+            pageSize: number;
         };
         EmployeeEventList: {
             data: components["schemas"]["EmployeeEvent"][];
@@ -9622,6 +9671,57 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EmployeeResult"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listEmployeeLoginAttempts: {
+        parameters: {
+            query?: {
+                /** @description 按账号名过滤，不过滤查全部 */
+                username?: string;
+                page?: number;
+                pageSize?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 主管查看员工登录日志 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmployeeLoginAttemptPage"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getEmployeeLoginAnomalyCount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 主管查看最近 24 小时登录异常次数 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            count: number;
+                        };
+                    };
                 };
             };
             default: components["responses"]["Error"];

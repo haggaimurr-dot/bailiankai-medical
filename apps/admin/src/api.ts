@@ -44,6 +44,7 @@ export type HandoffReceipt = components['schemas']['HandoffReceipt']
 export type HandoffFollowupEvent = components['schemas']['HandoffFollowupEvent']
 export type HandoffSetting = components['schemas']['HandoffSetting']
 export type EmployeeEvent = components['schemas']['EmployeeEvent']
+export type EmployeeLoginAttempt = components['schemas']['EmployeeLoginAttempt']
 
 export type FollowupTemplate = components['schemas']['FollowupTemplate']
 export type NursingFeedback = components['schemas']['NursingFeedback']
@@ -218,6 +219,8 @@ export const api = {
   registerArrival: (id: string, body: components['schemas']['AppointmentArrival']) => request<Appointment>(`/admin/appointments/${encodeURIComponent(id)}/arrival`, adminRequest({ method: 'POST', body: JSON.stringify(body) })),
   setEmployeeClinics: (id: string, clinicIds: string[], version: number) => request<Employee>(`/admin/employees/${encodeURIComponent(id)}/clinics`, adminRequest({ method: 'POST', body: JSON.stringify({ clinicIds, version }) })),
   employeeEvents: (id: string) => request<EmployeeEvent[]>(`/admin/employees/${encodeURIComponent(id)}/events`, adminRequest()),
+  loginAttempts: (username = '', page = 1) => requestEnvelope<components['schemas']['EmployeeLoginAttemptPage']>(`/admin/employees/login-attempts${query({ username, page, pageSize: 20 })}`, adminRequest()),
+  loginAnomalyCount: () => request<{ count: number }>('/admin/employees/login-anomaly-count', adminRequest()),
   createEmployee: (body: { username: string; displayName: string; password: string; role: Employee['role']; clinicIds: string[]; staffId?: string }) => request<Employee>('/admin/employees', adminRequest({ method: 'POST', body: JSON.stringify(body) })),
   setEmployeeActive: (id: string, version: number, active: boolean) => request<Employee>(`/admin/employees/${encodeURIComponent(id)}/status`, adminRequest({ method: 'POST', body: JSON.stringify({ version, active }) })),
   resetEmployeePassword: (id: string, version: number, password: string) => request<Employee>(`/admin/employees/${encodeURIComponent(id)}/password`, adminRequest({ method: 'POST', body: JSON.stringify({ version, password }) })),
