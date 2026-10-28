@@ -310,3 +310,73 @@ func TestAssessmentMySQLConsentPolicyVersionBumpRequiresReconfirmation(t *testin
 		t.Fatal("policy list wrong", list, err)
 	}
 }
+
+// TestAssessmentMySQLDeniedPhotoReadAudited pins the row-68 rule: a staff
+// photo read refused after consent withdrawal must leave an audit record,
+// so the periodic access audit can prove the withdrawal held. A denial
+// inside the read transaction would roll back with it, which is why the
+// event is written in a fresh transaction (see recordDeniedPhotoRead).
+func TestAssessmentMySQLDeniedPhotoReadAudited(t *testing.T) {
+	a := newAIFixture(t)
+	view := a.prepared(t)
+	photoID := view.Photos[0].ID
+	// Staff can read the photo while consent is granted.
+	if _, err := a.service.Photo(a.doctor, view.Task.ID, photoID, ""); err != nil {
+		t.Fatal("staff photo read before withdrawal failed", err)
+	}
+	// The patient withdraws consent.
+	view, err := a.service.Change(context.Background(), view.Task.ID, a.patient, "audit-revoke", "consent", store.AssessmentChange{Version: view.Task.Version, PolicyVersion: store.AssessmentConsentVersion, Granted: false}, a.now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if view.Consent.Granted {
+		t.Fatal("consent still granted after withdrawal")
+	}
+	// Staff view hides the photos and a direct photo read is denied.
+	staffView, err := a.service.Get(a.doctor, view.Task.ID, "")
+	if err != nil || len(staffView.Photos) != 0 {
+		t.Fatal("staff view still exposes photos after withdrawal", staffView.Photos, err)
+	}
+	if _, err := a.service.Photo(a.doctor, view.Task.ID, photoID, ""); !errors.Is(err, store.ErrAssessmentConsent) {
+		t.Fatal("denied staff photo read did not return consent error", err)
+	}
+	// A second denied attempt is audited again: each attempt is recorded.
+	if _, err := a.service.Photo(a.doctor, view.Task.ID, photoID, ""); !errors.Is(err, store.ErrAssessmentConsent) {
+		t.Fatal("second denied staff photo read did not return consent error", err)
+	}
+	// The denied attempts are in the per-assessment audit trail.
+	events, err := a.service.Events(a.manager, view.Task.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	denied := 0
+	for _, e := range events {
+		if e.Action == "photo-read-denied" && e.Detail == photoID {
+			denied++
+			if e.ActorID == "" {
+				t.Fatal("denied event has no actor")
+			}
+		}
+	}
+	if denied != 2 {
+		t.Fatal("expected 2 denied photo read events, got", denied, events)
+	}
+	// The manager's cross-assessment audit lists them.
+	rows, total, err := a.service.DeniedPhotoReads(a.manager, 1, 20)
+	if err != nil || total < 2 {
+		t.Fatal("access audit missing denied attempts", total, err)
+	}
+	seen := 0
+	for _, e := range rows {
+		if e.AssessmentID == view.Task.ID && e.Action == "photo-read-denied" {
+			seen++
+		}
+	}
+	if seen < 2 {
+		t.Fatal("access audit missing this assessment's denied attempts", rows)
+	}
+	// The patient can still read their own photo after withdrawal.
+	if _, err := a.service.Photo(context.Background(), view.Task.ID, photoID, a.patient); err != nil {
+		t.Fatal("patient photo read after withdrawal failed", err)
+	}
+}

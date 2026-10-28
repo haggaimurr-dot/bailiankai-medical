@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"regexp"
 	"strconv"
 	"strings"
@@ -1026,7 +1027,44 @@ func (s *AssessmentService) Photo(ctx context.Context, id, photoID, patientID st
 		}
 		return assessmentEvent(tx, *t, "photo-read", actor, photo.ID, time.Now())
 	})
+	if errors.Is(err, ErrAssessmentConsent) && patientID == "" {
+		// The denial happens inside a transaction that rolls back, so the
+		// attempt itself would leave no audit trail. Record it in a fresh
+		// transaction: a withdrawn consent must be provably effective.
+		s.recordDeniedPhotoRead(ctx, id, photoID)
+	}
 	return photo, err
+}
+
+// recordDeniedPhotoRead writes one "photo-read-denied" assessment event for
+// a staff photo read refused after consent withdrawal. Best-effort: the
+// denial itself must never fail because the audit write did, but the
+// integration test asserts the event lands (an audit that silently drops
+// entries is worse than no audit).
+func (s *AssessmentService) recordDeniedPhotoRead(ctx context.Context, id, photoID string) {
+	err := s.repo.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var task Assessment
+		if err := tx.First(&task, "id = ?", id).Error; err != nil {
+			return followupDBError(err)
+		}
+		return assessmentEvent(tx, task, "photo-read-denied", employeeActor(ctx), photoID, time.Now())
+	})
+	if err != nil {
+		slog.Warn("assessment denied photo read not audited", "assessment", id, "photo", photoID, "error", err)
+	}
+}
+
+// DeniedPhotoReads lists staff photo-read attempts denied after consent
+// withdrawal, newest first, for the manager's periodic access audit.
+func (s *AssessmentService) DeniedPhotoReads(ctx context.Context, page, size int) ([]AssessmentEvent, int64, error) {
+	rows := make([]AssessmentEvent, 0)
+	q := s.repo.db.WithContext(ctx).Model(&AssessmentEvent{}).Where("action = ?", "photo-read-denied")
+	var total int64
+	if err := q.Count(&total).Error; err != nil {
+		return rows, 0, err
+	}
+	err := q.Order("created_at DESC, id DESC").Offset((page - 1) * size).Limit(size).Find(&rows).Error
+	return rows, total, err
 }
 func (s *AssessmentService) Events(ctx context.Context, id string) ([]AssessmentEvent, error) {
 	rows := []AssessmentEvent{}

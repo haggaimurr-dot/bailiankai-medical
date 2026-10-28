@@ -2909,6 +2909,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/assessments/access-audit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["ListAssessmentAccessAudit"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/assessments/{assessmentId}": {
         parameters: {
             query?: never;
@@ -5044,6 +5060,12 @@ export interface components {
         AssessmentPage: {
             data: components["schemas"]["AssessmentTask"][];
             meta: components["schemas"]["PageMeta"];
+        };
+        AssessmentAccessAuditPage: {
+            data: components["schemas"]["AssessmentEvent"][];
+            total: number;
+            page: number;
+            pageSize: number;
         };
         AssessmentCreate: {
             clinicId: string;
@@ -13864,6 +13886,78 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AssessmentPage"];
+                };
+            };
+            /** @description Invalid input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Consent or permission required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Version or idempotency conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Quality rejected */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Too many requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Service unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ListAssessmentAccessAudit: {
+        parameters: {
+            query?: {
+                page?: number;
+                pageSize?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 主管查看授权撤回后被拒的照片访问尝试 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssessmentAccessAuditPage"];
                 };
             };
             /** @description Invalid input */

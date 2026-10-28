@@ -41,6 +41,7 @@ func (a *API) registerAssessmentRoutes(r *gin.Engine) {
 	admin := r.Group("/api/v1/admin/assessments", a.authenticate, a.assessmentAvailable)
 	admin.GET("", a.listAssessments)
 	admin.GET("/reviewers", a.assessmentReviewers)
+	admin.GET("/access-audit", a.requireManager, a.assessmentAccessAudit)
 	admin.GET("/:assessmentId", a.getAssessment)
 	admin.GET("/:assessmentId/photos/:photoId/content", a.assessmentPhoto)
 	admin.GET("/:assessmentId/events", a.assessmentEvents)
@@ -317,6 +318,37 @@ func (a *API) assessmentEvents(c *gin.Context) {
 		return
 	}
 	c.JSON(200, gin.H{"data": rows})
+}
+
+// assessmentAccessAudit is the manager's periodic access audit: every staff
+// photo read refused after consent withdrawal, newest first. A withdrawal
+// that still lets staff through would show up here as a missing denial
+// next to a successful photo-read in the per-assessment events.
+func (a *API) assessmentAccessAudit(c *gin.Context) {
+	if !validQuery(c, "page", "pageSize") {
+		return
+	}
+	page, pageSize := 1, 20
+	for key, target := range map[string]*int{"page": &page, "pageSize": &pageSize} {
+		if value := c.Query(key); value != "" {
+			parsed, err := strconv.Atoi(value)
+			limit := 100000
+			if key == "pageSize" {
+				limit = 100
+			}
+			if err != nil || parsed < 1 || parsed > limit {
+				fail(c, 400, "INVALID_QUERY", "分页参数无效")
+				return
+			}
+			*target = parsed
+		}
+	}
+	rows, total, err := a.assessments.DeniedPhotoReads(c.Request.Context(), page, pageSize)
+	if err != nil {
+		a.assessmentError(c, err)
+		return
+	}
+	c.JSON(200, gin.H{"data": rows, "total": total, "page": page, "pageSize": pageSize})
 }
 func (a *API) assessmentReviewers(c *gin.Context) {
 	if !validQuery(c, "clinicId") {

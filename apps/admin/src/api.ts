@@ -106,6 +106,7 @@ export const api = {
   assessment: (id: string) => request<AssessmentView>(`/admin/assessments/${encodeURIComponent(id)}`, adminRequest()),
   assessmentReviewers: (clinicId: string) => request<components['schemas']['AssessmentReviewer'][]>(`/admin/assessments/reviewers${query({ clinicId })}`, adminRequest()),
   assessmentEvents: (id: string) => request<components['schemas']['AssessmentEvent'][]>(`/admin/assessments/${encodeURIComponent(id)}/events`, adminRequest()),
+  assessmentAccessAudit: (page = 1, pageSize = 20) => requestEnvelope<components['schemas']['AssessmentAccessAuditPage']>(`/admin/assessments/access-audit${query({ page, pageSize })}`, adminRequest()),
   assessmentConsentPolicy: () => request<components['schemas']['AssessmentConsentPolicyList']>('/admin/assessment-consent-policy', adminRequest()),
   createAssessmentConsentPolicy: (content: string, version?: string) => request<components['schemas']['AssessmentConsentPolicyList']>('/admin/assessment-consent-policy', adminRequest({ method: 'POST', body: JSON.stringify(version ? { content, version } : { content }) })),
   assessmentWrite: (id: string, action: 'assignment' | 'reviews', body: components['schemas']['AssessmentAssignment'] | components['schemas']['AssessmentReviewCreate'], key: string) => request<AssessmentView>(`/admin/assessments/${encodeURIComponent(id)}/${action}`, adminRequest({ method: 'POST', headers: { 'Idempotency-Key': key }, body: JSON.stringify(body) })),

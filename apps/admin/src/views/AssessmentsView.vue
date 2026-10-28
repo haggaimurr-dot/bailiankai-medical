@@ -22,6 +22,13 @@ const events = ref<components['schemas']['AssessmentEvent'][]>([]), capabilities
 const decision = ref<'approved'|'amended'|'rejected'>('approved'), note = ref(''), limitations = ref(''), preparation = ref(''), careAdvice = ref('')
 const policy = ref<components['schemas']['AssessmentConsentPolicyList'] | null>(null)
 const policyEditing = ref(false), policyContent = ref(''), policyVersion = ref(''), policySaving = ref(false)
+const audit = ref<components['schemas']['AssessmentAccessAuditPage'] | null>(null)
+const auditLoading = ref(false)
+async function loadAudit() {
+  if (auth.employee?.role !== 'manager' || id.value) return
+  auditLoading.value = true
+  try { audit.value = await api.assessmentAccessAudit(1, 20) } catch { /* 审计读失败不影响任务队列 */ } finally { auditLoading.value = false }
+}
 async function loadPolicy() {
   if (auth.employee?.role !== 'manager') return
   try { policy.value = await api.assessmentConsentPolicy() } catch { /* 文案读失败不影响任务队列 */ }
@@ -122,7 +129,7 @@ async function write(action?: 'assignment'|'reviews') {
   } finally { if (alive && request === generation) { saving.value = false; void load(true) } }
 }
 const decisionLabels: Record<string, string> = { approved: '通过', amended: '修订后发布', rejected: '补拍 / 面诊' }
-const eventLabels: Record<string, string> = { created: '创建', read: '查看', consent: '授权变更', cancel: '患者取消', 'quality-check': '质检申请', submit: '提交分析', assignment: '分配复核医生', review: '医生复核', 'photo-upload': '上传照片', 'photo-read': '查看照片', cancelled: '系统取消', 'quality-checked': '质检完成', 'analysis-failed': '分析失败', 'analysis-completed': '分析完成' }
+const eventLabels: Record<string, string> = { created: '创建', read: '查看', consent: '授权变更', cancel: '患者取消', 'quality-check': '质检申请', submit: '提交分析', assignment: '分配复核医生', review: '医生复核', 'photo-upload': '上传照片', 'photo-read': '查看照片', 'photo-read-denied': '查看照片被拒（授权已撤回）', cancelled: '系统取消', 'quality-checked': '质检完成', 'analysis-failed': '分析失败', 'analysis-completed': '分析完成' }
 type ReviewDiff = { summary: { old: string, next: string } | null, added: AssessmentContent['observations'], removed: AssessmentContent['observations'], changed: { old: AssessmentContent['observations'][number], next: AssessmentContent['observations'][number] }[], limAdded: string[], limRemoved: string[], adviceChanged: boolean, adviceOld: AssessmentContent['consultationAdvice'], adviceNext: AssessmentContent['consultationAdvice'], plainSummary: { old: string, next: string } | null, careAdded: string[], careRemoved: string[] }
 function observationSame(a: AssessmentContent['observations'][number], b: AssessmentContent['observations'][number]): boolean {
   return a.code === b.code && a.description === b.description && a.region === b.region && a.certainty === b.certainty && a.evidence.map(e => e.photoId).sort().join() === b.evidence.map(e => e.photoId).sort().join()
@@ -167,6 +174,7 @@ onMounted(async () => {
   if (results[0].status === 'fulfilled') capabilities.value = results[0].value
   if (results[1].status === 'fulfilled') clinics.value = results[1].value.filter(c=>auth.employee?.clinicIds.includes(c.id))
   void loadPolicy()
+  void loadAudit()
 })
 onBeforeUnmount(() => { alive = false; generation++; if(timer) clearInterval(timer); document.removeEventListener('visibilitychange',visibility) })
 </script>
@@ -194,6 +202,13 @@ onBeforeUnmount(() => { alive = false; generation++; if(timer) clearInterval(tim
       <el-button :disabled="policySaving" @click="policyEditing=false">取消</el-button>
     </template>
     <details v-if="policy && policy.history.length>1"><summary>历史版本（{{policy.history.length}}）</summary><p v-for="item in policy.history" :key="item.version">{{item.version}} · {{time(item.createdAt)}} · {{policyBy(item.createdBy)}}</p></details>
+  </div>
+  <div v-if="!id && auth.employee?.role==='manager'" class="surface panel">
+    <h2>授权撤回后访问审计</h2>
+    <p>撤回授权后医护再读照片会被拒绝并记入审计；定期核对这里，确认撤回真实生效。共 {{audit?.total ?? 0}} 条被拒尝试。</p>
+    <el-button :loading="auditLoading" @click="loadAudit">刷新审计</el-button>
+    <p v-if="audit && audit.data.length===0">暂无被拒访问尝试。</p>
+    <p v-for="item in audit?.data || []" :key="item.id">{{time(item.createdAt)}} · 任务 {{item.assessmentId}} · 照片 {{item.detail}} · 尝试者 {{item.actorId}}</p>
   </div>
   <div v-if="!id" class="surface panel">
     <p v-if="mode==='entry'">评估由患者从小程序“AI 辅助评估”入口独立创建并明确授权。工作人员可在下方队列分配复核医生。</p>

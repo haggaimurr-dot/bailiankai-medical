@@ -987,6 +987,14 @@ type AppointmentTimelineResult struct {
 	Data []AppointmentTimelineEvent `json:"data"`
 }
 
+// AssessmentAccessAuditPage defines model for AssessmentAccessAuditPage.
+type AssessmentAccessAuditPage struct {
+	Data     []AssessmentEvent `json:"data"`
+	Page     int               `json:"page"`
+	PageSize int               `json:"pageSize"`
+	Total    int               `json:"total"`
+}
+
 // AssessmentAdvice defines model for AssessmentAdvice.
 type AssessmentAdvice struct {
 	Preparation []string `json:"preparation"`
@@ -3562,6 +3570,12 @@ type ListAdminAssessmentsParams struct {
 
 // ListAdminAssessmentsParamsStatus defines parameters for ListAdminAssessments.
 type ListAdminAssessmentsParamsStatus string
+
+// ListAssessmentAccessAuditParams defines parameters for ListAssessmentAccessAudit.
+type ListAssessmentAccessAuditParams struct {
+	Page     *int `form:"page,omitempty" json:"page,omitempty"`
+	PageSize *int `form:"pageSize,omitempty" json:"pageSize,omitempty"`
+}
 
 // AssessmentReviewersParams defines parameters for AssessmentReviewers.
 type AssessmentReviewersParams struct {
