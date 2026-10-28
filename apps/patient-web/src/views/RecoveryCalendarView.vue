@@ -205,12 +205,13 @@ onMounted(load)
             <span class="dots">
               <i v-if="day.hasTask" class="dot task" />
               <i v-if="day.hasPending" class="dot pending" />
+              <i v-if="day.hasDone" class="dot done" />
               <i v-if="day.hasReview" class="dot review" />
             </span>
           </button>
         </div>
         <p class="muted legend">
-          <i class="dot task" /> 随访任务 <i class="dot pending" /> 待填写 <i class="dot review" /> 医护回评
+          <i class="dot task" /> 随访任务 <i class="dot pending" /> 待填写 <i class="dot done" /> 已完成 <i class="dot review" /> 医护回评
         </p>
       </section>
 
@@ -312,6 +313,7 @@ onMounted(load)
 .dots { display: flex; gap: 3px; height: 6px; }
 .dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; background: var(--brand); }
 .dot.pending { background: #d97706; }
+.dot.done { background: var(--green); }
 .dot.review { background: var(--green); }
 .legend .dot { vertical-align: middle; margin: 0 2px 0 8px; }
 .event-row { border-top: 1px solid var(--line); padding: 10px 0; }

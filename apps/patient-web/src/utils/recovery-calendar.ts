@@ -12,7 +12,7 @@ export interface CalendarEvent {
 }
 export interface CalendarDay {
   date: string; day: number; inMonth: boolean; today: boolean; selected: boolean;
-  hasTask: boolean; hasPending: boolean; hasReview: boolean;
+  hasTask: boolean; hasPending: boolean; hasDone: boolean; hasReview: boolean;
 }
 export interface RecoveryPoint {
   id: string; appointmentId: string; title: string; date: string; severity: number; severityLabel: string;
@@ -86,7 +86,7 @@ export function calendarDays(month: string, selected: string, events: CalendarEv
     const day = new Date(start + index * 86400000), date = day.toISOString().slice(0, 10), items = byDate.get(date) || []
     return {
       date, day: day.getUTCDate(), inMonth: date.slice(0, 7) === month, today: date === today, selected: date === selected,
-      hasTask: items.some((item) => item.kind === 'task'), hasPending: items.some((item) => item.pending), hasReview: items.some((item) => item.kind === 'review'),
+      hasTask: items.some((item) => item.kind === 'task'), hasPending: items.some((item) => item.pending), hasDone: items.some((item) => item.kind === 'task' && !item.pending), hasReview: items.some((item) => item.kind === 'review'),
     }
   })
 }
