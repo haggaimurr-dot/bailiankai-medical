@@ -35,6 +35,7 @@ const appointment = ref<AppointmentView | null>(null)
 const days = ref<DayOption[]>([])
 const date = ref('')
 const slots = ref<SlotRow[]>([])
+const recommendations = ref<SlotRow[]>([])
 const selected = ref('')
 const recovering = ref(false)
 
@@ -94,6 +95,7 @@ async function load() {
     recovering.value = Boolean(draft)
     selected.value = draft?.body.slotId || ''
     await loadSlots()
+    await loadRecommendations(raw.startsAt)
   } catch (cause) {
     if (gen === generation) error.value = errorMessage(cause)
   } finally {
@@ -116,12 +118,44 @@ async function loadSlots() {
       .map((slot) => ({
         ...slot,
         label: `${dateTime(slot.startsAt)} — ${clinicTime(slot.endsAt)}`,
-        available: slot.status === 'open' && slot.reserved < slot.capacity && Date.parse(slot.startsAt) > Date.now(),
+        available: slot.status === 'open' && (slot.remaining ?? slot.capacity - slot.reserved) > 0 && Date.parse(slot.startsAt) > Date.now(),
       }))
   } catch (cause) {
     if (gen === slotGeneration) slotError.value = errorMessage(cause)
   } finally {
     if (gen === slotGeneration) loadingSlots.value = false
+  }
+}
+
+function toRow(slot: Slot): SlotRow {
+  return {
+    ...slot,
+    label: `${dateTime(slot.startsAt)} — ${clinicTime(slot.endsAt)}`,
+    available: slot.status === 'open' && (slot.remaining ?? slot.capacity - slot.reserved) > 0 && Date.parse(slot.startsAt) > Date.now(),
+  }
+}
+
+async function loadRecommendations(after: string) {
+  const current = appointment.value
+  if (!current) return
+  try {
+    const rows = await api.slotRecommendations({ clinicId: current.clinicId, doctorId: current.doctorId, after, limit: 3 })
+    recommendations.value = rows.filter((slot) => slot.id !== current.slotId).map(toRow)
+  } catch {
+    // Recommendations are a convenience; the full calendar below stays usable.
+    recommendations.value = []
+  }
+}
+
+async function chooseRecommendation(slot: SlotRow) {
+  if (submitting.value || loadingSlots.value || draft) return
+  if (!slot.available) return
+  date.value = slot.startsAt.slice(0, 10)
+  selected.value = ''
+  await loadSlots()
+  if (slots.value.some((row) => row.id === slot.id && row.available)) {
+    selected.value = slot.id
+    notice.value = ''
   }
 }
 
@@ -228,6 +262,19 @@ onUnmounted(() => {
         </button>
       </section>
       <template v-else-if="appointment.canReschedule">
+        <section v-if="recommendations.length" class="card recommendations">
+          <h2>最近可约 · 同医生</h2>
+          <p class="muted">原时间之后最近的有空位时段，点一下直接选中。</p>
+          <button
+            v-for="slot in recommendations"
+            :key="slot.id"
+            class="rec-row"
+            :class="{ selected: selected === slot.id }"
+            :disabled="!slot.available || submitting"
+            @click="chooseRecommendation(slot)"
+          >{{ slot.label }} · 余 {{ slot.remaining ?? slot.capacity - slot.reserved }} 个名额</button>
+        </section>
+
         <div class="days">
           <button
             v-for="day in days"
@@ -282,6 +329,11 @@ onUnmounted(() => {
 .slot-row { width: 100%; text-align: left; font-size: 14px; cursor: pointer; color: var(--ink); }
 .slot-row.selected { border-color: var(--brand); background: #eff6ff; }
 .slot-row:disabled { opacity: 0.55; cursor: default; }
+.recommendations h2 { margin: 0 0 4px; }
+.recommendations .muted { margin: 0 0 10px; }
+.rec-row { display: block; width: 100%; text-align: left; border: 1px solid var(--line); border-radius: 10px; background: #f0fdf4; padding: 10px 12px; font-size: 14px; cursor: pointer; color: var(--ink); margin-top: 8px; }
+.rec-row.selected { border-color: var(--brand); background: #eff6ff; }
+.rec-row:disabled { opacity: 0.55; cursor: default; }
 .secondary { margin-top: 4px; }
 .secondary.center { text-align: center; }
 .text-link { border: 0; background: none; color: var(--brand); font-size: 14px; cursor: pointer; padding: 4px 0; }

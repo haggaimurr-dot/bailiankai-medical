@@ -7,15 +7,15 @@ interface Draft { patientId: string; key: string; body: { slotId: string; versio
 interface Data {
   loading: boolean; loadingSlots: boolean; submitting: boolean; error: string; slotError: string; notice: string;
   appointment: AppointmentView | null; days: DayOption[]; date: string;
-  slots: (Slot & { label: string; available: boolean })[]; selected: string; recovering: boolean;
+  slots: (Slot & { label: string; available: boolean })[]; recommendations: (Slot & { label: string; available: boolean })[]; selected: string; recovering: boolean;
 }
 interface Methods {
   id: string; patientId: string; generation: number; slotGeneration: number; disposed: boolean; draft: Draft | null;
-  load(): Promise<void>; loadSlots(): Promise<void>; changeDate(e: WechatMiniprogram.TouchEvent): void;
+  load(): Promise<void>; loadSlots(): Promise<void>; loadRecommendations(after: string): Promise<void>; chooseRecommendation(e: WechatMiniprogram.TouchEvent): Promise<void>; changeDate(e: WechatMiniprogram.TouchEvent): void;
   selectSlot(e: WechatMiniprogram.TouchEvent): void; submit(): Promise<void>; openDetail(): void;
 }
 Page<Data, Methods>({
-  data: { loading: true, loadingSlots: false, submitting: false, error: '', slotError: '', notice: '', appointment: null, days: [], date: '', slots: [], selected: '', recovering: false },
+  data: { loading: true, loadingSlots: false, submitting: false, error: '', slotError: '', notice: '', appointment: null, days: [], date: '', slots: [], recommendations: [], selected: '', recovering: false },
   id: '', patientId: '', generation: 0, slotGeneration: 0, disposed: false, draft: null,
   onLoad(options) { this.id = options.id || ''; void this.load(); },
   onUnload() { this.disposed = true; this.generation++; this.slotGeneration++; },
@@ -38,6 +38,7 @@ Page<Data, Methods>({
       const date = days.some(day => day.date === preferred) ? preferred : days[0].date;
       this.setData({ appointment: appointmentView(appointment), days, date, recovering: Boolean(this.draft), selected: this.draft?.body.slotId || '' });
       await this.loadSlots();
+      await this.loadRecommendations(appointment.startsAt);
     } catch (error) {
       if (generation === this.generation) this.setData({ error: errorMessage(error) });
     } finally { if (generation === this.generation) { this.setData({ loading: false }); wx.stopPullDownRefresh(); } }
@@ -50,9 +51,26 @@ Page<Data, Methods>({
     try {
       const slots = await api.slots({ clinicId: appointment.clinicId, doctorId: appointment.doctorId, date: this.data.date });
       if (generation !== this.slotGeneration) return;
-      this.setData({ slots: slots.filter(slot => slot.id !== appointment.slotId || appointment.status === 'waiting').map(slot => ({ ...slot, label: `${dateTime(slot.startsAt)} — ${clinicTime(slot.endsAt)}`, available: slot.status === 'open' && slot.reserved < slot.capacity && Date.parse(slot.startsAt) > Date.now() })) });
+      this.setData({ slots: slots.filter(slot => slot.id !== appointment.slotId || appointment.status === 'waiting').map(slot => ({ ...slot, label: `${dateTime(slot.startsAt)} — ${clinicTime(slot.endsAt)}`, available: slot.status === 'open' && (slot.remaining ?? slot.capacity - slot.reserved) > 0 && Date.parse(slot.startsAt) > Date.now() })) });
     } catch (error) { if (generation === this.slotGeneration) this.setData({ slotError: errorMessage(error) }); }
     finally { if (generation === this.slotGeneration) this.setData({ loadingSlots: false }); }
+  },
+  async loadRecommendations(after: string) {
+    const appointment = this.data.appointment;
+    if (!appointment) return;
+    try {
+      const rows = await api.slotRecommendations({ clinicId: appointment.clinicId, doctorId: appointment.doctorId, after, limit: 3 });
+      this.setData({ recommendations: rows.filter(slot => slot.id !== appointment.slotId).map(slot => ({ ...slot, label: `${dateTime(slot.startsAt)} — ${clinicTime(slot.endsAt)}`, available: slot.status === 'open' && (slot.remaining ?? slot.capacity - slot.reserved) > 0 && Date.parse(slot.startsAt) > Date.now() })) });
+    } catch { this.setData({ recommendations: [] }); }
+  },
+  async chooseRecommendation(event) {
+    if (this.data.submitting || this.data.loadingSlots || this.draft) return;
+    const id = String(event.currentTarget.dataset.id || '');
+    const slot = this.data.recommendations.find(item => item.id === id);
+    if (!slot || !slot.available) return;
+    this.setData({ date: slot.startsAt.slice(0, 10), selected: '' });
+    await this.loadSlots();
+    if (this.data.slots.some(item => item.id === id && item.available)) this.setData({ selected: id, notice: '' });
   },
   changeDate(event) {
     if (this.data.submitting || this.draft) return;

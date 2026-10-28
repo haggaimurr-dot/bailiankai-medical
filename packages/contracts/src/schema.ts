@@ -1259,6 +1259,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/slots/recommendations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description 同医生、指定时间之后、剩余名额大于 0 的最近可约时段，按开始时间排序，默认取前 3 个。 */
+        get: operations["getSlotRecommendations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/slots": {
         parameters: {
             query?: never;
@@ -9427,6 +9444,35 @@ export interface operations {
         requestBody?: never;
         responses: {
             /** @description 排班列表 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SlotList"];
+                };
+            };
+            400: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    getSlotRecommendations: {
+        parameters: {
+            query: {
+                clinicId?: components["parameters"]["ClinicId"];
+                doctorId: string;
+                /** @description 仅返回开始时间晚于该时刻的时段；不传时按当前时间。 */
+                after?: string;
+                /** @description 返回条数，默认 3，最大 10。 */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 推荐时段列表 */
             200: {
                 headers: {
                     [name: string]: unknown;

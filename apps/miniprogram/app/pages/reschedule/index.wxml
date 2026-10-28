@@ -7,6 +7,7 @@
     <view class="rules">同一医生、同一院区内选择新时间。成功后重新进入待确认；新时段无法申请时保留原预约。候补不占名额，可选择原时段空位或其他可用时段。</view>
     <view wx:if="{{recovering}}" class="card"><view class="section-title">原申请等待确认结果</view><view>已保存原申请，重试会复用原编号与时段。</view><t-button theme="primary" loading="{{submitting}}" bind:tap="submit">使用原申请重试</t-button></view>
     <block wx:elif="{{appointment.canReschedule}}">
+      <view wx:if="{{recommendations.length}}" class="card recommendations"><view class="section-title">最近可约 · 同医生</view><view class="meta">原时间之后最近的有空位时段，点一下直接选中。</view><button wx:for="{{recommendations}}" wx:key="id" class="rec {{selected === item.id ? 'selected' : ''}}" disabled="{{!item.available || submitting}}" data-id="{{item.id}}" bindtap="chooseRecommendation">{{item.label}} · 余 {{item.remaining}} 个名额</button></view>
       <scroll-view scroll-x><view class="days"><button wx:for="{{days}}" wx:key="date" data-date="{{item.date}}" bindtap="changeDate" disabled="{{submitting}}" class="day {{date === item.date ? 'selected' : ''}}">{{item.label}} {{item.shortDate}}</button></view></scroll-view>
       <view wx:if="{{loadingSlots}}" class="card"><t-loading text="查询空位" /></view>
       <view wx:elif="{{slotError}}" class="card"><view>{{slotError}}</view><t-button bind:tap="loadSlots">重新查询</t-button></view>

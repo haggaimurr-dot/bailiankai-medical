@@ -27,6 +27,13 @@ type SlotFilter struct {
 	DoctorID string
 	Date     time.Time
 	Now      time.Time
+	// After, when set, only returns slots starting strictly after it (used by
+	// reschedule recommendations, where the original slot time is the floor).
+	After time.Time
+	// AvailableOnly restricts to open slots with remaining capacity.
+	AvailableOnly bool
+	// Limit caps the result size; 0 keeps the default cap.
+	Limit int
 }
 
 type SlotUpdate struct {
@@ -230,7 +237,11 @@ func (s *MySQL) Slots(ctx context.Context, f SlotFilter) ([]model.Slot, error) {
 		return nil, err
 	}
 	rows := make([]model.Slot, 0)
-	q := s.db.WithContext(ctx).Where("starts_at > ? AND EXISTS (SELECT 1 FROM doctors d JOIN clinics c ON c.id = d.clinic_id WHERE d.id = slots.doctor_id AND d.active = TRUE AND d.published_json IS NOT NULL AND c.active = TRUE AND c.published_json IS NOT NULL)", f.Now)
+	lower := f.Now
+	if !f.After.IsZero() && f.After.After(lower) {
+		lower = f.After
+	}
+	q := s.db.WithContext(ctx).Where("starts_at > ? AND EXISTS (SELECT 1 FROM doctors d JOIN clinics c ON c.id = d.clinic_id WHERE d.id = slots.doctor_id AND d.active = TRUE AND d.published_json IS NOT NULL AND c.active = TRUE AND c.published_json IS NOT NULL)", lower)
 	if f.ClinicID != "" {
 		q = q.Where("clinic_id = ?", f.ClinicID)
 	}
@@ -240,7 +251,14 @@ func (s *MySQL) Slots(ctx context.Context, f SlotFilter) ([]model.Slot, error) {
 	if !f.Date.IsZero() {
 		q = q.Where("starts_at >= ? AND starts_at < ?", f.Date, f.Date.AddDate(0, 0, 1))
 	}
-	err := q.Order("starts_at, doctor_id").Limit(500).Find(&rows).Error
+	if f.AvailableOnly {
+		q = q.Where("status = 'open' AND capacity > reserved")
+	}
+	limit := f.Limit
+	if limit <= 0 {
+		limit = 500
+	}
+	err := q.Order("starts_at, doctor_id").Limit(limit).Find(&rows).Error
 	return rows, err
 }
 

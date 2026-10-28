@@ -5,3 +5,5 @@
 .day { flex-shrink: 0; font-size: 24rpx; margin: 0; }
 .selected { border: 2rpx solid var(--mlk-color-primary, #927554); }
 .slot { font-size: 26rpx; text-align: left; }
+.recommendations .meta { font-size: 24rpx; color: #666; margin-bottom: 8rpx; }
+.rec { display: block; width: 100%; text-align: left; font-size: 26rpx; margin-top: 16rpx; background: #f0fdf4; }

@@ -3767,6 +3767,18 @@ type ListSlotsParams struct {
 	Date     *openapi_types.Date `form:"date,omitempty" json:"date,omitempty"`
 }
 
+// GetSlotRecommendationsParams defines parameters for GetSlotRecommendations.
+type GetSlotRecommendationsParams struct {
+	ClinicId *ClinicId `form:"clinicId,omitempty" json:"clinicId,omitempty"`
+	DoctorId string    `form:"doctorId" json:"doctorId"`
+
+	// After 仅返回开始时间晚于该时刻的时段；不传时按当前时间。
+	After *time.Time `form:"after,omitempty" json:"after,omitempty"`
+
+	// Limit 返回条数，默认 3，最大 10。
+	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
 // RegisterAppointmentArrivalJSONRequestBody defines body for RegisterAppointmentArrival for application/json ContentType.
 type RegisterAppointmentArrivalJSONRequestBody = AppointmentArrival
 

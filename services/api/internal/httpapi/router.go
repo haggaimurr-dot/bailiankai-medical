@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -92,6 +93,7 @@ func newRouter(a *API) *gin.Engine {
 	r.GET("/api/v1/clinics", a.clinics)
 	r.GET("/api/v1/doctors", a.doctors)
 	r.GET("/api/v1/slots", a.slots)
+	r.GET("/api/v1/slots/recommendations", a.slotRecommendations)
 	r.POST("/api/v1/admin/session", a.loginEmployee)
 	r.GET("/api/v1/admin/session", a.authenticate, a.employeeSession)
 	r.GET("/api/v1/admin/handoff-notifications", a.authenticate, a.handoffNotifications)
@@ -321,6 +323,50 @@ func (a *API) slots(c *gin.Context) {
 			return
 		}
 		f.Date = parsed
+	}
+	rows, err := a.repo.Slots(c.Request.Context(), f)
+	if err != nil {
+		a.unavailable(c, err)
+		return
+	}
+	data := make([]apitypes.Slot, 0, len(rows))
+	for _, row := range rows {
+		data = append(data, slotDTO(row))
+	}
+	c.JSON(http.StatusOK, apitypes.SlotList{Data: data})
+}
+
+func (a *API) slotRecommendations(c *gin.Context) {
+	if !validQuery(c, "clinicId", "doctorId", "after", "limit") {
+		return
+	}
+	doctorID := c.Query("doctorId")
+	if doctorID == "" || !validID(doctorID) {
+		fail(c, http.StatusBadRequest, "INVALID_QUERY", "医生标识格式无效")
+		return
+	}
+	f := store.SlotFilter{
+		ClinicID:      c.Query("clinicId"),
+		DoctorID:      doctorID,
+		Now:           a.now().In(database.Shanghai),
+		AvailableOnly: true,
+		Limit:         3,
+	}
+	if after := c.Query("after"); after != "" {
+		parsed, err := time.Parse(time.RFC3339, after)
+		if err != nil {
+			fail(c, http.StatusBadRequest, "INVALID_QUERY", "after 必须是有效的 RFC3339 时间")
+			return
+		}
+		f.After = parsed.In(database.Shanghai)
+	}
+	if raw := c.Query("limit"); raw != "" {
+		n, err := strconv.Atoi(raw)
+		if err != nil || n < 1 || n > 10 {
+			fail(c, http.StatusBadRequest, "INVALID_QUERY", "limit 必须是 1–10 的整数")
+			return
+		}
+		f.Limit = n
 	}
 	rows, err := a.repo.Slots(c.Request.Context(), f)
 	if err != nil {

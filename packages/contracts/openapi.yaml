@@ -832,6 +832,45 @@ paths:
           $ref: '#/components/responses/Error'
         '503':
           $ref: '#/components/responses/Error'
+  /api/v1/slots/recommendations:
+    get:
+      operationId: getSlotRecommendations
+      description: 同医生、指定时间之后、剩余名额大于 0 的最近可约时段，按开始时间排序，默认取前 3 个。
+      parameters:
+        - $ref: '#/components/parameters/ClinicId'
+        - name: doctorId
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 64
+            pattern: '^[A-Za-z0-9_-]+$'
+        - name: after
+          in: query
+          description: 仅返回开始时间晚于该时刻的时段；不传时按当前时间。
+          schema:
+            type: string
+            format: date-time
+        - name: limit
+          in: query
+          description: 返回条数，默认 3，最大 10。
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 10
+            default: 3
+      responses:
+        '200':
+          description: 推荐时段列表
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SlotList'
+        '400':
+          $ref: '#/components/responses/Error'
+        '503':
+          $ref: '#/components/responses/Error'
   /api/v1/admin/slots:
     post:
       operationId: createSlots

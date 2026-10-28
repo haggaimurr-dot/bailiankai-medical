@@ -85,6 +85,12 @@ export const api = {
     if (filters.doctorId) query.doctorId = filters.doctorId
     return get<Slot[]>('/slots', query)
   },
+  slotRecommendations: (filters: { clinicId: string; doctorId: string; after?: string; limit?: number }) => {
+    const query: Record<string, string> = { clinicId: filters.clinicId, doctorId: filters.doctorId }
+    if (filters.after) query.after = filters.after
+    if (filters.limit) query.limit = String(filters.limit)
+    return get<Slot[]>('/slots/recommendations', query)
+  },
 }
 
 export function errorMessage(error: unknown): string {
