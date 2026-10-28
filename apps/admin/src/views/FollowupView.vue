@@ -24,6 +24,19 @@ function applyTemplate(kind: 'days' | 'response') {
   if (kind === 'days') offsets.value = [...item.offsets]
   else { response.value = item.response; disposition.value = item.disposition }
 }
+// 常用治疗摘要模板（P2 治疗-后台）：内置常用文案，选填入摘要后可再编辑；
+// 模板内容如需由院方自行维护，另立管理入口，本条只做录入表单选用。
+const treatmentSummaryTemplates = [
+  { name: '痘坑痘印修复', text: '今日行痘坑痘印修复治疗，治疗区域为面部痘坑痘印处。治疗过程顺利，患者耐受良好，无明显不适。治疗后局部轻微泛红，属正常反应。已交代术后护理要点，嘱按期复诊评估恢复情况。' },
+  { name: '痘印管理', text: '完成面部痘印管理治疗 1 次，能量参数按皮肤耐受调整。治疗过程顺利，患者耐受良好。治疗后皮肤轻微泛红，已做镇静处理。已交代防晒与保湿护理，嘱按期复诊。' },
+  { name: '光子嫩肤', text: '今日行光子嫩肤治疗，治疗区域为全面部。治疗过程顺利，患者耐受良好。治疗后皮肤轻微发热泛红，已冷敷处理。已交代防晒与保湿护理，嘱两周后复诊。' },
+  { name: '水光补水', text: '今日行水光补水治疗，治疗区域为全面部。治疗过程顺利，患者耐受良好。治疗后针眼处轻微泛红，已做镇静处理。已交代 24 小时内避免沾水与化妆，嘱一周后复诊。' },
+]
+const chosenSummaryTemplate = ref('')
+function applySummaryTemplate() {
+  const item = treatmentSummaryTemplates.find(item => item.name === chosenSummaryTemplate.value)
+  if (item) summary.value = item.text
+}
 async function loadTemplates() { try { templates.value = await api.followupTemplates() } catch (cause) { error.value = errorMessage(cause) } }
 function dateFilter() { page.value = 1; void load() }
 
@@ -191,8 +204,8 @@ function changeTreatmentStatus() { generation++; appointmentPage.value = 1; sele
 async function selectAppointment(appointment: Appointment) {
   if (saving.value) return
   const request = ++generation
-  chosenTemplate.value = ''; offsets.value = [1, 3, 7]; selectedAppointment.value = appointment; selectedTask.value = null; detailLoading.value = true; error.value = ''; releasePhotos()
-  workspace.value = { treatment: null, treatmentRevisions: [], tasks: [] }; plans.value = []; treatmentFields.value = emptyTreatmentFields(); planVersionId.value = ''; summary.value = ''; notes.value = ''; treatedAt.value = localTime(); correctionOpen.value = false; correctionReason.value = ''
+  chosenTemplate.value = ''; chosenSummaryTemplate.value = ''; offsets.value = [1, 3, 7]; selectedAppointment.value = appointment; selectedTask.value = null; detailLoading.value = true; error.value = ''; releasePhotos()
+  workspace.value = { treatment: null, treatmentRevisions: [], tasks: [] }; plans.value = []; treatmentFields.value = emptyTreatmentFields(); planVersionId.value = ''; summary.value = ''; notes.value = ''; treatedAt.value = localTime(); correctionOpen.value = false; correctionReason.value = ''; chosenSummaryTemplate.value = ''
   treatmentAssigneeId.value = staff.value.find(item => item.id === appointment.doctorId && item.status === 'on_duty')?.id || staff.value.find(item => item.status === 'on_duty')?.id || ''
   try {
     const [data, plan] = await Promise.all([api.followupWorkspace(appointment.id), api.carePlan(appointment.id)])
@@ -213,7 +226,7 @@ async function record() {
   try {
     await ElMessageBox.confirm('确认实际治疗已发生？保存后会生成随访任务。后续更正须填写原因并保留版本历史。', '记录实际治疗', { confirmButtonText: '确认并生成任务', cancelButtonText: '继续编辑' })
     workspace.value = await api.recordTreatment(appointment.id, { ...treatmentFields.value, version: appointment.version, planVersionId: planVersionId.value, assigneeId: treatmentAssigneeId.value, summary: summary.value.trim(), notes: notes.value.trim(), treatedAt: date.toISOString(), offsets: dayOffsets })
-    treatmentStatus.value = 'completed'; appointmentPage.value = 1; await load()
+    chosenSummaryTemplate.value = ''; treatmentStatus.value = 'completed'; appointmentPage.value = 1; await load()
     ElMessage.success('已记录治疗并生成随访任务')
   } catch (cause) {
     if (cause !== 'cancel' && cause !== 'close') error.value = errorMessage(cause)
@@ -395,7 +408,7 @@ onBeforeUnmount(() => { generation++; listGeneration++; receiptGeneration++; if 
               <el-alert type="info" :closable="false" title="更正会生成新版本并保留原文。已有随访反馈或照片时，实际治疗时间不可调整。" />
               <el-form-item label="本次依据的已发布方案"><el-select v-model="planVersionId" :disabled="saving"><el-option v-for="plan in plans" :key="plan.id" :label="`方案 V${plan.version}`" :value="plan.id" /></el-select></el-form-item>
               <el-form-item label="实际治疗时间（北京时间）"><input v-model="treatedAt" type="datetime-local" step="1" :disabled="saving" :max="localTime()" /></el-form-item>
-              <el-form-item label="实际治疗摘要"><el-input v-model="summary" :disabled="saving" type="textarea" :rows="3" maxlength="1000" /></el-form-item>
+              <el-form-item label="常用摘要模板"><el-select v-model="chosenSummaryTemplate" clearable placeholder="选择模板填入摘要，可再编辑" :disabled="saving" @change="applySummaryTemplate"><el-option v-for="item in treatmentSummaryTemplates" :key="item.name" :label="item.name" :value="item.name" /></el-select></el-form-item><el-form-item label="实际治疗摘要"><el-input v-model="summary" :disabled="saving" type="textarea" :rows="3" maxlength="1000" /></el-form-item>
               <el-form-item label="方案阶段（0表示未指定）"><el-input-number v-model="treatmentFields.stageIndex" :min="0" :max="8" :disabled="saving" /></el-form-item>
               <el-form-item label="治疗项目"><el-input v-model="treatmentFields.procedure" maxlength="100" :disabled="saving" /></el-form-item>
               <el-form-item label="治疗部位"><el-input v-model="treatmentFields.bodyArea" maxlength="100" :disabled="saving" /></el-form-item>
@@ -413,7 +426,7 @@ onBeforeUnmount(() => { generation++; listGeneration++; receiptGeneration++; if 
             <el-form label-position="top">
               <el-form-item label="本次依据的已发布方案"><el-select v-model="planVersionId" :disabled="saving"><el-option v-for="plan in plans" :key="plan.id" :label="`方案 V${plan.version}`" :value="plan.id" /></el-select></el-form-item>
               <el-form-item label="实际治疗时间（北京时间）"><input v-model="treatedAt" type="datetime-local" step="1" :disabled="saving" :max="localTime()" /></el-form-item>
-              <el-form-item label="实际治疗摘要"><el-input v-model="summary" :disabled="saving" type="textarea" :rows="3" maxlength="1000" placeholder="记录实际实施的治疗内容" /></el-form-item>
+              <el-form-item label="常用摘要模板"><el-select v-model="chosenSummaryTemplate" clearable placeholder="选择模板填入摘要，可再编辑" :disabled="saving" @change="applySummaryTemplate"><el-option v-for="item in treatmentSummaryTemplates" :key="item.name" :label="item.name" :value="item.name" /></el-select></el-form-item><el-form-item label="实际治疗摘要"><el-input v-model="summary" :disabled="saving" type="textarea" :rows="3" maxlength="1000" placeholder="记录实际实施的治疗内容" /></el-form-item>
               <el-form-item label="方案阶段（0表示未指定）"><el-input-number v-model="treatmentFields.stageIndex" :min="0" :max="8" :disabled="saving" /></el-form-item>
               <el-form-item label="治疗项目"><el-input v-model="treatmentFields.procedure" maxlength="100" :disabled="saving" /></el-form-item>
               <el-form-item label="治疗部位"><el-input v-model="treatmentFields.bodyArea" maxlength="100" :disabled="saving" /></el-form-item>
