@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -333,6 +334,135 @@ func (s *AssessmentService) Create(ctx context.Context, patientID string, in Ass
 	})
 	return out, replayed, err
 }
+// assessmentObservationEqual compares the reviewable fields of one observation
+// (evidence is compared as the set of photo ids).
+func assessmentObservationEqual(a, b AssessmentObservation) bool {
+	if a.Code != b.Code || a.Description != b.Description || a.Region != b.Region || a.Certainty != b.Certainty || len(a.Evidence) != len(b.Evidence) {
+		return false
+	}
+	photos := make(map[string]bool, len(a.Evidence))
+	for _, e := range a.Evidence {
+		photos[e.PhotoID] = true
+	}
+	for _, e := range b.Evidence {
+		if !photos[e.PhotoID] {
+			return false
+		}
+	}
+	return true
+}
+
+// assessmentContentDiff summarises what a doctor changed against the AI
+// original, for the review audit event. Empty means nothing changed.
+func assessmentContentDiff(original, amended AssessmentContent) string {
+	var parts []string
+	if original.Summary != amended.Summary {
+		parts = append(parts, "观察概要已改")
+	}
+	origObs := make(map[string]AssessmentObservation, len(original.Observations))
+	for _, o := range original.Observations {
+		origObs[o.ID] = o
+	}
+	added, removed, changed := 0, 0, 0
+	seen := make(map[string]bool, len(amended.Observations))
+	for _, o := range amended.Observations {
+		seen[o.ID] = true
+		if old, ok := origObs[o.ID]; !ok {
+			added++
+		} else if !assessmentObservationEqual(old, o) {
+			changed++
+		}
+	}
+	for _, o := range original.Observations {
+		if !seen[o.ID] {
+			removed++
+		}
+	}
+	if added+removed+changed > 0 {
+		parts = append(parts, fmt.Sprintf("观察新增%d条、删除%d条、修改%d条", added, removed, changed))
+	}
+	origLim, newLim := make(map[string]bool), make(map[string]bool)
+	for _, l := range original.Limitations {
+		origLim[l] = true
+	}
+	for _, l := range amended.Limitations {
+		newLim[l] = true
+	}
+	limAdded, limRemoved := 0, 0
+	for l := range newLim {
+		if !origLim[l] {
+			limAdded++
+		}
+	}
+	for l := range origLim {
+		if !newLim[l] {
+			limRemoved++
+		}
+	}
+	if limAdded+limRemoved > 0 {
+		parts = append(parts, fmt.Sprintf("局限新增%d条、删除%d条", limAdded, limRemoved))
+	}
+	origAdvice, newAdvice := original.ConsultationAdvice, amended.ConsultationAdvice
+	adviceChanged := origAdvice.Reason != newAdvice.Reason || origAdvice.Recommended != newAdvice.Recommended
+	prepAdded, prepRemoved := 0, 0
+	origPrep, newPrep := make(map[string]bool), make(map[string]bool)
+	for _, p := range origAdvice.Preparation {
+		origPrep[p] = true
+	}
+	for _, p := range newAdvice.Preparation {
+		newPrep[p] = true
+	}
+	for p := range newPrep {
+		if !origPrep[p] {
+			prepAdded++
+		}
+	}
+	for p := range origPrep {
+		if !newPrep[p] {
+			prepRemoved++
+		}
+	}
+	if adviceChanged || prepAdded+prepRemoved > 0 {
+		parts = append(parts, "面诊建议已改")
+	}
+	if len(parts) == 0 {
+		return ""
+	}
+	return "修订：" + strings.Join(parts, "；")
+}
+
+// assessmentReviewDetail builds the audit detail for the latest review of a
+// task: the decision plus a compact before/after summary. Best effort — any
+// read failure yields "" and the event is still recorded.
+func assessmentReviewDetail(tx *gorm.DB, assessmentID string) string {
+	var review AssessmentReview
+	if err := tx.Where("assessment_id = ?", assessmentID).Order("version DESC").First(&review).Error; err != nil {
+		return ""
+	}
+	switch review.Decision {
+	case "approved":
+		return "通过，未改动"
+	case "rejected":
+		return "补拍/面诊"
+	}
+	if review.FinalJSON == nil {
+		return ""
+	}
+	var result AssessmentResult
+	if err := tx.First(&result, "id = ? AND assessment_id = ?", review.ResultID, assessmentID).Error; err != nil {
+		return ""
+	}
+	var analysis AssessmentAnalysis
+	if err := json.Unmarshal([]byte(result.ContentJSON), &analysis); err != nil {
+		return ""
+	}
+	var final AssessmentContent
+	if err := json.Unmarshal([]byte(*review.FinalJSON), &final); err != nil {
+		return ""
+	}
+	return assessmentContentDiff(analysis.AssessmentContent, final)
+}
+
 func (s *AssessmentService) operate(ctx context.Context, id, patientID, key, action string, in any, version int, now time.Time, fn func(*gorm.DB, *Assessment) error) (AssessmentView, error) {
 	var view AssessmentView
 	if !assessmentText(key, 64) || version < 1 {
@@ -378,7 +508,11 @@ func (s *AssessmentService) operate(ctx context.Context, id, patientID, key, act
 		if actor == "" {
 			actor = employeeActor(ctx)
 		}
-		if err := assessmentEvent(tx, *task, action, actor, "", now); err != nil {
+		detail := ""
+		if action == "review" {
+			detail = assessmentReviewDetail(tx, id)
+		}
+		if err := assessmentEvent(tx, *task, action, actor, detail, now); err != nil {
 			return err
 		}
 		view, err = assessmentView(tx, *task, patientID == "")
