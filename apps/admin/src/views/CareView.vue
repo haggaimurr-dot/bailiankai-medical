@@ -44,6 +44,19 @@ const visibleComparisonRows = computed(() => comparisonRows.value.filter(row => 
 const changedCount = computed(() => comparisonRows.value.filter(row => row.changed).length)
 const editorDirty = computed(() => JSON.stringify(content()) !== JSON.stringify(workspace.value.draft || latestFrom(workspace.value.versions)?.content || { summary: '', stages: [{ title: '', body: '' }], instructions: '' }))
 
+const conflictRows = computed(() => {
+  if (!conflict.value) return []
+  const { server, mine } = conflict.value
+  const rows: { key: string, label: string, server: string, mine: string, changed: boolean }[] = [{ key: 'summary', label: '方案摘要', server: server.summary, mine: mine.summary, changed: server.summary !== mine.summary }]
+  for (let i = 0; i < Math.max(server.stages.length, mine.stages.length); i++) {
+    rows.push({ key: `stage-${i}-title`, label: `阶段 ${i + 1} 名称`, server: server.stages[i]?.title ?? '', mine: mine.stages[i]?.title ?? '', changed: (server.stages[i]?.title ?? '') !== (mine.stages[i]?.title ?? '') })
+    rows.push({ key: `stage-${i}-body`, label: `阶段 ${i + 1} 安排`, server: server.stages[i]?.body ?? '', mine: mine.stages[i]?.body ?? '', changed: (server.stages[i]?.body ?? '') !== (mine.stages[i]?.body ?? '') })
+  }
+  rows.push({ key: 'instructions', label: '医嘱与注意事项', server: server.instructions, mine: mine.instructions, changed: server.instructions !== mine.instructions })
+  return rows
+})
+const conflictChangedCount = computed(() => conflictRows.value.filter(row => row.changed).length)
+
 const selected = ref<Appointment | null>(null)
 const loading = ref(false)
 const detailLoading = ref(false)
@@ -56,6 +69,11 @@ const stages = ref<{ title: string; body: string }[]>([])
 const instructions = ref('')
 const changeReason = ref('')
 const notice = ref('')
+const autosaveStatus = ref('')
+const conflict = ref<{ server: CarePlanContent, serverVersion: number, mine: CarePlanContent } | null>(null)
+const conflictDialogVisible = ref(false)
+const conflictChoices = ref<Record<string, 'server' | 'mine'>>({})
+let autosaveTimer: ReturnType<typeof setTimeout> | undefined
 let detailRequestVersion = 0
 
 const canEdit = computed(() => Boolean(selected.value && selected.value.status === 'confirmed' && (auth.employee?.role === 'manager' || (['clinician', 'doctor'].includes(auth.employee?.role || '') && selected.value.doctorId === auth.employee?.staffId))))
@@ -147,6 +165,11 @@ async function selectAppointment(appointment: Appointment) {
   detailLoading.value = true
   error.value = ''
   notice.value = ''
+  if (autosaveTimer) clearTimeout(autosaveTimer)
+  autosaveTimer = undefined
+  conflict.value = null
+  conflictDialogVisible.value = false
+  autosaveStatus.value = ''
   releasePhotoUrls()
   photos.value = []
   workspace.value = { draftVersion: 0, draft: null, versions: [] }
@@ -179,22 +202,94 @@ function content(): CarePlanContent {
   return { summary: summary.value.trim(), stages: stages.value.map((stage) => ({ title: stage.title.trim(), body: stage.body.trim() })), instructions: instructions.value.trim() }
 }
 
-async function saveDraft() {
+function scheduleAutosave() {
+  if (autosaveTimer) clearTimeout(autosaveTimer)
+  autosaveTimer = setTimeout(() => { void autoSaveDraft() }, 1500)
+}
+watch([summary, stages, instructions], () => {
+  if (!selected.value || !canEdit.value || conflict.value) return
+  if (!editorDirty.value) return
+  autosaveStatus.value = '有未保存的修改，正在等待自动保存…'
+  scheduleAutosave()
+}, { deep: true })
+async function autoSaveDraft() {
+  if (!selected.value || !canEdit.value || saving.value || conflict.value || !editorDirty.value) return
+  autosaveStatus.value = '正在自动保存…'
+  await saveDraft(true)
+}
+onBeforeUnmount(() => { if (autosaveTimer) clearTimeout(autosaveTimer) })
+
+async function saveDraft(silent = false) {
   if (!selected.value || saving.value || !canEdit.value) return
   saving.value = true
   error.value = ''
   try {
     workspace.value = await api.saveCarePlanDraft(selected.value.id, workspace.value.draftVersion, content())
     useContent(workspace.value.draft || undefined)
-    notice.value = '草稿已保存，患者端仍只显示已发布版本。'
-    ElMessage.success('方案草稿已保存')
+    autosaveStatus.value = `已自动保存 ${new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Shanghai' })}`
+    if (!silent) {
+      notice.value = '草稿已保存，患者端仍只显示已发布版本。'
+      ElMessage.success('方案草稿已保存')
+    }
+  } catch (cause) {
+    if (cause instanceof Error && 'status' in cause && (cause as { status?: number }).status === 409) {
+      await openConflict()
+      return
+    }
+    error.value = errorMessage(cause)
+    if (silent) autosaveStatus.value = '自动保存失败，请点“保存草稿”手动保存。'
+  } finally { saving.value = false }
+}
+
+async function openConflict() {
+  if (!selected.value) return
+  try {
+    const plan = await api.carePlan(selected.value.id)
+    const server = plan.draft || latestFrom(plan.versions)?.content || { summary: '', stages: [{ title: '', body: '' }], instructions: '' }
+    workspace.value = plan
+    conflict.value = { server, serverVersion: plan.draftVersion, mine: content() }
+    const choices: Record<string, 'server' | 'mine'> = {}
+    for (const row of conflictRows.value) choices[row.key] = row.mine ? 'mine' : 'server'
+    conflictChoices.value = choices
+    conflictDialogVisible.value = true
+    autosaveStatus.value = '检测到版本冲突，自动保存已暂停，请先合并。'
   } catch (cause) {
     error.value = errorMessage(cause)
-    if (cause instanceof Error && 'status' in cause && (cause as { status?: number }).status === 409) {
-      await reloadSelected()
-      notice.value = '草稿版本已变化，已刷新为服务端最新内容。请核对后再保存。'
-    }
-  } finally { saving.value = false }
+    notice.value = '草稿版本已变化，但读取服务端最新内容失败，请刷新页面后重试。'
+  }
+}
+
+function mergedContent(): CarePlanContent {
+  const c = conflict.value
+  if (!c) return content()
+  const pick = (key: string, serverText: string, mineText: string) => conflictChoices.value[key] === 'server' ? serverText : mineText
+  const stages: { title: string; body: string }[] = []
+  for (let i = 0; i < Math.max(c.server.stages.length, c.mine.stages.length); i++) {
+    stages.push({ title: pick(`stage-${i}-title`, c.server.stages[i]?.title ?? '', c.mine.stages[i]?.title ?? ''), body: pick(`stage-${i}-body`, c.server.stages[i]?.body ?? '', c.mine.stages[i]?.body ?? '') })
+  }
+  return { summary: pick('summary', c.server.summary, c.mine.summary), stages, instructions: pick('instructions', c.server.instructions, c.mine.instructions) }
+}
+
+async function resolveConflictMerge() {
+  if (!conflict.value) return
+  useContent(mergedContent())
+  conflict.value = null
+  conflictDialogVisible.value = false
+  notice.value = '已按你的选择合并双方内容，正在保存…'
+  await saveDraft(false)
+}
+
+function resolveConflictServer() {
+  if (!conflict.value) return
+  useContent(conflict.value.server)
+  conflict.value = null
+  conflictDialogVisible.value = false
+  autosaveStatus.value = ''
+  notice.value = '已加载服务端最新草稿，你的未保存修改已丢弃。'
+}
+
+function dismissConflict() {
+  conflictDialogVisible.value = false
 }
 
 async function publish() {
@@ -306,10 +401,11 @@ onBeforeUnmount(() => { detailRequestVersion++; listRequestVersion++; releasePho
               <el-form-item label="医嘱与注意事项"><el-input v-model="instructions" type="textarea" :rows="3" maxlength="2000" show-word-limit placeholder="由负责医生填写；没有补充事项可留空" /></el-form-item>
               <el-form-item v-if="planHasDraft" label="发布说明"><el-input v-model="changeReason" maxlength="300" placeholder="初次发布或本次更正的说明" /></el-form-item>
               <div class="care-actions">
-                <el-button :loading="saving" :disabled="!canEdit" @click="saveDraft">保存草稿</el-button>
+                <el-button :loading="saving" :disabled="!canEdit" @click="saveDraft(false)">保存草稿</el-button><span v-if="autosaveStatus" class="autosave-status">{{ autosaveStatus }}</span>
                 <el-button type="primary" :loading="saving" :disabled="!canEdit || !planHasDraft || editorDirty" @click="publish">{{ workspace.versions.length ? '发布新版本' : '发布方案' }}</el-button>
               </div>
             </el-form>
+            <el-alert v-if="conflict" type="warning" :closable="false" class="conflict-banner" title="检测到版本冲突：另一位同事已先保存了这份草稿。自动保存已暂停，你的未保存修改仍在编辑器里，没有被覆盖。"><template #default><el-button size="small" @click="conflictDialogVisible = true">查看冲突并合并</el-button></template></el-alert>
           </section>
           <section v-if="workspace.versions.length" class="care-section">
             <div class="care-section-heading"><div><h3>已发布版本</h3><p>发布内容不可原地修改。</p></div></div>
@@ -333,6 +429,16 @@ onBeforeUnmount(() => { detailRequestVersion++; listRequestVersion++; releasePho
       </template>
     </section>
   </div>
+  <el-dialog v-model="conflictDialogVisible" title="草稿版本冲突 · 请合并后再保存" width="900px" :close-on-click-modal="false">
+    <p>另一位同事已先保存了这份草稿（服务端草稿 V{{ conflict?.serverVersion }}）。你的未保存修改仍在编辑器里，没有被覆盖。请逐项选择保留哪一方的文字，合并后保存；也可以直接采用服务端版本。</p>
+    <p v-if="conflict">{{ conflictChangedCount }} 项内容不一致 · 阶段按顺序对照</p>
+    <div class="comparison-table-wrap"><table class="comparison-table"><thead><tr><th>内容</th><th>服务端最新</th><th>我的未保存修改</th><th>合并时保留</th></tr></thead><tbody><tr v-for="row in conflictRows" :key="row.key" :class="{ changed: row.changed }"><th>{{ row.label }}<small v-if="row.changed">不一致</small></th><td>{{ row.server || '（空）' }}</td><td>{{ row.mine || '（空）' }}</td><td><el-radio-group v-model="conflictChoices[row.key]"><el-radio value="server">服务端</el-radio><el-radio value="mine">我的</el-radio></el-radio-group></td></tr></tbody></table></div>
+    <template #footer>
+      <el-button @click="dismissConflict">稍后处理</el-button>
+      <el-button @click="resolveConflictServer">采用服务端版本</el-button>
+      <el-button type="primary" :loading="saving" @click="resolveConflictMerge">合并并保存</el-button>
+    </template>
+  </el-dialog>
 </template>
 
 <style scoped>
@@ -390,7 +496,9 @@ onBeforeUnmount(() => { detailRequestVersion++; listRequestVersion++; releasePho
 .stage-heading { margin: 2px 0 11px; }
 .stage-editor { display: grid; gap: 9px; padding: 12px; margin-bottom: 13px; border: 1px solid #e8eef5; border-radius: 8px; background: #fafcff; }
 .stage-editor-heading { display: flex; justify-content: space-between; align-items: center; color: #5e7692; font-size: 10px; }
-.care-actions { display: flex; gap: 9px; }
+.care-actions { display: flex; gap: 9px; align-items: center; flex-wrap: wrap; }
+.autosave-status { font-size: 12px; color: #71839a; }
+.conflict-banner { margin-top: 14px; }
 .care-version-card { padding: 13px 15px; margin-top: 9px; border: 1px solid #e8eef5; border-radius: 8px; background: #fafcff; }
 .care-version-card > div { display: flex; align-items: center; gap: 10px; color: #43668d; font-size: 11px; }
 .care-version-card > div span, .care-version-card small { color: #8b9bad; font-size: 9px; font-weight: 400; }
