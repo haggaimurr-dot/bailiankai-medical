@@ -20,6 +20,42 @@ const categoryId = ref('')
 const keyword = ref('')
 const appliedKeyword = ref('')
 const articles = ref<KnowledgeArticle[]>([])
+
+// 搜索历史：仅存本地，不上传；热门词取自已加载文章命中过的领域词，保证点选有结果。
+const HISTORY_KEY = 'blk-knowledge-search-history'
+const HOT_CANDIDATES = ['痘印', '痘坑', '护理', '冷敷', '保湿', '清洁', '防晒', '敏感肌', '治疗', '恢复']
+function loadHistory(): string[] {
+  try {
+    const raw = localStorage.getItem(HISTORY_KEY)
+    if (!raw) return []
+    const parsed: unknown = JSON.parse(raw)
+    return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === 'string').slice(0, 8) : []
+  } catch {
+    return []
+  }
+}
+const searchHistory = ref<string[]>(loadHistory())
+const hotKeywords = computed(() => {
+  const haystack = articles.value.map((a) => `${a.title} ${a.summary || ''}`).join('\n')
+  return HOT_CANDIDATES.filter((term) => haystack.includes(term)).slice(0, 6)
+})
+function saveHistory(term: string) {
+  const next = [term, ...searchHistory.value.filter((item) => item !== term)].slice(0, 8)
+  searchHistory.value = next
+  try {
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(next))
+  } catch {
+    // 历史存不下也不影响搜索。
+  }
+}
+function clearHistory() {
+  searchHistory.value = []
+  try {
+    localStorage.removeItem(HISTORY_KEY)
+  } catch {
+    // 忽略清理失败。
+  }
+}
 const page = ref(0)
 const total = ref(0)
 const favoritesMode = ref(route.query.favorites === '1')
@@ -121,7 +157,13 @@ async function switchCategory(id: string) {
 async function search() {
   appliedKeyword.value = keyword.value.trim()
   page.value = 0
+  if (appliedKeyword.value) saveHistory(appliedKeyword.value)
   await loadArticles()
+}
+
+function searchWith(term: string) {
+  keyword.value = term
+  void search()
 }
 
 async function toggleMode() {
@@ -167,6 +209,17 @@ onMounted(init)
     <div class="row">
       <input v-model="keyword" class="field grow" maxlength="100" placeholder="搜索标题、摘要或正文" @keyup.enter="search" />
       <button class="ghost" @click="search">搜索</button>
+    </div>
+    <div v-if="hotKeywords.length || searchHistory.length" class="search-help">
+      <div v-if="hotKeywords.length" class="help-row">
+        <span class="muted help-label">热门搜索</span>
+        <button v-for="term in hotKeywords" :key="term" class="chip help-chip" @click="searchWith(term)">{{ term }}</button>
+      </div>
+      <div v-if="searchHistory.length" class="help-row">
+        <span class="muted help-label">搜索历史</span>
+        <button v-for="term in searchHistory" :key="term" class="chip help-chip" @click="searchWith(term)">{{ term }}</button>
+        <button class="text-link" @click="clearHistory">清除历史</button>
+      </div>
     </div>
     <button class="ghost" @click="toggleMode">{{ favoritesMode ? '查看全部科普' : '查看我的收藏' }}</button>
 
@@ -235,6 +288,10 @@ onMounted(init)
 <style scoped>
 .preline { white-space: pre-line; line-height: 1.6; font-size: 13px; }
 .filter-row { display: flex; gap: 8px; flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px; }
+.search-help { margin-top: 10px; display: grid; gap: 8px; }
+.help-row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.help-label { font-size: 12px; flex: none; }
+.help-chip { background: #fff; cursor: pointer; font-size: 12px; padding: 4px 11px; }
 .filter-chip { background: #fff; cursor: pointer; font-size: 12px; padding: 5px 12px; white-space: nowrap; }
 .filter-chip.active { color: var(--brand); border-color: var(--brand); background: #eff6ff; font-weight: 600; }
 .article-card strong { font-size: 15px; line-height: 1.5; }
