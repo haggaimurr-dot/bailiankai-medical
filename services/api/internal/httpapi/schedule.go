@@ -23,6 +23,8 @@ func (a *API) registerScheduleRoutes(r *gin.Engine) {
 		c.Next()
 	})
 	group.POST("", a.createSlots)
+	group.POST("/batch-preview", a.previewBatchSlots)
+	group.POST("/batch-create", a.createBatchSlots)
 	group.POST("/suspend", a.suspendSlots)
 	a.registerScheduleManagementRoutes(r)
 }
@@ -80,6 +82,56 @@ func (a *API) createSlots(c *gin.Context) {
 	}
 	scheduleResult(c, 201, saved)
 }
+func batchGridInput(c *gin.Context) (store.SlotBatchGrid, bool) {
+	var body apitypes.SlotBatchGenerate
+	if !decodeObjectLimit(c, &body, []string{"clinicId", "doctorId", "startDate", "endDate", "startTimes", "capacity"}, []string{"durationMinutes"}, 65536) {
+		return store.SlotBatchGrid{}, false
+	}
+	if !validID(body.ClinicId) || !validID(body.DoctorId) {
+		fail(c, 400, "INVALID_BODY", "院区或医生标识无效")
+		return store.SlotBatchGrid{}, false
+	}
+	duration := 30
+	if body.DurationMinutes != nil {
+		duration = int(*body.DurationMinutes)
+	}
+	return store.SlotBatchGrid{
+		ClinicID: body.ClinicId, DoctorID: body.DoctorId,
+		StartDate: body.StartDate.String(), EndDate: body.EndDate.String(),
+		StartTimes: body.StartTimes, DurationMinutes: duration, Capacity: int(body.Capacity),
+	}, true
+}
+
+func (a *API) previewBatchSlots(c *gin.Context) {
+	grid, ok := batchGridInput(c)
+	if !ok {
+		return
+	}
+	toCreate, conflicts, err := a.repo.(store.ScheduleRepository).PreviewBatchSlots(c.Request.Context(), grid, a.now())
+	if err != nil {
+		scheduleFailure(c, err)
+		return
+	}
+	c.JSON(200, gin.H{"data": apitypes.SlotBatchPreview{ToCreate: slotDraftDTOs(toCreate), Conflicts: slotConflictDTOs(conflicts)}})
+}
+
+func (a *API) createBatchSlots(c *gin.Context) {
+	grid, ok := batchGridInput(c)
+	if !ok {
+		return
+	}
+	created, skipped, err := a.repo.(store.ScheduleRepository).CreateBatchSlots(c.Request.Context(), grid, a.now())
+	if err != nil {
+		scheduleFailure(c, err)
+		return
+	}
+	rows := make([]apitypes.Slot, 0, len(created))
+	for _, row := range created {
+		rows = append(rows, slotDTO(row))
+	}
+	c.JSON(201, gin.H{"data": apitypes.SlotBatchResult{Created: rows, Skipped: slotConflictDTOs(skipped)}})
+}
+
 func (a *API) suspendSlots(c *gin.Context) {
 	var raw struct {
 		Slots  []json.RawMessage `json:"slots"`

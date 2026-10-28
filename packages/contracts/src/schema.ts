@@ -1408,6 +1408,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/slots/batch-preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description 主管按日期范围与开始时间批量生成时段前预检；只列出可新建与冲突时段，不落库。冲突时段已有排班，确认生成时跳过、不修改已有时段容量。 */
+        post: operations["previewSlotBatch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/slots/batch-create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description 主管确认批量生成时段；只创建无冲突时段，冲突时段跳过并列出，不修改已有时段。 */
+        post: operations["createSlotBatch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/slots/suspend": {
         parameters: {
             query?: never;
@@ -4213,6 +4247,53 @@ export interface components {
         SlotSuspension: {
             slots: components["schemas"]["SlotReference"][];
             reason: string;
+        };
+        SlotBatchGenerate: {
+            clinicId: string;
+            doctorId: string;
+            /** Format: date */
+            startDate: string;
+            /** Format: date */
+            endDate: string;
+            startTimes: string[];
+            /**
+             * Format: int32
+             * @default 30
+             */
+            durationMinutes: number;
+            /** Format: int32 */
+            capacity: number;
+        };
+        SlotDraft: {
+            /** Format: date */
+            date: string;
+            /** Format: date-time */
+            startsAt: string;
+            /** Format: date-time */
+            endsAt: string;
+        };
+        SlotConflict: {
+            /** Format: date */
+            date: string;
+            /** Format: date-time */
+            startsAt: string;
+            /** Format: date-time */
+            endsAt: string;
+            /** @enum {string} */
+            reason: "overlap" | "past" | "holiday";
+            existingSlotId?: string | null;
+            /** Format: int32 */
+            existingCapacity?: number | null;
+            /** Format: int32 */
+            existingReserved?: number | null;
+        };
+        SlotBatchPreview: {
+            toCreate: components["schemas"]["SlotDraft"][];
+            conflicts: components["schemas"]["SlotConflict"][];
+        };
+        SlotBatchResult: {
+            created: components["schemas"]["Slot"][];
+            skipped: components["schemas"]["SlotConflict"][];
         };
         SlotUpdate: {
             /** Format: int32 */
@@ -10056,6 +10137,68 @@ export interface operations {
             403: components["responses"]["Error"];
             404: components["responses"]["Error"];
             409: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    previewSlotBatch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SlotBatchGenerate"];
+            };
+        };
+        responses: {
+            /** @description 预检结果 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["SlotBatchPreview"];
+                    };
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    createSlotBatch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SlotBatchGenerate"];
+            };
+        };
+        responses: {
+            /** @description 批量生成完成（部分时段可能因冲突跳过） */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["SlotBatchResult"];
+                    };
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
             503: components["responses"]["Error"];
         };
     };

@@ -172,6 +172,8 @@ export const api = {
   notificationAttempts: (id: string) => request<components['schemas']['NotificationAttempt'][]>('/admin/messages/queue/' + encodeURIComponent(id) + '/attempts', adminRequest()),
   retryNotification: (id: string) => request('/admin/messages/queue/' + encodeURIComponent(id) + '/retry', adminRequest({ method: 'POST' })),
   createSlots: (slots: components['schemas']['SlotCreate'][]) => request<Slot[]>('/admin/slots', adminRequest({ method: 'POST', body: JSON.stringify({ slots }) })),
+  previewSlotBatch: (body: components['schemas']['SlotBatchGenerate']) => request<components['schemas']['SlotBatchPreview']>('/admin/slots/batch-preview', adminRequest({ method: 'POST', body: JSON.stringify(body) })),
+  createSlotBatch: (body: components['schemas']['SlotBatchGenerate']) => request<components['schemas']['SlotBatchResult']>('/admin/slots/batch-create', adminRequest({ method: 'POST', body: JSON.stringify(body) })),
   suspendSlots: (slots: components['schemas']['SlotReference'][], reason: string) => request<Slot[]>('/admin/slots/suspend', adminRequest({ method: 'POST', body: JSON.stringify({ slots, reason }) })),
   patients: (search = '', page = 1, tag = '', phoneLast4 = '') => requestEnvelope<components['schemas']['PatientDirectoryPage']>('/admin/patients' + query({ search, page, tag, phoneLast4, pageSize: 20 }), adminRequest()),
   createPatientChart: (body: components['schemas']['PatientChartCreate']) => request<PatientRecordSummary>('/admin/patients', adminRequest({ method: 'POST', body: JSON.stringify(body) })),

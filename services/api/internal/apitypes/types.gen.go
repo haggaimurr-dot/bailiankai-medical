@@ -630,6 +630,13 @@ const (
 	SlotStatusOpen   SlotStatus = "open"
 )
 
+// Defines values for SlotConflictReason.
+const (
+	Holiday SlotConflictReason = "holiday"
+	Overlap SlotConflictReason = "overlap"
+	Past    SlotConflictReason = "past"
+)
+
 // Defines values for SlotCreateStatus.
 const (
 	SlotCreateStatusClosed SlotCreateStatus = "closed"
@@ -3216,6 +3223,43 @@ type SlotBatchCreate struct {
 	Slots []SlotCreate `json:"slots"`
 }
 
+// SlotBatchGenerate defines model for SlotBatchGenerate.
+type SlotBatchGenerate struct {
+	Capacity        int32              `json:"capacity"`
+	ClinicId        string             `json:"clinicId"`
+	DoctorId        string             `json:"doctorId"`
+	DurationMinutes *int32             `json:"durationMinutes,omitempty"`
+	EndDate         openapi_types.Date `json:"endDate"`
+	StartDate       openapi_types.Date `json:"startDate"`
+	StartTimes      []string           `json:"startTimes"`
+}
+
+// SlotBatchPreview defines model for SlotBatchPreview.
+type SlotBatchPreview struct {
+	Conflicts []SlotConflict `json:"conflicts"`
+	ToCreate  []SlotDraft    `json:"toCreate"`
+}
+
+// SlotBatchResult defines model for SlotBatchResult.
+type SlotBatchResult struct {
+	Created []Slot         `json:"created"`
+	Skipped []SlotConflict `json:"skipped"`
+}
+
+// SlotConflict defines model for SlotConflict.
+type SlotConflict struct {
+	Date             openapi_types.Date `json:"date"`
+	EndsAt           time.Time          `json:"endsAt"`
+	ExistingCapacity *int32             `json:"existingCapacity"`
+	ExistingReserved *int32             `json:"existingReserved"`
+	ExistingSlotId   *string            `json:"existingSlotId"`
+	Reason           SlotConflictReason `json:"reason"`
+	StartsAt         time.Time          `json:"startsAt"`
+}
+
+// SlotConflictReason defines model for SlotConflict.Reason.
+type SlotConflictReason string
+
 // SlotCreate defines model for SlotCreate.
 type SlotCreate struct {
 	Capacity int32            `json:"capacity"`
@@ -3228,6 +3272,13 @@ type SlotCreate struct {
 
 // SlotCreateStatus defines model for SlotCreate.Status.
 type SlotCreateStatus string
+
+// SlotDraft defines model for SlotDraft.
+type SlotDraft struct {
+	Date     openapi_types.Date `json:"date"`
+	EndsAt   time.Time          `json:"endsAt"`
+	StartsAt time.Time          `json:"startsAt"`
+}
 
 // SlotList defines model for SlotList.
 type SlotList struct {
@@ -4242,6 +4293,12 @@ type ChangeEmployeePasswordJSONRequestBody = EmployeePasswordChange
 
 // CreateSlotsJSONRequestBody defines body for CreateSlots for application/json ContentType.
 type CreateSlotsJSONRequestBody = SlotBatchCreate
+
+// CreateSlotBatchJSONRequestBody defines body for CreateSlotBatch for application/json ContentType.
+type CreateSlotBatchJSONRequestBody = SlotBatchGenerate
+
+// PreviewSlotBatchJSONRequestBody defines body for PreviewSlotBatch for application/json ContentType.
+type PreviewSlotBatchJSONRequestBody = SlotBatchGenerate
 
 // SuspendSlotsJSONRequestBody defines body for SuspendSlots for application/json ContentType.
 type SuspendSlotsJSONRequestBody = SlotSuspension

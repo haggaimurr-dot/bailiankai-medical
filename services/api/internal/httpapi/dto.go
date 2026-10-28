@@ -1,9 +1,13 @@
 package httpapi
 
 import (
+	"time"
+
 	"example.com/bailiankai/api/internal/apitypes"
 	"example.com/bailiankai/api/internal/database"
 	"example.com/bailiankai/api/internal/model"
+	"example.com/bailiankai/api/internal/store"
+	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
 func clinicDTO(row model.Clinic) apitypes.Clinic {
@@ -65,4 +69,39 @@ func slotDTO(row model.Slot) apitypes.Slot {
 		remaining = 0
 	}
 	return apitypes.Slot{Id: row.ID, ClinicId: row.ClinicID, DoctorId: row.DoctorID, StartsAt: row.StartsAt.In(database.Shanghai), EndsAt: row.EndsAt.In(database.Shanghai), Capacity: int32(row.Capacity), Reserved: int32(row.Reserved), Remaining: int32(remaining), Status: apitypes.SlotStatus(row.Status), Version: int32(row.Version)}
+}
+
+func slotDraftDTO(row store.SlotDraft) apitypes.SlotDraft {
+	day, _ := time.Parse("2006-01-02", row.Date)
+	return apitypes.SlotDraft{Date: openapi_types.Date{Time: day}, StartsAt: row.StartsAt, EndsAt: row.EndsAt}
+}
+
+func slotDraftDTOs(rows []store.SlotDraft) []apitypes.SlotDraft {
+	data := make([]apitypes.SlotDraft, 0, len(rows))
+	for _, row := range rows {
+		data = append(data, slotDraftDTO(row))
+	}
+	return data
+}
+
+func slotConflictDTO(row store.SlotConflict) apitypes.SlotConflict {
+	day, _ := time.Parse("2006-01-02", row.Date)
+	item := apitypes.SlotConflict{Date: openapi_types.Date{Time: day}, StartsAt: row.StartsAt, EndsAt: row.EndsAt, Reason: apitypes.SlotConflictReason(row.Reason)}
+	if row.ExistingSlotID != "" {
+		id := row.ExistingSlotID
+		capacity := int32(row.ExistingCapacity)
+		reserved := int32(row.ExistingReserved)
+		item.ExistingSlotId = &id
+		item.ExistingCapacity = &capacity
+		item.ExistingReserved = &reserved
+	}
+	return item
+}
+
+func slotConflictDTOs(rows []store.SlotConflict) []apitypes.SlotConflict {
+	data := make([]apitypes.SlotConflict, 0, len(rows))
+	for _, row := range rows {
+		data = append(data, slotConflictDTO(row))
+	}
+	return data
 }

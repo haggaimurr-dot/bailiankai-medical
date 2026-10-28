@@ -2,6 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { ApiError, api, canEditSchedule, errorMessage, type Slot } from '../api'
+import type { components } from '../../../../packages/contracts/src/schema'
 import AppIcon from '../components/AppIcon.vue'
 import ScheduleActions from '../components/ScheduleActions.vue'
 import SchedulePatients from '../components/SchedulePatients.vue'
@@ -90,6 +91,84 @@ async function saveSlot() {
 
 function beforeClose(done: () => void) { if (!saving.value) done() }
 
+// 批量生成排班：先预检冲突清单，确认后只生成无冲突时段，已有排班不被修改。
+const batchDoctorId = ref('')
+const batchDates = ref<[string, string] | null>(null)
+const batchTimes = ref<string[]>(['09:00', '10:00', '11:00', '12:00', '14:00', '15:00', '16:00'])
+const batchCapacity = ref<number | undefined>(3)
+const batchPreviewing = ref(false)
+const batchCreating = ref(false)
+const batchError = ref('')
+const batchPreview = ref<components['schemas']['SlotBatchPreview'] | null>(null)
+const batchFormError = computed(() => {
+  if (batchCapacity.value === undefined || !Number.isInteger(batchCapacity.value) || batchCapacity.value < 1 || batchCapacity.value > 100) return '容量须为 1–100 的整数。'
+  if (!batchDates.value || !batchDates.value[0] || !batchDates.value[1]) return '请选择日期范围。'
+  if (batchTimes.value.length === 0) return '请至少选择一个开始时间。'
+  return ''
+})
+watch([batchDoctorId, batchDates, batchTimes, batchCapacity], () => { batchPreview.value = null })
+const groupedToCreate = computed(() => {
+  const groups = new Map<string, string[]>()
+  for (const draft of batchPreview.value?.toCreate || []) {
+    const times = groups.get(draft.date) || []
+    times.push(`${slotTime(draft.startsAt)}–${slotTime(draft.endsAt)}`)
+    groups.set(draft.date, times)
+  }
+  return [...groups.entries()].map(([date, times]) => ({ date, times }))
+})
+function batchReasonLabel(reason: string) {
+  return reason === 'past' ? '已过期' : reason === 'holiday' ? '休息日' : '已有排班'
+}
+function batchGridBody() {
+  const doctorId = batchDoctorId.value || store.doctorId || store.clinicDoctors[0]?.id || ''
+  if (!doctorId) {
+    batchError.value = '请先选择医生。'
+    return null
+  }
+  if (batchFormError.value) {
+    batchError.value = batchFormError.value
+    return null
+  }
+  return {
+    clinicId: store.clinicId,
+    doctorId,
+    startDate: batchDates.value![0],
+    endDate: batchDates.value![1],
+    startTimes: [...batchTimes.value].sort(),
+    durationMinutes: 30,
+    capacity: batchCapacity.value!,
+  }
+}
+async function previewBatch() {
+  const body = batchGridBody()
+  if (!body) return
+  batchPreviewing.value = true
+  batchError.value = ''
+  try {
+    batchPreview.value = await api.previewSlotBatch(body)
+  } catch (error) {
+    batchError.value = errorMessage(error)
+  } finally {
+    batchPreviewing.value = false
+  }
+}
+async function confirmBatch() {
+  const body = batchGridBody()
+  if (!body) return
+  batchCreating.value = true
+  batchError.value = ''
+  try {
+    const result = await api.createSlotBatch(body)
+    ElMessage.success(`已生成 ${result.created.length} 个时段，跳过 ${result.skipped.length} 个冲突时段。`)
+    batchPreview.value = null
+    await store.refresh()
+  } catch (error) {
+    batchError.value = errorMessage(error)
+  } finally {
+    batchCreating.value = false
+  }
+}
+
 onMounted(() => { if (store.initialized) void store.refresh() })
 </script>
 
@@ -135,6 +214,25 @@ onMounted(() => { if (store.initialized) void store.refresh() })
       </el-table>
     </div>
     <div class="table-footer"><span>统计基于当前院区、医生与日期筛选</span><span>共 {{ store.loading || store.error ? '—' : store.slots.length }} 个时段</span></div>
+  </section>
+
+  <section v-if="canEditSchedule" class="surface batch-panel" aria-label="批量生成排班">
+    <div class="panel-heading"><div><h2>批量生成排班</h2><p>按日期范围与开始时间批量生成时段；先预览冲突清单，确认后只生成无冲突时段，已有排班不会被修改。</p></div></div>
+    <div class="filter-bar">
+      <div class="filter-field"><label for="batch-doctor">医生</label><el-select id="batch-doctor" v-model="batchDoctorId" :placeholder="store.doctorId || store.clinicDoctors[0]?.name || '选择医生'"><el-option v-for="doctor in store.clinicDoctors" :key="doctor.id" :label="doctor.name" :value="doctor.id" /></el-select></div>
+      <div class="filter-field date-filter"><label for="batch-dates">日期范围</label><el-date-picker id="batch-dates" v-model="batchDates" type="daterange" value-format="YYYY-MM-DD" format="YYYY 年 MM 月 DD 日" range-separator="至" start-placeholder="开始日期" end-placeholder="结束日期" /></div>
+      <div class="filter-field"><label for="batch-capacity">每个时段容量</label><el-input-number id="batch-capacity" v-model="batchCapacity" :min="1" :max="100" :step="1" step-strictly :precision="0" aria-label="每个时段容量" /></div>
+    </div>
+    <div class="batch-times"><span class="batch-times-label">开始时间（每个 30 分钟）</span><el-checkbox-group v-model="batchTimes"><el-checkbox v-for="time in ['09:00', '10:00', '11:00', '12:00', '14:00', '15:00', '16:00']" :key="time" :value="time">{{ time }}</el-checkbox></el-checkbox-group></div>
+    <el-alert v-if="batchError" :title="batchError" type="error" show-icon :closable="false" class="batch-alert" />
+    <div class="batch-actions"><el-button type="primary" :loading="batchPreviewing" :disabled="batchCreating" @click="previewBatch">预览冲突</el-button></div>
+    <div v-if="batchPreview" class="batch-preview">
+      <p class="batch-summary">预检完成：可新建 <strong>{{ batchPreview.toCreate.length }}</strong> 个，冲突 <strong>{{ batchPreview.conflicts.length }}</strong> 个。确认后只生成无冲突时段。</p>
+      <div v-if="groupedToCreate.length" class="batch-group"><h3>可新建</h3><ul><li v-for="group in groupedToCreate" :key="group.date">{{ displayDate(group.date) }}：{{ group.times.join('、') }}</li></ul></div>
+      <div v-if="batchPreview.conflicts.length" class="batch-group"><h3>冲突（确认后跳过）</h3><ul><li v-for="conflict in batchPreview.conflicts" :key="`${conflict.date}-${conflict.startsAt}`">{{ displayDate(conflict.date) }} {{ slotTime(conflict.startsAt) }}–{{ slotTime(conflict.endsAt) }} · {{ batchReasonLabel(conflict.reason) }}<span v-if="conflict.existingSlotId">（已有排班：容量 {{ conflict.existingCapacity }}，已占 {{ conflict.existingReserved }}）</span></li></ul></div>
+      <p v-if="!batchPreview.toCreate.length && !batchPreview.conflicts.length" class="batch-empty">该范围无可生成时段。</p>
+      <div class="batch-actions"><el-button type="primary" :loading="batchCreating" :disabled="!batchPreview.toCreate.length" @click="confirmBatch">确认生成</el-button><el-button :disabled="batchCreating" @click="batchPreview = null">取消</el-button></div>
+    </div>
   </section>
 
   <div class="bottom-note"><span class="note-icon">i</span><p>待确认与已确认预约均占用名额。关闭时段后，小程序会显示“已关闭”；已占用名额继续保留。</p></div>

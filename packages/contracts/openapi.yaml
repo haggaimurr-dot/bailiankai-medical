@@ -1006,6 +1006,58 @@ paths:
         '404': {$ref: '#/components/responses/Error'}
         '409': {$ref: '#/components/responses/Error'}
         '503': {$ref: '#/components/responses/Error'}
+  /api/v1/admin/slots/batch-preview:
+    post:
+      operationId: previewSlotBatch
+      description: 主管按日期范围与开始时间批量生成时段前预检；只列出可新建与冲突时段，不落库。冲突时段已有排班，确认生成时跳过、不修改已有时段容量。
+      security: [{EmployeeBearer: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/SlotBatchGenerate'}
+      responses:
+        '200':
+          description: 预检结果
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [data]
+                properties:
+                  data: {$ref: '#/components/schemas/SlotBatchPreview'}
+        '400': {$ref: '#/components/responses/Error'}
+        '401': {$ref: '#/components/responses/Error'}
+        '403': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+        '503': {$ref: '#/components/responses/Error'}
+  /api/v1/admin/slots/batch-create:
+    post:
+      operationId: createSlotBatch
+      description: 主管确认批量生成时段；只创建无冲突时段，冲突时段跳过并列出，不修改已有时段。
+      security: [{EmployeeBearer: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/SlotBatchGenerate'}
+      responses:
+        '201':
+          description: 批量生成完成（部分时段可能因冲突跳过）
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [data]
+                properties:
+                  data: {$ref: '#/components/schemas/SlotBatchResult'}
+        '400': {$ref: '#/components/responses/Error'}
+        '401': {$ref: '#/components/responses/Error'}
+        '403': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+        '503': {$ref: '#/components/responses/Error'}
   /api/v1/admin/slots/suspend:
     post:
       operationId: suspendSlots
@@ -3948,6 +4000,64 @@ components:
           maxItems: 500
           items: {$ref: '#/components/schemas/SlotReference'}
         reason: {type: string, minLength: 1, maxLength: 200}
+    SlotBatchGenerate:
+      type: object
+      additionalProperties: false
+      required: [clinicId, doctorId, startDate, endDate, startTimes, capacity]
+      properties:
+        clinicId: {type: string, minLength: 1, maxLength: 64, pattern: '^[A-Za-z0-9_-]+$'}
+        doctorId: {type: string, minLength: 1, maxLength: 64, pattern: '^[A-Za-z0-9_-]+$'}
+        startDate: {type: string, format: date, pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'}
+        endDate: {type: string, format: date, pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'}
+        startTimes:
+          type: array
+          minItems: 1
+          maxItems: 24
+          items: {type: string, pattern: '^[0-9]{2}:[0-9]{2}$'}
+        durationMinutes: {type: integer, minimum: 15, maximum: 120, format: int32, default: 30}
+        capacity: {type: integer, minimum: 1, maximum: 100, format: int32}
+    SlotDraft:
+      type: object
+      additionalProperties: false
+      required: [date, startsAt, endsAt]
+      properties:
+        date: {type: string, format: date}
+        startsAt: {type: string, format: date-time}
+        endsAt: {type: string, format: date-time}
+    SlotConflict:
+      type: object
+      additionalProperties: false
+      required: [date, startsAt, endsAt, reason]
+      properties:
+        date: {type: string, format: date}
+        startsAt: {type: string, format: date-time}
+        endsAt: {type: string, format: date-time}
+        reason: {type: string, enum: [overlap, past, holiday]}
+        existingSlotId: {type: string, nullable: true}
+        existingCapacity: {type: integer, nullable: true, format: int32}
+        existingReserved: {type: integer, nullable: true, format: int32}
+    SlotBatchPreview:
+      type: object
+      additionalProperties: false
+      required: [toCreate, conflicts]
+      properties:
+        toCreate:
+          type: array
+          items: {$ref: '#/components/schemas/SlotDraft'}
+        conflicts:
+          type: array
+          items: {$ref: '#/components/schemas/SlotConflict'}
+    SlotBatchResult:
+      type: object
+      additionalProperties: false
+      required: [created, skipped]
+      properties:
+        created:
+          type: array
+          items: {$ref: '#/components/schemas/Slot'}
+        skipped:
+          type: array
+          items: {$ref: '#/components/schemas/SlotConflict'}
     SlotUpdate:
       type: object
       additionalProperties: false
