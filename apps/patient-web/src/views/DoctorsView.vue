@@ -16,6 +16,18 @@ const error = ref('')
 const clinics = ref<Clinic[]>([])
 const clinic = ref<Clinic | null>(null)
 const doctors = ref<DoctorRow[]>([])
+const selectedFocus = ref('')
+const focusOptions = computed(() => {
+  const seen: string[] = []
+  for (const doctor of doctors.value) {
+    for (const item of doctor.focus || []) {
+      if (item && !seen.includes(item)) seen.push(item)
+    }
+  }
+  return seen
+})
+// 公开接口只返回启用且已发布医生，停用医生不会进入列表，筛选时已一并排除。
+const filteredDoctors = computed(() => (selectedFocus.value ? doctors.value.filter((doctor) => (doctor.focus || []).includes(selectedFocus.value)) : doctors.value))
 const isDemo = ref(true)
 const clinicPickerShow = ref(false)
 let requestId = 0
@@ -27,6 +39,7 @@ async function loadDoctors(clinicId?: string) {
   loading.value = true
   error.value = ''
   doctors.value = []
+  selectedFocus.value = ''
   clinic.value = null
   clinics.value = []
   try {
@@ -107,7 +120,12 @@ onUnmounted(() => { requestId += 1 })
 
       <div class="section-heading">
         <h2>医生团队</h2>
-        <span v-if="!loading && !error" class="muted">{{ doctors.length }} 位医生</span>
+        <span v-if="!loading && !error" class="muted">{{ filteredDoctors.length }} 位医生</span>
+      </div>
+
+      <div v-if="!loading && !error && focusOptions.length" class="filter-row">
+        <button class="filter-chip" :class="{ active: !selectedFocus }" @click="selectedFocus = ''">全部</button>
+        <button v-for="item in focusOptions" :key="item" class="filter-chip" :class="{ active: selectedFocus === item }" @click="selectedFocus = item">{{ item }}</button>
       </div>
 
       <div v-if="loading" class="card state"><van-loading size="24">正在读取医生资料</van-loading></div>
@@ -116,8 +134,8 @@ onUnmounted(() => { requestId += 1 })
         <p class="muted">{{ error }}</p>
         <button class="ghost" @click="loadDoctors(clinic?.id)">重新加载</button>
       </div>
-      <template v-else-if="doctors.length">
-        <section v-for="doctor in doctors" :key="doctor.id" class="card">
+      <template v-else-if="filteredDoctors.length">
+        <section v-for="doctor in filteredDoctors" :key="doctor.id" class="card">
           <div class="row doctor-head" @click="openDoctorDetail(doctor)">
             <img v-if="doctor.avatarUrl" class="avatar" :src="doctor.avatarUrl" alt="" />
             <span v-else class="avatar initials">{{ doctor.initials }}</span>
@@ -140,8 +158,9 @@ onUnmounted(() => { requestId += 1 })
         <button class="primary" @click="openSchedule()">查看全部排班</button>
       </template>
       <div v-else class="card state">
-        <div class="state-title">暂无医生资料</div>
-        <p class="muted">当前院区还未发布医生信息，请稍后再来查看。</p>
+        <div class="state-title">{{ doctors.length ? '暂无匹配医生' : '暂无医生资料' }}</div>
+        <p class="muted">{{ doctors.length ? `没有擅长「${selectedFocus}」的医生，换个方向试试。` : '当前院区还未发布医生信息，请稍后再来查看。' }}</p>
+        <button v-if="doctors.length" class="ghost" @click="selectedFocus = ''">查看全部医生</button>
       </div>
 
       <p class="footer-note">预约需工作人员确认，可在“我的预约”查看进度</p>
@@ -176,6 +195,9 @@ onUnmounted(() => { requestId += 1 })
 .doctor-name { font-size: 16px; font-weight: 700; }
 .doctor-summary { line-height: 1.6; margin: 10px 0; }
 .focus-list { display: flex; flex-wrap: wrap; gap: 6px; }
+.filter-row { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 4px; }
+.filter-chip { border: 1px solid var(--line); background: #fff; color: var(--muted); border-radius: 999px; padding: 5px 12px; font-size: 12px; cursor: pointer; }
+.filter-chip.active { background: var(--brand); border-color: var(--brand); color: #fff; font-weight: 600; }
 .doctor-action { margin-top: 10px; }
 button.ghost.small { padding: 7px 12px; font-size: 13px; }
 .footer-note { text-align: center; color: var(--muted); font-size: 12px; margin: 4px 0 0; }
