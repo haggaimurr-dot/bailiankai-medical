@@ -3165,6 +3165,8 @@ components:
         dateTo: {type: string, format: date}
         groupBy: {type: string, enum: [doctor, clinic, day]}
         summary: {$ref: '#/components/schemas/OperationsAnalyticsMetrics'}
+        previous: {type: object, nullable: true, required: [dateFrom, dateTo, summary], properties: {dateFrom: {type: string, format: date}, dateTo: {type: string, format: date}, summary: {$ref: '#/components/schemas/OperationsAnalyticsMetrics'}}, description: '环比窗口：本期之前等长周期'}
+        yearAgo: {type: object, nullable: true, required: [dateFrom, dateTo, summary], properties: {dateFrom: {type: string, format: date}, dateTo: {type: string, format: date}, summary: {$ref: '#/components/schemas/OperationsAnalyticsMetrics'}}, description: '同比窗口：去年同期'}
         rows: {type: array, items: {$ref: '#/components/schemas/OperationsAnalyticsRow'}}
         clinics: {type: array, items: {$ref: '#/components/schemas/OperationsAnalyticsClinic'}, description: 仅员工授权院区，含已停用院区以查历史}
         doctors: {type: array, items: {$ref: '#/components/schemas/OperationsAnalyticsDoctor'}, description: 仅员工授权院区医生，含已停用医生以查历史}

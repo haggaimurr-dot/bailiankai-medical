@@ -71,6 +71,18 @@ type AnalyticsReport struct {
 	Rows          []AnalyticsRow    `json:"rows"`
 	Clinics       []AnalyticsClinic `json:"clinics"`
 	Doctors       []AnalyticsDoctor `json:"doctors"`
+	// Previous is the环比 window: the equal-length period immediately before
+	// DateFrom. YearAgo is the同比 window: the same dates one year earlier.
+	// Either is nil when its window cannot be computed.
+	Previous *AnalyticsPeriod `json:"previous"`
+	YearAgo  *AnalyticsPeriod `json:"yearAgo"`
+}
+
+// AnalyticsPeriod is one comparison window's date range and summary metrics.
+type AnalyticsPeriod struct {
+	DateFrom string           `json:"dateFrom"`
+	DateTo   string           `json:"dateTo"`
+	Summary  AnalyticsMetrics `json:"summary"`
 }
 
 func analyticsIDValid(id string) bool {
@@ -184,84 +196,132 @@ func (s *MySQL) Analytics(ctx context.Context, filter AnalyticsFilter, now time.
 			return nil
 		}
 
-		// EXISTS expresses appointment facts once, irrespective of confirmation
-		// history, treatment revisions, or the number of followup tasks.
-		appointmentSelect := `COUNT(*) AS appointment_count,
-			SUM(CASE WHEN appointments.status = 'pending' AND appointments.confirmation_deadline > ? THEN 1 ELSE 0 END) AS pending_appointment_count,
-			SUM(CASE WHEN appointments.status IN ('confirmed', 'completed') OR EXISTS (SELECT 1 FROM appointment_events ae WHERE ae.appointment_id = appointments.id AND ae.action = 'confirm') THEN 1 ELSE 0 END) AS confirmed_appointment_count,
-			SUM(CASE WHEN appointments.arrived_at IS NOT NULL THEN 1 ELSE 0 END) AS arrived_appointment_count,
-			SUM(CASE WHEN EXISTS (SELECT 1 FROM treatments t WHERE t.appointment_id = appointments.id) THEN 1 ELSE 0 END) AS treatment_count`
-		appointments := tx.Table("appointments").Joins("JOIN slots ON slots.id = appointments.slot_id").
-			Where("slots.starts_at >= ? AND slots.starts_at < ?", filter.DateRange.From, filter.DateRange.Until)
-		appointments = analyticsFiltered(ctx, appointments, filter)
-		appointments, dimensions := analyticsGroup(appointments, filter.GroupBy, "slots.starts_at")
-		var appointmentRows []AnalyticsRow
-		if err := appointments.Select(dimensions+", "+appointmentSelect, now).Scan(&appointmentRows).Error; err != nil {
+		periodFilter := filter
+		summary, rows, err := analyticsPeriod(tx, ctx, periodFilter, clinicNamesOf(report.Clinics), doctorNamesOf(report.Doctors), now)
+		if err != nil {
 			return err
 		}
-		// The followup cohort uses its own due date. Ownership always comes
-		// from the appointment slot, never a task's reassigned staff member.
-		taskSelect := `COUNT(*) AS followup_count,
-			SUM(CASE WHEN followup_tasks.status IN ('reviewed', 'handled') THEN 1 ELSE 0 END) AS followup_completed_count,
-			SUM(CASE WHEN followup_tasks.status = 'pending' AND followup_tasks.due_at < ? THEN 1 ELSE 0 END) AS followup_overdue_count,
-			SUM(CASE WHEN followup_tasks.status IN ('alert', 'handled') THEN 1 ELSE 0 END) AS alert_count,
-			SUM(CASE WHEN followup_tasks.status = 'handled' THEN 1 ELSE 0 END) AS alert_handled_count,
-			SUM(CASE WHEN followup_tasks.status = 'alert' THEN 1 ELSE 0 END) AS pending_alert_count`
-		tasks := tx.Table("followup_tasks").Joins("JOIN appointments ON appointments.id = followup_tasks.appointment_id").Joins("JOIN slots ON slots.id = appointments.slot_id").
-			Where("followup_tasks.due_at >= ? AND followup_tasks.due_at < ?", filter.DateRange.From, filter.DateRange.Until)
-		tasks = analyticsFiltered(ctx, tasks, filter)
-		tasks, dimensions = analyticsGroup(tasks, filter.GroupBy, "followup_tasks.due_at")
-		var taskRows []AnalyticsRow
-		if err := tasks.Select(dimensions+", "+taskSelect, now).Scan(&taskRows).Error; err != nil {
-			return err
-		}
-		rows := make(map[string]*AnalyticsRow)
-		for _, batch := range [][]AnalyticsRow{appointmentRows, taskRows} {
-			for _, row := range batch {
-				key := row.Date
-				switch filter.GroupBy {
-				case "doctor":
-					key = row.ClinicID + "/" + row.DoctorID
-				case "clinic":
-					key = row.ClinicID
-				}
-				current, exists := rows[key]
-				if !exists {
-					current = &AnalyticsRow{Key: key, ClinicID: row.ClinicID, DoctorID: row.DoctorID, Date: row.Date}
-					rows[key] = current
-				}
-				current.Metrics.add(row.Metrics)
+		report.Rows, report.Summary = rows, summary
+		// Comparison periods use the same filters and the same grouping, so
+		// the环比 window is exactly the preceding equal-length period and the
+		//同比 window is the same dates one year earlier — never overlapping
+		// the current period.
+		length := filter.DateRange.Until.Sub(filter.DateRange.From)
+		prevFrom, prevUntil := filter.DateRange.From.Add(-length), filter.DateRange.From
+		if prevFrom.Year() >= 1 {
+			periodFilter.DateRange = DateRange{From: prevFrom, Until: prevUntil}
+			prevSummary, _, err := analyticsPeriod(tx, ctx, periodFilter, clinicNamesOf(report.Clinics), doctorNamesOf(report.Doctors), now)
+			if err != nil {
+				return err
 			}
+			report.Previous = &AnalyticsPeriod{DateFrom: prevFrom.Format("2006-01-02"), DateTo: prevUntil.AddDate(0, 0, -1).Format("2006-01-02"), Summary: prevSummary}
 		}
-		if filter.GroupBy == "day" {
-			for date := filter.DateRange.From; date.Before(filter.DateRange.Until); date = date.AddDate(0, 0, 1) {
-				key := date.Format("2006-01-02")
-				if rows[key] == nil {
-					rows[key] = &AnalyticsRow{Key: key, Date: key}
-				}
+		yearFrom, yearUntil := filter.DateRange.From.AddDate(-1, 0, 0), filter.DateRange.Until.AddDate(-1, 0, 0)
+		if yearFrom.Year() >= 1 {
+			periodFilter.DateRange = DateRange{From: yearFrom, Until: yearUntil}
+			yearSummary, _, err := analyticsPeriod(tx, ctx, periodFilter, clinicNamesOf(report.Clinics), doctorNamesOf(report.Doctors), now)
+			if err != nil {
+				return err
 			}
+			report.YearAgo = &AnalyticsPeriod{DateFrom: yearFrom.Format("2006-01-02"), DateTo: yearUntil.AddDate(0, 0, -1).Format("2006-01-02"), Summary: yearSummary}
 		}
-		clinicNames, doctorNames := make(map[string]string), make(map[string]string)
-		for _, clinic := range report.Clinics {
-			clinicNames[clinic.ID] = clinic.Name
-		}
-		for _, doctor := range report.Doctors {
-			doctorNames[doctor.ID] = doctor.Name
-		}
-		for _, row := range rows {
-			row.ClinicName, row.DoctorName = clinicNames[row.ClinicID], doctorNames[row.DoctorID]
-			row.Metrics.calculateRates()
-			report.Rows = append(report.Rows, *row)
-			report.Summary.add(row.Metrics)
-		}
-		sort.Slice(report.Rows, func(i, j int) bool { return report.Rows[i].Key < report.Rows[j].Key })
-		report.Summary.calculateRates()
 		return nil
 	}, &sql.TxOptions{Isolation: sql.LevelRepeatableRead, ReadOnly: true})
 	if err != nil {
 		return AnalyticsReport{}, err
 	}
 	return report, nil
+}
+
+func clinicNamesOf(clinics []AnalyticsClinic) map[string]string {
+	names := make(map[string]string, len(clinics))
+	for _, clinic := range clinics {
+		names[clinic.ID] = clinic.Name
+	}
+	return names
+}
+
+func doctorNamesOf(doctors []AnalyticsDoctor) map[string]string {
+	names := make(map[string]string, len(doctors))
+	for _, doctor := range doctors {
+		names[doctor.ID] = doctor.Name
+	}
+	return names
+}
+
+// analyticsPeriod computes one period's summary and grouped rows. The caller
+// supplies the period through filter.DateRange; the same grouping and clinic
+// / doctor filters apply to every period, so comparison windows never mix
+// cohorts.
+func analyticsPeriod(tx *gorm.DB, ctx context.Context, filter AnalyticsFilter, clinicNames, doctorNames map[string]string, now time.Time) (AnalyticsMetrics, []AnalyticsRow, error) {
+	var summary AnalyticsMetrics
+	// EXISTS expresses appointment facts once, irrespective of confirmation
+	// history, treatment revisions, or the number of followup tasks.
+	appointmentSelect := `COUNT(*) AS appointment_count,
+		SUM(CASE WHEN appointments.status = 'pending' AND appointments.confirmation_deadline > ? THEN 1 ELSE 0 END) AS pending_appointment_count,
+		SUM(CASE WHEN appointments.status IN ('confirmed', 'completed') OR EXISTS (SELECT 1 FROM appointment_events ae WHERE ae.appointment_id = appointments.id AND ae.action = 'confirm') THEN 1 ELSE 0 END) AS confirmed_appointment_count,
+		SUM(CASE WHEN appointments.arrived_at IS NOT NULL THEN 1 ELSE 0 END) AS arrived_appointment_count,
+		SUM(CASE WHEN EXISTS (SELECT 1 FROM treatments t WHERE t.appointment_id = appointments.id) THEN 1 ELSE 0 END) AS treatment_count`
+	appointments := tx.Table("appointments").Joins("JOIN slots ON slots.id = appointments.slot_id").
+		Where("slots.starts_at >= ? AND slots.starts_at < ?", filter.DateRange.From, filter.DateRange.Until)
+	appointments = analyticsFiltered(ctx, appointments, filter)
+	appointments, dimensions := analyticsGroup(appointments, filter.GroupBy, "slots.starts_at")
+	var appointmentRows []AnalyticsRow
+	if err := appointments.Select(dimensions+", "+appointmentSelect, now).Scan(&appointmentRows).Error; err != nil {
+		return summary, nil, err
+	}
+	// The followup cohort uses its own due date. Ownership always comes
+	// from the appointment slot, never a task's reassigned staff member.
+	taskSelect := `COUNT(*) AS followup_count,
+		SUM(CASE WHEN followup_tasks.status IN ('reviewed', 'handled') THEN 1 ELSE 0 END) AS followup_completed_count,
+		SUM(CASE WHEN followup_tasks.status = 'pending' AND followup_tasks.due_at < ? THEN 1 ELSE 0 END) AS followup_overdue_count,
+		SUM(CASE WHEN followup_tasks.status IN ('alert', 'handled') THEN 1 ELSE 0 END) AS alert_count,
+		SUM(CASE WHEN followup_tasks.status = 'handled' THEN 1 ELSE 0 END) AS alert_handled_count,
+		SUM(CASE WHEN followup_tasks.status = 'alert' THEN 1 ELSE 0 END) AS pending_alert_count`
+	tasks := tx.Table("followup_tasks").Joins("JOIN appointments ON appointments.id = followup_tasks.appointment_id").Joins("JOIN slots ON slots.id = appointments.slot_id").
+		Where("followup_tasks.due_at >= ? AND followup_tasks.due_at < ?", filter.DateRange.From, filter.DateRange.Until)
+	tasks = analyticsFiltered(ctx, tasks, filter)
+	tasks, dimensions = analyticsGroup(tasks, filter.GroupBy, "followup_tasks.due_at")
+	var taskRows []AnalyticsRow
+	if err := tasks.Select(dimensions+", "+taskSelect, now).Scan(&taskRows).Error; err != nil {
+		return summary, nil, err
+	}
+	rows := make(map[string]*AnalyticsRow)
+	for _, batch := range [][]AnalyticsRow{appointmentRows, taskRows} {
+		for _, row := range batch {
+			key := row.Date
+			switch filter.GroupBy {
+			case "doctor":
+				key = row.ClinicID + "/" + row.DoctorID
+			case "clinic":
+				key = row.ClinicID
+			}
+			current, exists := rows[key]
+			if !exists {
+				current = &AnalyticsRow{Key: key, ClinicID: row.ClinicID, DoctorID: row.DoctorID, Date: row.Date}
+				rows[key] = current
+			}
+			current.Metrics.add(row.Metrics)
+		}
+	}
+	if filter.GroupBy == "day" {
+		for date := filter.DateRange.From; date.Before(filter.DateRange.Until); date = date.AddDate(0, 0, 1) {
+			key := date.Format("2006-01-02")
+			if rows[key] == nil {
+				rows[key] = &AnalyticsRow{Key: key, Date: key}
+			}
+		}
+	}
+	out := make([]AnalyticsRow, 0, len(rows))
+	for _, row := range rows {
+		row.ClinicName, row.DoctorName = clinicNames[row.ClinicID], doctorNames[row.DoctorID]
+		row.Metrics.calculateRates()
+		out = append(out, *row)
+		summary.add(row.Metrics)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Key < out[j].Key })
+	summary.calculateRates()
+	return summary, out, nil
 }
 
 func analyticsFiltered(ctx context.Context, query *gorm.DB, filter AnalyticsFilter) *gorm.DB {

@@ -3505,6 +3505,22 @@ export interface components {
             /** @enum {string} */
             groupBy: "doctor" | "clinic" | "day";
             summary: components["schemas"]["OperationsAnalyticsMetrics"];
+            /** @description 环比窗口：本期之前等长周期 */
+            previous?: {
+                /** Format: date */
+                dateFrom: string;
+                /** Format: date */
+                dateTo: string;
+                summary: components["schemas"]["OperationsAnalyticsMetrics"];
+            } | null;
+            /** @description 同比窗口：去年同期 */
+            yearAgo?: {
+                /** Format: date */
+                dateFrom: string;
+                /** Format: date */
+                dateTo: string;
+                summary: components["schemas"]["OperationsAnalyticsMetrics"];
+            } | null;
             rows: components["schemas"]["OperationsAnalyticsRow"][];
             /** @description 仅员工授权院区，含已停用院区以查历史 */
             clinics: components["schemas"]["OperationsAnalyticsClinic"][];

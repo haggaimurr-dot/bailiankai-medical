@@ -34,6 +34,63 @@ const hasData = computed(() => {
   const metrics = report.value?.summary
   return !!metrics && (metrics.appointmentCount > 0 || metrics.treatmentCount > 0 || metrics.followupCount > 0)
 })
+type MetricKey = 'appointmentCount' | 'confirmedAppointmentCount' | 'arrivedAppointmentCount' | 'treatmentCount' | 'followupCompletedCount' | 'alertHandledCount'
+const comparisonRows = computed(() => {
+  const summary = report.value?.summary
+  if (!summary) return []
+  const defs: { key: MetricKey, label: string, unit: string }[] = [
+    { key: 'appointmentCount', label: '全部预约', unit: '次' },
+    { key: 'confirmedAppointmentCount', label: '预约确认', unit: '次' },
+    { key: 'arrivedAppointmentCount', label: '实际到诊', unit: '次' },
+    { key: 'treatmentCount', label: '实际治疗', unit: '次' },
+    { key: 'followupCompletedCount', label: '随访完成', unit: '项' },
+    { key: 'alertHandledCount', label: '异常处理', unit: '项' },
+  ]
+  return defs.map(def => ({
+    ...def,
+    current: summary[def.key],
+    previous: report.value?.previous?.summary[def.key] ?? null,
+    yearAgo: report.value?.yearAgo?.summary[def.key] ?? null,
+  }))
+})
+function deltaLabel(current: number, base: number | null): string {
+  if (base === null) return '—'
+  if (base === 0) return current === 0 ? '±0' : `+${current}`
+  const diff = current - base
+  const pct = (diff / base) * 100
+  return `${diff > 0 ? '+' : ''}${diff}（${pct > 0 ? '+' : ''}${pct.toFixed(1)}%）`
+}
+function csvCell(value: string | number | null | undefined): string {
+  const text = value === null || value === undefined ? '' : String(value)
+  return `"${text.replace(/"/g, '""')}"`
+}
+function exportCsv() {
+  const data = report.value
+  if (!data || !resultQuery.value) return
+  const lines: string[][] = []
+  lines.push([`运营分析导出 · ${scopeLabel(resultQuery.value)}`])
+  lines.push([`生成时间 ${generatedAt(data.generatedAt)} · 北京时间`])
+  lines.push([])
+  lines.push(['对比', '本期', `环比上期（${data.previous ? `${data.previous.dateFrom} 至 ${data.previous.dateTo}` : '—'}）`, '环比变化', `同比去年（${data.yearAgo ? `${data.yearAgo.dateFrom} 至 ${data.yearAgo.dateTo}` : '—'}）`, '同比变化'])
+  for (const row of comparisonRows.value) lines.push([row.label, row.current, row.previous ?? '—', deltaLabel(row.current, row.previous), row.yearAgo ?? '—', deltaLabel(row.current, row.yearAgo)])
+  lines.push([])
+  const groupHeader = data.groupBy === 'doctor' ? ['医生', '院区'] : data.groupBy === 'clinic' ? ['院区'] : ['日期']
+  lines.push([...groupHeader, '全部预约', '待确认', '预约确认', '实际到诊', '到诊率', '实际治疗', '随访任务', '随访完成', '完成率', '逾期未提交', '异常任务', '异常处理', '处理率', '异常待处理'])
+  for (const row of data.rows) {
+    const group = data.groupBy === 'doctor' ? [row.doctorName || '未归属医生', row.clinicName || '未归属院区'] : data.groupBy === 'clinic' ? [row.clinicName || '未归属院区'] : [row.date]
+    const m = row.metrics
+    lines.push([...group, m.appointmentCount, m.pendingAppointmentCount, m.confirmedAppointmentCount, m.arrivedAppointmentCount, rate(m.arrivalRate), m.treatmentCount, m.followupCount, m.followupCompletedCount, rate(m.followupCompletionRate), m.followupOverdueCount, m.alertCount, m.alertHandledCount, rate(m.alertHandlingRate), m.pendingAlertCount])
+  }
+  const csv = '\uFEFF' + lines.map(line => line.map(csvCell).join(',')).join('\r\n')
+  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }))
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = `运营分析_${data.dateFrom}_${data.dateTo}.csv`
+  document.body.appendChild(anchor)
+  anchor.click()
+  anchor.remove()
+  URL.revokeObjectURL(url)
+}
 function query(): Filters {
   return { dateFrom: filters.dateFrom, dateTo: filters.dateTo, clinicId: filters.clinicId || undefined, doctorId: filters.doctorId || undefined, groupBy: filters.groupBy }
 }
@@ -99,10 +156,19 @@ onBeforeUnmount(() => { ++requestId })
     <template v-else-if="report && resultQuery">
       <div class="analytics-result-meta">
         <div><p class="query-snapshot" data-testid="analytics-result-scope"><strong>当前结果：</strong>{{ scopeLabel(resultQuery) }}</p><p v-if="draftChanged" class="draft-note" role="status">筛选条件已修改，点击“查询统计”后更新结果。</p></div>
-        <span>截至 {{ generatedAt(report.generatedAt) }} · 北京时间</span>
+        <div class="analytics-result-actions"><span>截至 {{ generatedAt(report.generatedAt) }} · 北京时间</span><el-button type="primary" plain size="small" @click="exportCsv">导出 CSV</el-button></div>
       </div>
       <div class="stat-grid analytics-summary" aria-label="统计汇总">
         <article v-for="card in cards" :key="card.key" class="stat-card" :data-testid="`analytics-card-${card.key}`"><div class="stat-copy"><span>{{ card.title }}</span><strong>{{ card.value }}<small>{{ card.unit }}</small></strong><p>{{ card.detail }}</p></div><span class="stat-icon" :class="card.color"><AppIcon :name="card.icon" /></span></article>
+      </div>
+      <div class="surface analytics-compare">
+        <div class="panel-heading"><div><h2>同比 / 环比</h2><p>环比为本期之前等长周期，同比为去年同期；两个对比窗口与本期使用同一院区、医生与统计口径，不会串期。</p></div></div>
+        <div class="analytics-table-wrap" tabindex="0" aria-label="同比环比对照，可横向滚动">
+          <table class="analytics-table analytics-compare-table">
+            <thead><tr><th scope="col">指标</th><th scope="col">本期（{{ report.dateFrom }} 至 {{ report.dateTo }}）</th><th scope="col">环比上期<span v-if="report.previous">（{{ report.previous.dateFrom }} 至 {{ report.previous.dateTo }}）</span></th><th scope="col">环比变化</th><th scope="col">同比去年<span v-if="report.yearAgo">（{{ report.yearAgo.dateFrom }} 至 {{ report.yearAgo.dateTo }}）</span></th><th scope="col">同比变化</th></tr></thead>
+            <tbody><tr v-for="row in comparisonRows" :key="row.key"><th scope="row">{{ row.label }}</th><td>{{ row.current }} {{ row.unit }}</td><td>{{ row.previous === null ? '—' : `${row.previous} ${row.unit}` }}</td><td :class="{ 'compare-up': row.previous !== null && row.current > row.previous, 'compare-down': row.previous !== null && row.current < row.previous }">{{ deltaLabel(row.current, row.previous) }}</td><td>{{ row.yearAgo === null ? '—' : `${row.yearAgo} ${row.unit}` }}</td><td :class="{ 'compare-up': row.yearAgo !== null && row.current > row.yearAgo, 'compare-down': row.yearAgo !== null && row.current < row.yearAgo }">{{ deltaLabel(row.current, row.yearAgo) }}</td></tr></tbody>
+          </table>
+        </div>
       </div>
       <div class="analytics-queue" aria-label="待处理事项"><span>随访逾期未提交 <strong>{{ report.summary.followupOverdueCount }}</strong></span><span>待确认预约 <strong>{{ report.summary.pendingAppointmentCount }}</strong></span><span>异常待处理 <strong>{{ report.summary.pendingAlertCount }}</strong></span></div>
 
@@ -147,6 +213,11 @@ onBeforeUnmount(() => { ++requestId })
 .analytics-filter-bar .el-button { min-height: 37px; font-size: 12px; }
 .range-error { padding: 0 23px 16px; color: #b25c43; font-size: 12px; }
 .analytics-result-meta { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin: 22px 2px 16px; }
+.analytics-result-actions { display: flex; align-items: center; gap: 12px; color: #8a99ab; font-size: 10px; white-space: nowrap; padding-top: 3px; }
+.analytics-compare { margin-bottom: 22px; }
+.analytics-compare-table { min-width: 900px; }
+.analytics-compare-table .compare-up { color: #36897d; font-weight: 600; }
+.analytics-compare-table .compare-down { color: #b25c43; font-weight: 600; }
 .query-snapshot { color: #526981; font-size: 12px; line-height: 1.9; }
 .query-snapshot strong { font-weight: 600; color: #334961; }
 .analytics-result-meta > span { color: #8a99ab; font-size: 10px; white-space: nowrap; padding-top: 3px; }

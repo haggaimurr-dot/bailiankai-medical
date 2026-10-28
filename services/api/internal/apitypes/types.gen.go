@@ -2566,9 +2566,23 @@ type OperationsAnalyticsReport struct {
 	GeneratedAt   time.Time                              `json:"generatedAt"`
 	GroupBy       OperationsAnalyticsReportGroupBy       `json:"groupBy"`
 	MetricVersion OperationsAnalyticsReportMetricVersion `json:"metricVersion"`
-	Rows          []OperationsAnalyticsRow               `json:"rows"`
-	Summary       OperationsAnalyticsMetrics             `json:"summary"`
-	Timezone      OperationsAnalyticsReportTimezone      `json:"timezone"`
+
+	// Previous 环比窗口：本期之前等长周期
+	Previous *struct {
+		DateFrom openapi_types.Date         `json:"dateFrom"`
+		DateTo   openapi_types.Date         `json:"dateTo"`
+		Summary  OperationsAnalyticsMetrics `json:"summary"`
+	} `json:"previous"`
+	Rows     []OperationsAnalyticsRow          `json:"rows"`
+	Summary  OperationsAnalyticsMetrics        `json:"summary"`
+	Timezone OperationsAnalyticsReportTimezone `json:"timezone"`
+
+	// YearAgo 同比窗口：去年同期
+	YearAgo *struct {
+		DateFrom openapi_types.Date         `json:"dateFrom"`
+		DateTo   openapi_types.Date         `json:"dateTo"`
+		Summary  OperationsAnalyticsMetrics `json:"summary"`
+	} `json:"yearAgo"`
 }
 
 // OperationsAnalyticsReportGroupBy defines model for OperationsAnalyticsReport.GroupBy.
