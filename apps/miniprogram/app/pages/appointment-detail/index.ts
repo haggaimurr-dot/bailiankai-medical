@@ -73,7 +73,7 @@ Page<DetailData, DetailMethods>({
     try {
       if (appointment.canReschedule) {
         const choice = await confirmChoice('确认取消预约', '取消后终止本次预约或候补，已占用的名额会释放。只是想换个时间？点「改期」直接改期，不用取消重约。', '取消预约', '改期');
-        if (choice === 'cancel') { this.openReschedule(); return; }
+        if (choice === 'cancel') { this.setData({ cancelling: false }); this.openReschedule(); return; }
         if (choice !== 'confirm') return;
       } else if (!(await confirmDialog('确认取消预约', '取消后终止本次预约或候补，已占用的名额会释放。如需再次到院，请重新提交申请。', '取消预约'))) return;
       const cancelled = await patientApi.cancel(appointment.id, appointment.version);

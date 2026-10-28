@@ -192,6 +192,9 @@ async function cancelAppointment() {
   try {
     const choice = await cancelChoice()
     if (choice === 'reschedule') {
+      // openReschedule is guarded by !cancelling; clear the flag first so the
+      // navigation is not blocked by this in-flight cancel attempt.
+      cancelling.value = false
       openReschedule()
       return
     }
