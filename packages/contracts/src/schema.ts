@@ -4721,12 +4721,20 @@ export interface components {
             observations: components["schemas"]["AssessmentObservation"][];
             limitations: string[];
             consultationAdvice: components["schemas"]["AssessmentAdvice"];
+            /** @description 通俗版解读：用患者易懂的语言说明观察结果，AI 起草、医生复核后发布 */
+            plainSummary: string;
+            /** @description 护理建议：具体可执行的日常护理步骤，AI 起草、医生复核后发布 */
+            careAdvice: string[];
         };
         AssessmentAnalysis: {
             summary: string;
             observations: components["schemas"]["AssessmentObservation"][];
             limitations: string[];
             consultationAdvice: components["schemas"]["AssessmentAdvice"];
+            /** @description 通俗版解读：用患者易懂的语言说明观察结果，AI 起草、医生复核后发布 */
+            plainSummary: string;
+            /** @description 护理建议：具体可执行的日常护理步骤，AI 起草、医生复核后发布 */
+            careAdvice: string[];
             /** @enum {string} */
             schemaVersion: "assessment-result-v1";
             model: components["schemas"]["AssessmentModel"];

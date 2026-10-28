@@ -20,8 +20,13 @@ func assessmentOneOf(value string, values ...string) bool {
 	return false
 }
 func validAssessmentContent(c AssessmentContent, photos []AssessmentPhoto) bool {
-	if !assessmentText(c.Summary, 1000) || len(c.Observations) > 30 || len(c.Limitations) < 1 || len(c.Limitations) > 20 || !assessmentText(c.ConsultationAdvice.Reason, 1000) || c.ConsultationAdvice.Preparation == nil || len(c.ConsultationAdvice.Preparation) > 10 || c.Observations == nil {
+	if !assessmentText(c.Summary, 1000) || len(c.Observations) > 30 || len(c.Limitations) < 1 || len(c.Limitations) > 20 || !assessmentText(c.ConsultationAdvice.Reason, 1000) || c.ConsultationAdvice.Preparation == nil || len(c.ConsultationAdvice.Preparation) > 10 || c.Observations == nil || !assessmentText(c.PlainSummary, 1000) || len(c.CareAdvice) < 1 || len(c.CareAdvice) > 10 {
 		return false
+	}
+	for _, item := range c.CareAdvice {
+		if !assessmentText(item, 500) {
+			return false
+		}
 	}
 	for _, l := range c.Limitations {
 		if !assessmentText(l, 500) {

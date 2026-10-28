@@ -989,11 +989,16 @@ type AssessmentAdvice struct {
 
 // AssessmentAnalysis defines model for AssessmentAnalysis.
 type AssessmentAnalysis struct {
-	ConsultationAdvice  AssessmentAdvice                      `json:"consultationAdvice"`
-	Limitations         []string                              `json:"limitations"`
-	Model               AssessmentModel                       `json:"model"`
-	Observations        []AssessmentObservation               `json:"observations"`
-	Outcome             AssessmentAnalysisOutcome             `json:"outcome"`
+	// CareAdvice 护理建议：具体可执行的日常护理步骤，AI 起草、医生复核后发布
+	CareAdvice         []string                  `json:"careAdvice"`
+	ConsultationAdvice AssessmentAdvice          `json:"consultationAdvice"`
+	Limitations        []string                  `json:"limitations"`
+	Model              AssessmentModel           `json:"model"`
+	Observations       []AssessmentObservation   `json:"observations"`
+	Outcome            AssessmentAnalysisOutcome `json:"outcome"`
+
+	// PlainSummary 通俗版解读：用患者易懂的语言说明观察结果，AI 起草、医生复核后发布
+	PlainSummary        string                                `json:"plainSummary"`
 	RequiresHumanReview AssessmentAnalysisRequiresHumanReview `json:"requiresHumanReview"`
 	SchemaVersion       AssessmentAnalysisSchemaVersion       `json:"schemaVersion"`
 	Summary             string                                `json:"summary"`
@@ -1075,10 +1080,15 @@ type AssessmentConsentPolicyList struct {
 
 // AssessmentContent defines model for AssessmentContent.
 type AssessmentContent struct {
+	// CareAdvice 护理建议：具体可执行的日常护理步骤，AI 起草、医生复核后发布
+	CareAdvice         []string                `json:"careAdvice"`
 	ConsultationAdvice AssessmentAdvice        `json:"consultationAdvice"`
 	Limitations        []string                `json:"limitations"`
 	Observations       []AssessmentObservation `json:"observations"`
-	Summary            string                  `json:"summary"`
+
+	// PlainSummary 通俗版解读：用患者易懂的语言说明观察结果，AI 起草、医生复核后发布
+	PlainSummary string `json:"plainSummary"`
+	Summary      string `json:"summary"`
 }
 
 // AssessmentCreate defines model for AssessmentCreate.

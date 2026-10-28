@@ -11,6 +11,8 @@ func TestAssessmentContentDiff(t *testing.T) {
 		},
 		Limitations:        []string{"光线不足"},
 		ConsultationAdvice: AssessmentAdvice{Recommended: true, Reason: "建议面诊", Preparation: []string{"带病历"}},
+		PlainSummary:       "通俗版：皮肤表面有些不平",
+		CareAdvice:         []string{"每天早晚温水洗脸", "外出注意防晒"},
 	}
 	unchanged := original
 	if got := assessmentContentDiff(original, unchanged); got != "" {
@@ -24,8 +26,10 @@ func TestAssessmentContentDiff(t *testing.T) {
 		},
 		Limitations:        []string{"光线不足", "角度偏差"},
 		ConsultationAdvice: AssessmentAdvice{Recommended: true, Reason: "建议面诊", Preparation: []string{"带病历"}},
+		PlainSummary:       "通俗版：皮肤表面明显不平",
+		CareAdvice:         []string{"每天早晚温水洗脸", "避免用手挤压"},
 	}
-	want := "修订：观察概要已改；观察新增1条、删除1条、修改1条；局限新增1条、删除0条"
+	want := "修订：观察概要已改；观察新增1条、删除1条、修改1条；局限新增1条、删除0条；通俗版解读已改；护理建议新增1条、删除1条"
 	if got := assessmentContentDiff(original, amended); got != want {
 		t.Errorf("amended diff = %q, want %q", got, want)
 	}

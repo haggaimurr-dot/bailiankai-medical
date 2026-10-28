@@ -179,6 +179,12 @@ def validate_analysis(a, photos):
     advice = a.get("consultationAdvice") or {}
     if not isinstance(advice.get("recommended"), bool) or not advice.get("reason"):
         errs.append("consultationAdvice 不完整")
+    plain = a.get("plainSummary")
+    if not isinstance(plain, str) or not (10 <= len(plain) <= 1000):
+        errs.append("plainSummary 需为 10-1000 字的通俗解读")
+    care = a.get("careAdvice")
+    if not isinstance(care, list) or not (1 <= len(care) <= 10) or any(not isinstance(x, str) or not x.strip() or len(x) > 500 for x in care):
+        errs.append("careAdvice 需为 1-10 条具体护理步骤，每条不超过 500 字")
     outcome = "observations_available" if obs else "inconclusive"
     return errs, outcome
 
@@ -196,7 +202,9 @@ def do_analyze(req):
         "\"region\": \"multiple\", \"certainty\": \"high\", "
         "\"evidence\": [{\"photoId\": \"上面的photoId\", \"angle\": \"该照片的角度\"}]}], "
         "\"limitations\": [\"照片观察的局限，至少1条\"], "
-        "\"consultationAdvice\": {\"recommended\": true, \"reason\": \"是否建议到院面诊及原因\", \"preparation\": [\"面诊前准备事项\"]}}。"
+        "\"consultationAdvice\": {\"recommended\": true, \"reason\": \"是否建议到院面诊及原因\", \"preparation\": [\"面诊前准备事项\"]}, "
+        "\"plainSummary\": \"通俗版解读：用患者易懂的中文说清这次观察到了什么、意味着什么，80-300字，不用专业术语，不做疾病诊断、不开处方\", "
+        "\"careAdvice\": [\"具体可执行的日常护理步骤，每条100字内，2-5条，如防晒、保湿、清洁、避免用手挤压等；只写照片观察可支持的建议，不要开药或推荐具体产品品牌\"]}。"
         "枚举约束（必须严格遵守）：code 只能是 surface_irregularity / color_variation / other_visible_change；"
         "region 只能是 forehead / left_cheek / right_cheek / nose / chin / multiple / unknown；"
         "certainty 只能是 low / medium / high / unknown。"
@@ -211,7 +219,7 @@ def do_analyze(req):
         msgs = [{"role": "user", "content": content}]
         if attempt == 1 and last_err:
             msgs.append({"role": "user", "content": "上次输出不符合要求：" + last_err + "。请修正后重新只输出 JSON。"})
-        raw, req_id = chat(msgs, max_tokens=1800)
+        raw, req_id = chat(msgs, max_tokens=2200)
         try:
             a = extract_json(raw)
         except Exception:

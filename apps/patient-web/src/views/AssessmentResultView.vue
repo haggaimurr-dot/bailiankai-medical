@@ -132,13 +132,24 @@ onUnmounted(() => {
       <h2>{{ review.decision === 'rejected' ? '请补充照片或预约面诊' : '经医生复核的辅助观察' }}</h2>
       <p class="muted">{{ review.doctorName }} · {{ reviewedTime }} 北京时间 · 复核版本 {{ review.version }}</p>
       <template v-if="review.finalContent">
-        <h2 style="margin-top: 14px">观察概要</h2>
+        <template v-if="review.finalContent.plainSummary">
+          <h2 style="margin-top: 14px">通俗版解读</h2>
+          <p>{{ review.finalContent.plainSummary }}</p>
+        </template>
+        <template v-if="review.finalContent.careAdvice?.length">
+          <h2 style="margin-top: 14px">护理建议</h2>
+          <ol class="care-list">
+            <li v-for="item in review.finalContent.careAdvice" :key="item">{{ item }}</li>
+          </ol>
+        </template>
+        <h2 style="margin-top: 14px">医生结论</h2>
+        <h3>观察概要</h3>
         <p>{{ review.finalContent.summary }}</p>
-        <h2 style="margin-top: 14px">可见现象</h2>
+        <h3>可见现象</h3>
         <p v-for="(item, index) in review.finalContent.observations" :key="item.id || index" class="muted">{{ item.description }}</p>
-        <h2 style="margin-top: 14px">观察局限</h2>
+        <h3>观察局限</h3>
         <p v-for="item in review.finalContent.limitations" :key="item" class="muted">{{ item }}</p>
-        <h2 style="margin-top: 14px">面诊建议</h2>
+        <h3>面诊建议</h3>
         <p>{{ review.finalContent.consultationAdvice.reason }}</p>
         <p v-for="item in review.finalContent.consultationAdvice.preparation" :key="item" class="muted">{{ item }}</p>
       </template>
@@ -181,6 +192,18 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
+.care-list {
+  margin: 8px 0 0;
+  padding-left: 20px;
+  line-height: 1.8;
+}
+.care-list li + li {
+  margin-top: 4px;
+}
+h3 {
+  font-size: 15px;
+  margin: 12px 0 4px;
+}
 .photo-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);

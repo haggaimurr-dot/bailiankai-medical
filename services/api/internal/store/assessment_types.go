@@ -121,6 +121,13 @@ type AssessmentContent struct {
 	Observations       []AssessmentObservation `json:"observations"`
 	Limitations        []string                `json:"limitations"`
 	ConsultationAdvice AssessmentAdvice        `json:"consultationAdvice"`
+	// PlainSummary is the plain-language interpretation of the observation.
+	// It is drafted by the AI and only published after the reviewing doctor
+	// has seen and approved it; it is never the raw AI text shown directly.
+	PlainSummary string `json:"plainSummary"`
+	// CareAdvice lists concrete, actionable daily care steps, drafted by the
+	// AI and published only after the reviewing doctor has approved them.
+	CareAdvice []string `json:"careAdvice"`
 }
 type AssessmentAnalysis struct {
 	AssessmentContent

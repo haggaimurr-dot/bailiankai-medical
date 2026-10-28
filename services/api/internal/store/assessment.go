@@ -437,6 +437,30 @@ func assessmentContentDiff(original, amended AssessmentContent) string {
 	if adviceChanged || prepAdded+prepRemoved > 0 {
 		parts = append(parts, "面诊建议已改")
 	}
+	if original.PlainSummary != amended.PlainSummary {
+		parts = append(parts, "通俗版解读已改")
+	}
+	origCare, newCare := make(map[string]bool), make(map[string]bool)
+	for _, item := range original.CareAdvice {
+		origCare[item] = true
+	}
+	for _, item := range amended.CareAdvice {
+		newCare[item] = true
+	}
+	careAdded, careRemoved := 0, 0
+	for item := range newCare {
+		if !origCare[item] {
+			careAdded++
+		}
+	}
+	for item := range origCare {
+		if !newCare[item] {
+			careRemoved++
+		}
+	}
+	if careAdded+careRemoved > 0 {
+		parts = append(parts, fmt.Sprintf("护理建议新增%d条、删除%d条", careAdded, careRemoved))
+	}
 	if len(parts) == 0 {
 		return ""
 	}
