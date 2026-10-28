@@ -13,6 +13,10 @@ import (
 var messageTitleKey = regexp.MustCompile(`^thing[0-9]{1,2}$`)
 var messageTimeKey = regexp.MustCompile(`^time[0-9]{1,2}$`)
 
+func mergeSettingDTO(row model.NotificationMergeSetting) gin.H {
+	return gin.H{"mergeWindowMinutes": row.MergeWindowMinutes, "mergeEnabled": row.MergeEnabled, "version": row.Version, "updatedBy": row.UpdatedBy, "updatedAt": row.UpdatedAt}
+}
+
 func (a *API) registerNotificationRoutes(r *gin.Engine) {
 	available := func(c *gin.Context) {
 		c.Header("Cache-Control", "no-store")
@@ -135,6 +139,34 @@ func (a *API) registerNotificationRoutes(r *gin.Engine) {
 		}
 		c.JSON(200, gin.H{"data": row})
 	})
+	admin.GET("/merge-settings", func(c *gin.Context) {
+		row, err := a.repo.(store.NotificationRepository).NotificationMergeSetting(c.Request.Context())
+		if err != nil {
+			knowledgeFailure(c, err)
+			return
+		}
+		c.JSON(200, gin.H{"data": mergeSettingDTO(row)})
+	})
+	admin.PUT("/merge-settings", func(c *gin.Context) {
+		var body struct {
+			MergeWindowMinutes int  `json:"mergeWindowMinutes"`
+			MergeEnabled       bool `json:"mergeEnabled"`
+			Version            int  `json:"version"`
+		}
+		if !decodeObject(c, &body, []string{"mergeWindowMinutes", "mergeEnabled", "version"}, nil) {
+			return
+		}
+		if body.MergeWindowMinutes < 5 || body.MergeWindowMinutes > 1440 || body.Version < 1 {
+			fail(c, 400, "INVALID_MERGE_SETTING", "合并窗口须为 5–1440 分钟")
+			return
+		}
+		row, err := a.repo.(store.NotificationRepository).UpdateNotificationMergeSetting(c.Request.Context(), body.MergeWindowMinutes, body.MergeEnabled, body.Version, currentEmployee(c).ID, a.now())
+		if err != nil {
+			knowledgeFailure(c, err)
+			return
+		}
+		c.JSON(200, gin.H{"data": mergeSettingDTO(row)})
+	})
 	admin.GET("/queue", func(c *gin.Context) {
 		if !validQuery(c, "status", "failureCategory", "page", "pageSize") {
 			return
@@ -151,7 +183,7 @@ func (a *API) registerNotificationRoutes(r *gin.Engine) {
 			}
 		}
 		status := c.Query("status")
-		if status != "" && !strings.Contains("|queued|sending|sent|retry|blocked|failed|unknown|cancelled|", "|"+status+"|") {
+		if status != "" && !strings.Contains("|queued|sending|sent|retry|blocked|failed|unknown|cancelled|merged|", "|"+status+"|") {
 			fail(c, 400, "INVALID_QUERY", "队列状态无效")
 			return
 		}

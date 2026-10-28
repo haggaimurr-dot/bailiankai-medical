@@ -56,10 +56,34 @@ type Notification struct {
 	Status     string    `json:"status"`
 	Attempts   int       `json:"attempts"`
 	LastCode   string    `json:"lastCode"`
+	// Urgent marks an overdue reminder: it is sent immediately and alone,
+	// never folded into a digest (P2 消息-患者端：提醒合并发送）.
+	Urgent bool `json:"urgent"`
+	// MergedInto points at the queued digest row this reminder was folded
+	// into; "" (NULL) means the row stands alone. Status "merged" rows are
+	// sent together with their digest row.
+	MergedInto *string `json:"mergedInto,omitempty"`
 	// FailureCategory classifies LastCode for display and filtering; it is
 	// derived at read time and never persisted.
 	FailureCategory string `gorm:"-" json:"failureCategory"`
+	// DigestCount is how many reminders ride on this digest row (itself
+	// excluded); derived at read time, never persisted.
+	DigestCount int `gorm:"-" json:"digestCount,omitempty"`
 	UpdatedAt  time.Time `json:"updatedAt"`
+}
+
+// NotificationMergeSetting is the global merge window for the reminder
+// queue (P2 消息-患者端：提醒合并发送）: ordinary reminders for one patient
+// whose send times fall inside MergeWindowMinutes are folded into a single
+// digest instead of being sent one by one. Singleton row id=1, like the
+// handoff overdue setting.
+type NotificationMergeSetting struct {
+	ID                 int       `gorm:"primaryKey"`
+	MergeWindowMinutes int       `json:"mergeWindowMinutes"`
+	MergeEnabled       bool      `json:"mergeEnabled"`
+	Version            int       `json:"version"`
+	UpdatedBy          *string   `json:"updatedBy"`
+	UpdatedAt          time.Time `json:"updatedAt"`
 }
 type NotificationAttempt struct {
 	ID             string    `gorm:"primaryKey" json:"id"`

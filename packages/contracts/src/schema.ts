@@ -1947,6 +1947,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/notification-merge-settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getNotificationMergeSetting"];
+        put: operations["updateNotificationMergeSetting"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/followup-staff": {
         parameters: {
             query?: never;
@@ -4407,6 +4423,24 @@ export interface components {
         HandoffSettingResult: {
             data: components["schemas"]["HandoffSetting"];
         };
+        NotificationMergeSetting: {
+            /** @description 同一患者提醒合并窗口（分钟），发送时间落在此窗口内的普通提醒合并为一条摘要 */
+            mergeWindowMinutes: number;
+            /** @description 关闭后普通提醒不再合并，各自单独发送 */
+            mergeEnabled: boolean;
+            version: number;
+            updatedBy: string | null;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        NotificationMergeSettingResult: {
+            data: components["schemas"]["NotificationMergeSetting"];
+        };
+        NotificationMergeSettingUpdate: {
+            mergeWindowMinutes: number;
+            mergeEnabled: boolean;
+            version: number;
+        };
         HandoffSettingUpdate: {
             overdueHours: number;
             version: number;
@@ -4576,14 +4610,20 @@ export interface components {
             /** Format: date-time */
             sendAt: string;
             /** @enum {string} */
-            status: "queued" | "sending" | "sent" | "retry" | "blocked" | "failed" | "unknown" | "cancelled";
+            status: "queued" | "sending" | "sent" | "retry" | "blocked" | "failed" | "unknown" | "cancelled" | "merged";
             attempts: number;
             lastCode: string;
+            /** @description 逾期提醒：立即单独发送，不参与合并 */
+            urgent?: boolean;
+            /** @description 并入的摘要行 ID；为空表示独立发送 */
+            mergedInto?: string | null;
             /**
              * @description 失败原因分类，由 lastCode 归类；无失败时为空
              * @enum {string}
              */
             failureCategory?: "" | "authorization" | "template" | "rate_limit" | "transient" | "source" | "other";
+            /** @description 该摘要行合并的提醒条数（不含自身） */
+            digestCount?: number;
             /** Format: date-time */
             updatedAt: string;
         };
@@ -10847,6 +10887,52 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HandoffSettingResult"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getNotificationMergeSetting: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 主管查看提醒合并设置 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationMergeSettingResult"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    updateNotificationMergeSetting: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NotificationMergeSettingUpdate"];
+            };
+        };
+        responses: {
+            /** @description 主管更新提醒合并设置 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationMergeSettingResult"];
                 };
             };
             default: components["responses"]["Error"];

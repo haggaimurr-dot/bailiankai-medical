@@ -162,6 +162,8 @@ export const api = {
   messageTemplates: () => request<components['schemas']['MessageTemplate'][]>('/admin/messages/templates', adminRequest()),
   saveMessageTemplate: (data: components['schemas']['MessageTemplateChange']) => request<components['schemas']['MessageTemplate']>('/admin/messages/templates', adminRequest({ method: 'PUT', body: JSON.stringify(data) })),
   notificationQueue: (status = '', page = 1, failureCategory = '') => requestEnvelope<{ data: components['schemas']['Notification'][]; meta: { total: number } }>('/admin/messages/queue' + query({ status: status || undefined, failureCategory: failureCategory || undefined, page, pageSize: 20 }), adminRequest()),
+  notificationMergeSetting: () => request<components['schemas']['NotificationMergeSetting']>('/admin/messages/merge-settings', adminRequest()),
+  saveNotificationMergeSetting: (body: components['schemas']['NotificationMergeSettingUpdate']) => request<components['schemas']['NotificationMergeSetting']>('/admin/messages/merge-settings', adminRequest({ method: 'PUT', body: JSON.stringify(body) })),
   notificationAttempts: (id: string) => request<components['schemas']['NotificationAttempt'][]>('/admin/messages/queue/' + encodeURIComponent(id) + '/attempts', adminRequest()),
   retryNotification: (id: string) => request('/admin/messages/queue/' + encodeURIComponent(id) + '/retry', adminRequest({ method: 'POST' })),
   createSlots: (slots: components['schemas']['SlotCreate'][]) => request<Slot[]>('/admin/slots', adminRequest({ method: 'POST', body: JSON.stringify({ slots }) })),

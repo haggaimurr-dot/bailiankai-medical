@@ -474,6 +474,7 @@ const (
 	NotificationStatusBlocked   NotificationStatus = "blocked"
 	NotificationStatusCancelled NotificationStatus = "cancelled"
 	NotificationStatusFailed    NotificationStatus = "failed"
+	NotificationStatusMerged    NotificationStatus = "merged"
 	NotificationStatusQueued    NotificationStatus = "queued"
 	NotificationStatusRetry     NotificationStatus = "retry"
 	NotificationStatusSending   NotificationStatus = "sending"
@@ -546,6 +547,7 @@ const (
 // Defines values for PatientMessageKind.
 const (
 	PatientMessageKindAppointmentStatus PatientMessageKind = "appointment_status"
+	PatientMessageKindPrivacyPolicy     PatientMessageKind = "privacy_policy"
 	PatientMessageKindReminder          PatientMessageKind = "reminder"
 	PatientMessageKindSupportReply      PatientMessageKind = "support_reply"
 )
@@ -2509,21 +2511,30 @@ type MessageTemplateChangeState string
 
 // Notification defines model for Notification.
 type Notification struct {
-	Attempts int       `json:"attempts"`
-	ClinicId string    `json:"clinicId"`
-	DueAt    time.Time `json:"dueAt"`
+	Attempts int    `json:"attempts"`
+	ClinicId string `json:"clinicId"`
+
+	// DigestCount 该摘要行合并的提醒条数（不含自身）
+	DigestCount *int      `json:"digestCount,omitempty"`
+	DueAt       time.Time `json:"dueAt"`
 
 	// FailureCategory 失败原因分类，由 lastCode 归类；无失败时为空
 	FailureCategory *NotificationFailureCategory `json:"failureCategory,omitempty"`
 	Id              string                       `json:"id"`
 	Kind            string                       `json:"kind"`
 	LastCode        string                       `json:"lastCode"`
-	PatientId       string                       `json:"patientId"`
-	SendAt          time.Time                    `json:"sendAt"`
-	SourceId        string                       `json:"sourceId"`
-	Status          NotificationStatus           `json:"status"`
-	TemplateId      string                       `json:"templateId"`
-	UpdatedAt       time.Time                    `json:"updatedAt"`
+
+	// MergedInto 并入的摘要行 ID；为空表示独立发送
+	MergedInto *string            `json:"mergedInto"`
+	PatientId  string             `json:"patientId"`
+	SendAt     time.Time          `json:"sendAt"`
+	SourceId   string             `json:"sourceId"`
+	Status     NotificationStatus `json:"status"`
+	TemplateId string             `json:"templateId"`
+	UpdatedAt  time.Time          `json:"updatedAt"`
+
+	// Urgent 逾期提醒：立即单独发送，不参与合并
+	Urgent *bool `json:"urgent,omitempty"`
 }
 
 // NotificationFailureCategory 失败原因分类，由 lastCode 归类；无失败时为空
@@ -2546,6 +2557,30 @@ type NotificationAttempt struct {
 
 // NotificationAttemptFailureCategory 失败原因分类，由 code 归类；无失败时为空
 type NotificationAttemptFailureCategory string
+
+// NotificationMergeSetting defines model for NotificationMergeSetting.
+type NotificationMergeSetting struct {
+	// MergeEnabled 关闭后普通提醒不再合并，各自单独发送
+	MergeEnabled bool `json:"mergeEnabled"`
+
+	// MergeWindowMinutes 同一患者提醒合并窗口（分钟），发送时间落在此窗口内的普通提醒合并为一条摘要
+	MergeWindowMinutes int       `json:"mergeWindowMinutes"`
+	UpdatedAt          time.Time `json:"updatedAt"`
+	UpdatedBy          *string   `json:"updatedBy"`
+	Version            int       `json:"version"`
+}
+
+// NotificationMergeSettingResult defines model for NotificationMergeSettingResult.
+type NotificationMergeSettingResult struct {
+	Data NotificationMergeSetting `json:"data"`
+}
+
+// NotificationMergeSettingUpdate defines model for NotificationMergeSettingUpdate.
+type NotificationMergeSettingUpdate struct {
+	MergeEnabled       bool `json:"mergeEnabled"`
+	MergeWindowMinutes int  `json:"mergeWindowMinutes"`
+	Version            int  `json:"version"`
+}
 
 // NursingFeedback defines model for NursingFeedback.
 type NursingFeedback struct {
@@ -4084,6 +4119,9 @@ type UpdateKnowledgeCategoryJSONRequestBody UpdateKnowledgeCategoryJSONBody
 
 // SaveMessageTemplateJSONRequestBody defines body for SaveMessageTemplate for application/json ContentType.
 type SaveMessageTemplateJSONRequestBody = MessageTemplateChange
+
+// UpdateNotificationMergeSettingJSONRequestBody defines body for UpdateNotificationMergeSetting for application/json ContentType.
+type UpdateNotificationMergeSettingJSONRequestBody = NotificationMergeSettingUpdate
 
 // CreatePatientChartJSONRequestBody defines body for CreatePatientChart for application/json ContentType.
 type CreatePatientChartJSONRequestBody = PatientChartCreate

@@ -13,6 +13,9 @@ import (
 
 type MessageSender interface {
 	SendReminder(context.Context, string, model.MessageTemplate, time.Time) (string, string)
+	// SendDigest sends one merged digest for count reminders (the digest
+	// row's template carries the message); due is the earliest due time.
+	SendDigest(context.Context, string, model.MessageTemplate, time.Time, int) (string, string)
 }
 type NotificationRepository interface {
 	MessageTemplates(context.Context, bool) ([]model.MessageTemplate, error)
@@ -22,6 +25,8 @@ type NotificationRepository interface {
 	Notifications(context.Context, string, string, int, int) ([]model.Notification, int64, error)
 	NotificationAttempts(context.Context, string) ([]model.NotificationAttempt, error)
 	RetryNotification(context.Context, string, time.Time) error
+	NotificationMergeSetting(context.Context) (model.NotificationMergeSetting, error)
+	UpdateNotificationMergeSetting(context.Context, int, bool, int, string, time.Time) (model.NotificationMergeSetting, error)
 	PatientMessages(context.Context, string, int, int) ([]model.PatientMessage, int64, error)
 	UnreadPatientMessageCount(context.Context, string) (int64, error)
 	MarkPatientMessageRead(context.Context, string, string, time.Time) error
@@ -71,6 +76,39 @@ func (s *MySQL) SaveMessageTemplate(ctx context.Context, in model.MessageTemplat
 	})
 	return in, err
 }
+// NotificationMergeSetting returns the global merge window (singleton id=1,
+// seeded by migration 00080 with a 60-minute window, enabled).
+func (s *MySQL) NotificationMergeSetting(ctx context.Context) (model.NotificationMergeSetting, error) {
+	var setting model.NotificationMergeSetting
+	err := s.db.WithContext(ctx).Where("id = 1").First(&setting).Error
+	return setting, err
+}
+
+func (s *MySQL) UpdateNotificationMergeSetting(ctx context.Context, windowMinutes int, enabled bool, version int, actorID string, now time.Time) (model.NotificationMergeSetting, error) {
+	var setting model.NotificationMergeSetting
+	if windowMinutes < 5 || windowMinutes > 1440 || version < 1 {
+		return setting, ErrCareState
+	}
+	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id = 1").First(&setting).Error; err != nil {
+			return err
+		}
+		if setting.Version != version {
+			return ErrConflict
+		}
+		if setting.MergeWindowMinutes == windowMinutes && setting.MergeEnabled == enabled {
+			return nil
+		}
+		setting.MergeWindowMinutes = windowMinutes
+		setting.MergeEnabled = enabled
+		setting.Version++
+		setting.UpdatedBy = &actorID
+		setting.UpdatedAt = now
+		return tx.Save(&setting).Error
+	})
+	return setting, err
+}
+
 func (s *MySQL) MessageConsents(ctx context.Context, patient string) ([]model.MessageConsent, error) {
 	rows := make([]model.MessageConsent, 0)
 	err := s.db.WithContext(ctx).Where("patient_id = ?", patient).Find(&rows).Error
@@ -130,6 +168,25 @@ func (s *MySQL) Notifications(ctx context.Context, status string, category strin
 	for i := range rows {
 		rows[i].FailureCategory = notificationFailureCategory(rows[i].LastCode)
 	}
+	if err == nil && len(rows) > 0 {
+		ids := make([]string, 0, len(rows))
+		for _, row := range rows {
+			ids = append(ids, row.ID)
+		}
+		var counts []struct {
+			MergedInto string
+			Count      int
+		}
+		if err := s.db.WithContext(ctx).Table("notifications").Select("merged_into, COUNT(*) AS count").Where("merged_into IN ?", ids).Group("merged_into").Find(&counts).Error; err == nil {
+			byID := make(map[string]int, len(counts))
+			for _, c := range counts {
+				byID[c.MergedInto] = c.Count
+			}
+			for i := range rows {
+				rows[i].DigestCount = byID[rows[i].ID]
+			}
+		}
+	}
 	return rows, total, err
 }
 func (s *MySQL) NotificationAttempts(ctx context.Context, id string) ([]model.NotificationAttempt, error) {
@@ -168,12 +225,30 @@ func (s *MySQL) RetryNotification(ctx context.Context, id string, now time.Time)
 	})
 }
 
+// mergeWindow returns the configured merge window; a missing settings row
+// (pre-migration databases) falls back to 60 minutes, enabled.
+func (s *MySQL) mergeWindow(ctx context.Context) (time.Duration, bool) {
+	setting, err := s.NotificationMergeSetting(ctx)
+	if err != nil {
+		return time.Hour, true
+	}
+	return time.Duration(setting.MergeWindowMinutes) * time.Minute, setting.MergeEnabled
+}
+
 // Schedule scans persisted business records; unique source/date keys make restart and concurrent scheduling safe.
+//
+// Merge window (P2 消息-患者端：提醒合并发送）: an ordinary reminder whose
+// send time falls within the merge window of another queued ordinary
+// reminder for the same patient is folded into that row as a "merged"
+// child instead of queuing separately; the digest row is sent once with a
+// summary. Urgent reminders (source already overdue at scheduling time)
+// send immediately and alone and never merge.
 func (s *MySQL) ScheduleReminders(ctx context.Context, now time.Time) error {
 	var templates []model.MessageTemplate
 	if err := s.db.WithContext(ctx).Where("enabled = ?", true).Find(&templates).Error; err != nil {
 		return err
 	}
+	window, mergeEnabled := s.mergeWindow(ctx)
 	for _, t := range templates {
 		var sources []struct {
 			ID, PatientID string
@@ -181,11 +256,12 @@ func (s *MySQL) ScheduleReminders(ctx context.Context, now time.Time) error {
 		}
 		q := s.db.WithContext(ctx)
 		if t.Kind == "revisit" {
-			q = q.Table("consultations").Select("id, patient_id, next_visit_at AS due_at").Where("clinic_id = ? AND next_visit_at > ?", t.ClinicID, now)
+			q = q.Table("consultations").Select("id, patient_id, next_visit_at AS due_at").Where("clinic_id = ? AND next_visit_at >= ?", t.ClinicID, now.Add(-24*time.Hour))
 		} else {
-			q = q.Table("followup_tasks f").Select("f.id, f.patient_id, f.due_at").Joins("JOIN appointments a ON a.id = f.appointment_id JOIN slots sl ON sl.id = a.slot_id").Where("sl.clinic_id = ? AND f.status = ? AND f.due_at > ?", t.ClinicID, "pending", now)
+			q = q.Table("followup_tasks f").Select("f.id, f.patient_id, f.due_at").Joins("JOIN appointments a ON a.id = f.appointment_id JOIN slots sl ON sl.id = a.slot_id").Where("sl.clinic_id = ? AND f.status = ? AND f.due_at >= ?", t.ClinicID, "pending", now.Add(-24*time.Hour))
 		}
-		// Bounded horizon avoids scanning all future visits on every tick.
+		// Bounded horizon avoids scanning all future visits on every tick;
+		// overdue sources are only picked up within the last 24 hours.
 		if t.Kind == "revisit" {
 			q = q.Where("next_visit_at <= ?", now.Add(time.Duration(t.LeadMinutes)*time.Minute+time.Minute))
 		} else {
@@ -195,13 +271,64 @@ func (s *MySQL) ScheduleReminders(ctx context.Context, now time.Time) error {
 			return err
 		}
 		for _, src := range sources {
-			row := model.Notification{ID: randomID("notification-"), ClinicID: t.ClinicID, PatientID: src.PatientID, TemplateID: t.ID, Kind: t.Kind, SourceID: src.ID, DueAt: src.DueAt, SendAt: src.DueAt.Add(-time.Duration(t.LeadMinutes) * time.Minute), Status: "queued", UpdatedAt: now}
-			if err := s.db.WithContext(ctx).Clauses(clause.OnConflict{DoNothing: true}).Create(&row).Error; err != nil {
+			urgent := !src.DueAt.After(now)
+			sendAt := src.DueAt.Add(-time.Duration(t.LeadMinutes) * time.Minute)
+			if urgent {
+				sendAt = now
+			}
+			row := model.Notification{ID: randomID("notification-"), ClinicID: t.ClinicID, PatientID: src.PatientID, TemplateID: t.ID, Kind: t.Kind, SourceID: src.ID, DueAt: src.DueAt, SendAt: sendAt, Status: "queued", Urgent: urgent, UpdatedAt: now}
+			if urgent || !mergeEnabled {
+				if err := s.db.WithContext(ctx).Clauses(clause.OnConflict{DoNothing: true}).Create(&row).Error; err != nil {
+					return err
+				}
+				continue
+			}
+			if err := s.scheduleMerged(ctx, row, window, now); err != nil {
 				return err
 			}
 		}
 	}
 	return nil
+}
+
+// scheduleMerged queues an ordinary reminder, folding it into an existing
+// queued digest row for the same patient when the send times fall inside
+// the merge window. The digest goes out at the earliest send time, so a
+// folded reminder that is due earlier pulls the digest forward.
+func (s *MySQL) scheduleMerged(ctx context.Context, row model.Notification, window time.Duration, now time.Time) error {
+	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var digest model.Notification
+		err := tx.Where("clinic_id = ? AND patient_id = ? AND status = ? AND urgent = ? AND send_at BETWEEN ? AND ?", row.ClinicID, row.PatientID, "queued", false, row.SendAt.Add(-window), row.SendAt.Add(window)).Order("send_at, id").First(&digest).Error
+		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+			return err
+		}
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&row).Error
+		}
+		row.Status = "merged"
+		row.MergedInto = &digest.ID
+		if err := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&row).Error; err != nil {
+			return err
+		}
+		if row.SendAt.Before(digest.SendAt) || row.DueAt.Before(digest.DueAt) {
+			updates := map[string]any{"updated_at": now}
+			if row.SendAt.Before(digest.SendAt) {
+				updates["send_at"] = row.SendAt
+			}
+			if row.DueAt.Before(digest.DueAt) {
+				updates["due_at"] = row.DueAt
+			}
+			return tx.Model(&model.Notification{}).Where("id = ?", digest.ID).Updates(updates).Error
+		}
+		return nil
+	})
+}
+
+// unmergeChildren returns merged children of a digest row to the queue so
+// their reminders are still delivered individually when the digest itself
+// is cancelled or fails terminally.
+func unmergeChildren(tx *gorm.DB, digestID string, now time.Time) error {
+	return tx.Model(&model.Notification{}).Where("merged_into = ? AND status = ?", digestID, "merged").Updates(map[string]any{"status": "queued", "merged_into": nil, "updated_at": now}).Error
 }
 // notificationFailureCategory classifies a send failure code so the queue
 // can show and filter by cause. "" means no failure (success or no attempt
@@ -290,9 +417,24 @@ func (s *MySQL) DispatchReminder(ctx context.Context, id string, sender MessageS
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&p, "id = ?", row.PatientID).Error; err != nil {
 			return err
 		}
-		if !t.Enabled || !row.DueAt.After(now) {
+		// A digest row carries later reminders too: it only expires once
+		// every due time in the group has passed.
+		var children []model.Notification
+		if err := tx.Where("merged_into = ? AND status = ?", row.ID, "merged").Find(&children).Error; err != nil {
+			return err
+		}
+		latestDue := row.DueAt
+		for _, child := range children {
+			if child.DueAt.After(latestDue) {
+				latestDue = child.DueAt
+			}
+		}
+		if !t.Enabled || !latestDue.After(now) {
 			row.Status = "cancelled"
 			row.LastCode = "expired_or_disabled"
+			if err := unmergeChildren(tx, row.ID, now); err != nil {
+				return err
+			}
 		} else {
 			var active int64
 			if row.Kind == "followup" {
@@ -312,6 +454,9 @@ func (s *MySQL) DispatchReminder(ctx context.Context, id string, sender MessageS
 			if active == 0 {
 				row.Status = "cancelled"
 				row.LastCode = "source_changed"
+				if err := unmergeChildren(tx, row.ID, now); err != nil {
+					return err
+				}
 			} else if p.WechatOpenID == nil || p.WechatAppID == nil || e != nil || (row.Status != "retry" && consent.Status != "accepted") || (row.Status == "retry" && consent.Status != "consumed" && consent.Status != "accepted") {
 				row.Status = "blocked"
 				row.LastCode = "authorization_required"
@@ -351,10 +496,64 @@ func (s *MySQL) DispatchReminder(ctx context.Context, id string, sender MessageS
 		code := "withdrawn"
 		status := "cancelled"
 		if consent.Status != "revoked" && consent.Status != "rejected" {
-			code, _ = sender.SendReminder(ctx, *p.WechatOpenID, t, row.DueAt)
+			// Digest send: merged children whose sources are still active
+			// ride along; stale ones go back to the queue to be handled
+			// individually (their own dispatch will cancel them).
+			var children []model.Notification
+			if err := tx.Where("merged_into = ? AND status = ?", row.ID, "merged").Find(&children).Error; err != nil {
+				return err
+			}
+			live := make([]model.Notification, 0, len(children))
+			for _, child := range children {
+				var active int64
+				if child.Kind == "followup" {
+					if err := tx.Model(&model.FollowupTask{}).Where("id = ? AND due_at = ? AND status = ?", child.SourceID, child.DueAt, "pending").Count(&active).Error; err != nil {
+						return err
+					}
+				} else {
+					if err := tx.Model(&model.Consultation{}).Where("id = ? AND next_visit_at = ?", child.SourceID, child.DueAt).Count(&active).Error; err != nil {
+						return err
+					}
+				}
+				if active == 0 {
+					if err := tx.Model(&model.Notification{}).Where("id = ?", child.ID).Updates(map[string]any{"status": "queued", "merged_into": nil, "updated_at": now}).Error; err != nil {
+						return err
+					}
+					continue
+				}
+				live = append(live, child)
+			}
+			if len(live) > 0 {
+				earliest := row.DueAt
+				for _, child := range live {
+					if child.DueAt.Before(earliest) {
+						earliest = child.DueAt
+					}
+				}
+				code, _ = sender.SendDigest(ctx, *p.WechatOpenID, t, earliest, len(live)+1)
+			} else {
+				code, _ = sender.SendReminder(ctx, *p.WechatOpenID, t, row.DueAt)
+			}
 			var delay time.Duration
 			status, delay = reminderOutcome(code, row.Attempts)
 			row.SendAt = now.Add(delay)
+			if status == "sent" {
+				for _, child := range live {
+					if err := tx.Model(&model.Notification{}).Where("id = ?", child.ID).Updates(map[string]any{"status": "sent", "last_code": "0", "updated_at": now}).Error; err != nil {
+						return err
+					}
+					if err := tx.Create(&model.NotificationAttempt{ID: randomID("send-"), NotificationID: child.ID, Status: "sent", Code: "0", CreatedAt: now}).Error; err != nil {
+						return err
+					}
+				}
+			} else if status != "retry" {
+				// Terminal outcome: let the children try on their own.
+				if err := unmergeChildren(tx, row.ID, now); err != nil {
+					return err
+				}
+			}
+		} else if err := unmergeChildren(tx, row.ID, now); err != nil {
+			return err
 		}
 		row.Status = status
 		row.LastCode = code
@@ -382,6 +581,9 @@ func (s *MySQL) RunNotificationWorker(ctx context.Context, sender MessageSender)
 				n.LastCode = "worker_interrupted"
 				n.UpdatedAt = now
 				if err := tx.Save(&n).Error; err != nil {
+					return err
+				}
+				if err := unmergeChildren(tx, n.ID, now); err != nil {
 					return err
 				}
 				if err := tx.Create(&model.NotificationAttempt{ID: randomID("send-"), NotificationID: n.ID, Status: n.Status, Code: n.LastCode, CreatedAt: now}).Error; err != nil {

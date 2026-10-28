@@ -9,7 +9,14 @@ const clinics = ref<Clinic[]>([]), templates = ref<Template[]>([]), rows = ref<N
 const attempts = ref<components['schemas']['NotificationAttempt'][]>([])
 const error = ref(''), loading = ref(false), saving = ref(false), status = ref(''), category = ref(''), page = ref(1), total = ref(0), showAttempts = ref(false)
 const form = ref<components['schemas']['MessageTemplateChange']>({ clinicId: '', kind: 'revisit', templateId: '', titleKey: 'thing1', timeKey: 'time2', page: 'pages/recovery-calendar/index', state: 'developer', leadMinutes: 1440, enabled: false, version: 0 })
-const labels: Record<string, string> = { queued: '待发送', sending: '发送中', sent: '已发送', retry: '等待重试', blocked: '待授权', failed: '发送失败', unknown: '结果不明', cancelled: '已取消' }
+const labels: Record<string, string> = { queued: '待发送', sending: '发送中', sent: '已发送', retry: '等待重试', blocked: '待授权', failed: '发送失败', unknown: '结果不明', cancelled: '已取消', merged: '已合并' }
+const mergeSetting = ref<components['schemas']['NotificationMergeSetting']>({ mergeWindowMinutes: 60, mergeEnabled: true, version: 1, updatedBy: null, updatedAt: '' })
+const mergeSaving = ref(false)
+async function saveMergeSetting() {
+  mergeSaving.value = true; error.value = ''
+  try { mergeSetting.value = await api.saveNotificationMergeSetting({ mergeWindowMinutes: mergeSetting.value.mergeWindowMinutes, mergeEnabled: mergeSetting.value.mergeEnabled, version: mergeSetting.value.version }); await load() }
+  catch (e) { error.value = errorMessage(e) } finally { mergeSaving.value = false }
+}
 const categoryLabels: Record<string, string> = { authorization: '未授权', template: '模板问题', rate_limit: '频率受限', transient: '临时失败', source: '来源已变更', other: '其他原因' }
 const retryableCategory = (row: Notice) => row.status === 'failed' && (row.failureCategory === 'transient' || row.failureCategory === 'rate_limit')
 function date(v: string) { return new Date(v).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' }) }
@@ -21,8 +28,8 @@ function selectTemplate() {
 async function load() {
   loading.value = true; error.value = ''
   try {
-    const [ts, cs, queue] = await Promise.all([api.messageTemplates(), api.clinics(), api.notificationQueue(status.value, page.value, category.value)])
-    templates.value = ts; clinics.value = cs.filter(c => auth.employee?.clinicIds.includes(c.id)); rows.value = queue.data; total.value = queue.meta.total
+    const [ts, cs, queue, ms] = await Promise.all([api.messageTemplates(), api.clinics(), api.notificationQueue(status.value, page.value, category.value), api.notificationMergeSetting()])
+    templates.value = ts; clinics.value = cs.filter(c => auth.employee?.clinicIds.includes(c.id)); rows.value = queue.data; total.value = queue.meta.total; mergeSetting.value = ms
     if (!form.value.clinicId && clinics.value[0]) { form.value.clinicId = clinics.value[0].id; selectTemplate() }
   } catch (e) { error.value = errorMessage(e) } finally { loading.value = false }
 }
@@ -56,13 +63,21 @@ onMounted(load)
       <el-button type="primary" :loading="saving" :disabled="!form.clinicId" @click="save">保存模板</el-button>
     </el-form>
   </el-card>
+  <el-card class="message-card"><template #header>提醒合并设置</template>
+    <el-form label-position="left" label-width="140px" class="template-grid">
+      <el-form-item label="合并发送"><el-switch v-model="mergeSetting.mergeEnabled" active-text="开启" inactive-text="关闭" :disabled="mergeSaving" /></el-form-item>
+      <el-form-item label="合并窗口（分钟）"><el-input-number v-model="mergeSetting.mergeWindowMinutes" :min="5" :max="1440" :disabled="mergeSaving || !mergeSetting.mergeEnabled" /></el-form-item>
+    </el-form>
+    <p>同一患者发送时间落在窗口内的普通提醒合并为一条摘要发送（只消耗一次订阅机会）；逾期提醒为紧急提醒，立即单独发送、不参与合并。关闭合并后普通提醒各自单独发送。</p>
+    <el-button type="primary" :loading="mergeSaving" @click="saveMergeSetting">保存合并设置</el-button>
+  </el-card>
   <el-card class="message-card"><template #header><div class="queue-header"><span>通知队列</span><div class="queue-filters"><el-select v-model="category" clearable placeholder="全部失败原因" :disabled="loading" @change="page = 1; load()"><el-option v-for="(label, key) in categoryLabels" :key="key" :label="label" :value="key" /></el-select><el-select v-model="status" clearable placeholder="全部状态" :disabled="loading" @change="page = 1; load()"><el-option v-for="(label, key) in labels" :key="key" :label="label" :value="key" /></el-select></div></div></template>
     <el-table v-loading="loading" :data="rows" empty-text="暂无通知；启用模板后自动生成临近到期的提醒">
       <el-table-column prop="patientId" label="患者编号" min-width="170" />
       <el-table-column label="类型" width="100"><template #default="{ row }">{{ row.kind === 'revisit' ? '复诊' : '随访' }}</template></el-table-column>
       <el-table-column label="到期时间" min-width="180"><template #default="{ row }">{{ date(row.dueAt) }}</template></el-table-column>
       <el-table-column label="计划发送" min-width="180"><template #default="{ row }">{{ date(row.sendAt) }}</template></el-table-column>
-      <el-table-column label="状态" width="120"><template #default="{ row }">{{ labels[row.status] }}</template></el-table-column>
+      <el-table-column label="状态" width="140"><template #default="{ row }">{{ labels[row.status] || row.status }}<el-tag v-if="row.urgent" size="small" type="danger" style="margin-left: 4px">紧急</el-tag><br v-if="row.digestCount" /><small v-if="row.digestCount">摘要含 {{ row.digestCount + 1 }} 条</small></template></el-table-column>
       <el-table-column prop="attempts" label="尝试次数" width="100" />
       <el-table-column label="失败原因" min-width="160"><template #default="{ row }"><span v-if="row.failureCategory">{{ categoryLabels[row.failureCategory] || row.failureCategory }}</span><span v-else>—</span><br v-if="row.lastCode" /><small v-if="row.lastCode" class="failure-code">{{ row.lastCode }}</small></template></el-table-column>
       <el-table-column label="操作" width="240"><template #default="{ row }"><el-button link @click="history(row)">发送记录</el-button><el-button v-if="row.status === 'blocked'" link type="primary" :disabled="saving" @click="retry(row)">重新检查授权</el-button><el-button v-if="retryableCategory(row)" link type="primary" :disabled="saving" @click="retry(row)">重新发送</el-button></template></el-table-column>
