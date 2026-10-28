@@ -4229,7 +4229,9 @@ components:
       required: [version, symptoms, severity, concern]
       properties:
         version: {type: integer, minimum: 1, format: int32}
-        symptoms: {type: string, minLength: 1, maxLength: 2000}
+        # symptoms may be empty: a scale-only submission (severity + concern)
+        # without free text is valid (P2 随访量表化).
+        symptoms: {type: string, maxLength: 2000}
         severity: {type: integer, minimum: 0, maximum: 3, format: int32}
         concern: {type: boolean}
     FollowupReview:

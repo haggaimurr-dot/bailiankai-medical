@@ -213,10 +213,6 @@ function previewPhoto(photo: CarePhoto) {
 async function submit() {
   const task = selected.value
   if (!task || saving.value) return
-  if (!symptoms.value.trim()) {
-    showToast('请填写症状与恢复情况')
-    return
-  }
   saving.value = true
   notice.value = ''
   try {
@@ -370,8 +366,9 @@ onBeforeUnmount(() => {
               {{ label }}
             </button>
           </div>
-          <label class="field-label" for="symptoms">症状与恢复情况 *</label>
-          <textarea id="symptoms" v-model="symptoms" class="field" rows="4" maxlength="2000" placeholder="请描述目前的恢复情况（演示环境请勿填写真实隐私）" />
+          <label class="field-label" for="symptoms">症状与恢复情况（可不填）</label>
+          <textarea id="symptoms" v-model="symptoms" class="field" rows="4" maxlength="2000" placeholder="可不填；只选上方感受也可以提交。如有补充请描述目前的恢复情况（演示环境请勿填写真实隐私）" />
+          <p class="muted">只选感受、不写文字也可以提交；选「明显不适」或「严重不适」会进入医护关注队列。</p>
           <div class="row switch-row">
             <span class="grow">希望医护重点关注</span>
             <van-switch v-model="concern" size="22" />

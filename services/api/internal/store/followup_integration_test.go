@@ -89,6 +89,25 @@ func uploadFollowup(t *testing.T, f *bookingFixture, taskID, token, angle string
 	}
 	return result.Data
 }
+// P2 随访量表化：只填量表（当前感受）不写文字也可提交；明显/严重不适
+// 仍进入异常队列（alert），无不适为 submitted。
+func TestFollowupMySQLScaleOnlySubmit(t *testing.T) {
+	ctx := context.Background()
+	f, patient, appointment, input := newFollowupFixture(t)
+	tasks := followupTasks(t, f, appointment, input)
+	alerted, err := f.repo.SubmitFollowup(ctx, tasks[0].ID, patient.Patient.ID, store.FollowupInput{Version: 1, Symptoms: "", Severity: 2}, f.now)
+	if err != nil || alerted.Status != "alert" || alerted.Symptoms != "" {
+		t.Fatalf("scale-only severity 2: row=%+v err=%v", alerted, err)
+	}
+	plain, err := f.repo.SubmitFollowup(ctx, tasks[1].ID, patient.Patient.ID, store.FollowupInput{Version: 1, Symptoms: "", Severity: 0}, f.now)
+	if err != nil || plain.Status != "submitted" || plain.Symptoms != "" {
+		t.Fatalf("scale-only severity 0: row=%+v err=%v", plain, err)
+	}
+	if _, err := f.repo.SubmitFollowup(ctx, tasks[2].ID, patient.Patient.ID, store.FollowupInput{Version: 1, Symptoms: "", Severity: 4}, f.now); !errors.Is(err, store.ErrCareState) {
+		t.Fatalf("severity out of range: %v", err)
+	}
+}
+
 func TestTreatmentCorrectionMySQLIntegration(t *testing.T) {
 	ctx := context.Background()
 	f, patient, appointment, input := newFollowupFixture(t)

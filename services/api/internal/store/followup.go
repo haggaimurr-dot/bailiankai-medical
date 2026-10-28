@@ -454,7 +454,9 @@ func (s *MySQL) SubmitFollowup(ctx context.Context, id, patientID string, input 
 		if row.Version != input.Version {
 			return ErrConflict
 		}
-		if input.Symptoms == "" || input.Severity < 0 || input.Severity > 3 {
+		// Empty symptoms are valid: a scale-only submission (severity + concern)
+		// without free text is accepted (P2 随访量表化).
+		if input.Severity < 0 || input.Severity > 3 {
 			return ErrCareState
 		}
 		row.Status = "submitted"

@@ -256,8 +256,8 @@ func (a *API) submitFollowup(c *gin.Context) {
 		return
 	}
 	symptoms := strings.TrimSpace(body.Symptoms)
-	if body.Version < 1 || utf8.RuneCountInString(symptoms) < 1 || utf8.RuneCountInString(symptoms) > 2000 || body.Severity < 0 || body.Severity > 3 {
-		fail(c, 400, "INVALID_SYMPTOMS", "请填写症状描述并选择当前感受")
+	if body.Version < 1 || utf8.RuneCountInString(symptoms) > 2000 || body.Severity < 0 || body.Severity > 3 {
+		fail(c, 400, "INVALID_SYMPTOMS", "请检查当前感受与反馈内容")
 		return
 	}
 	row, err := a.followup.SubmitFollowup(c.Request.Context(), c.Param("taskId"), currentPatient(c).ID, store.FollowupInput{Version: int(body.Version), Symptoms: symptoms, Severity: int(body.Severity), Concern: body.Concern}, a.careNow())
