@@ -1,10 +1,13 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { api, errorMessage } from '../api'
+import { api, canEditSchedule, errorMessage } from '../api'
 import { auth } from '../auth'
+import SchedulePatients from '../components/SchedulePatients.vue'
+import { useScheduleStore } from '../stores/schedule'
 
 const router = useRouter()
+const scheduleStore = useScheduleStore()
 const manager = computed(() => auth.employee?.role === 'manager')
 type Notice = Awaited<ReturnType<typeof api.handoffNotifications>>['data'][number]
 const notices = ref<Notice[]>([]), notificationPage = ref(1), notificationTotal = ref(0), unreadTotal = ref(0)
@@ -60,6 +63,9 @@ async function read(notice: Notice, open = false) {
 }
 onMounted(() => {
   void load()
+  // Populate the schedule store's clinic so the suspension contact list below loads
+  // even when the user has not visited the schedule page in this session.
+  void scheduleStore.refresh()
   timer = setInterval(() => { if (document.visibilityState === 'visible' && !reading.value) void load() }, 30000)
 })
 onBeforeUnmount(() => { ++generation; ++notificationGeneration; if (timer) clearInterval(timer) })
@@ -69,6 +75,13 @@ onBeforeUnmount(() => { ++generation; ++notificationGeneration; if (timer) clear
   <section class="workbench">
     <div class="page-heading"><div><div class="eyebrow">CARE WORKBENCH</div><h1>待办工作台</h1><p>按事项进入对应工作区，优先处理异常和超时交接。</p></div><el-button :loading="busy" @click="load">刷新待办</el-button></div>
     <el-alert v-for="message in errors" :key="message" :title="message" type="error" :closable="false" />
+    <template v-if="canEditSchedule">
+      <div class="suspension-banner" role="alert">
+        <strong>⚠ 停诊待联系患者优先处理</strong>
+        <span>停诊时段的预约患者需逐一联系改期；下方清单可逐条标记联系结果或安排改期。</span>
+      </div>
+      <SchedulePatients />
+    </template>
     <div class="todo-grid" aria-label="分类待办">
       <RouterLink v-for="card in cards" :key="card.title" :to="card.to" class="surface todo-card" :class="{ urgent: card.urgent && (card.count || 0) > 0 }"><span>{{ card.title }}</span><strong>{{ busy ? '…' : card.count ?? '—' }}<small>项</small></strong><p>{{ card.detail }}</p><b>进入处理 →</b></RouterLink>
     </div>
@@ -90,6 +103,9 @@ onBeforeUnmount(() => { ++generation; ++notificationGeneration; if (timer) clear
 
 <style scoped>
 .todo-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; }
+.suspension-banner { display: flex; flex-direction: column; gap: 4px; border: 2px solid #e8a13a; border-left-width: 8px; background: #fff8f5; border-radius: 12px; padding: 14px 18px; margin-bottom: 4px; }
+.suspension-banner strong { font-size: 15px; color: #b45309; }
+.suspension-banner span { font-size: 13px; color: #6d8094; line-height: 1.6; }
 .todo-card { display: flex; flex-direction: column; gap: 12px; padding: 22px; text-decoration: none; color: #334961; border: 1px solid #e3eaf1; transition: border-color .2s; }
 .todo-card:hover, .todo-card:focus-visible { border-color: var(--el-color-primary); }
 .todo-card strong { font-size: 32px; }.todo-card small { font-size: 12px; margin-left: 8px; font-weight: 400; }
