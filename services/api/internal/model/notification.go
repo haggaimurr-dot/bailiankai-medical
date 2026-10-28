@@ -54,6 +54,9 @@ type Notification struct {
 	Status     string    `json:"status"`
 	Attempts   int       `json:"attempts"`
 	LastCode   string    `json:"lastCode"`
+	// FailureCategory classifies LastCode for display and filtering; it is
+	// derived at read time and never persisted.
+	FailureCategory string `gorm:"-" json:"failureCategory"`
 	UpdatedAt  time.Time `json:"updatedAt"`
 }
 type NotificationAttempt struct {
@@ -61,5 +64,7 @@ type NotificationAttempt struct {
 	NotificationID string    `json:"notificationId"`
 	Status         string    `json:"status"`
 	Code           string    `json:"code"`
+	// FailureCategory classifies Code for display; derived at read time.
+	FailureCategory string `gorm:"-" json:"failureCategory"`
 	CreatedAt      time.Time `json:"createdAt"`
 }

@@ -7,9 +7,11 @@ type Template = components['schemas']['MessageTemplate']
 type Notice = components['schemas']['Notification']
 const clinics = ref<Clinic[]>([]), templates = ref<Template[]>([]), rows = ref<Notice[]>([])
 const attempts = ref<components['schemas']['NotificationAttempt'][]>([])
-const error = ref(''), loading = ref(false), saving = ref(false), status = ref(''), page = ref(1), total = ref(0), showAttempts = ref(false)
+const error = ref(''), loading = ref(false), saving = ref(false), status = ref(''), category = ref(''), page = ref(1), total = ref(0), showAttempts = ref(false)
 const form = ref<components['schemas']['MessageTemplateChange']>({ clinicId: '', kind: 'revisit', templateId: '', titleKey: 'thing1', timeKey: 'time2', page: 'pages/recovery-calendar/index', state: 'developer', leadMinutes: 1440, enabled: false, version: 0 })
 const labels: Record<string, string> = { queued: '待发送', sending: '发送中', sent: '已发送', retry: '等待重试', blocked: '待授权', failed: '发送失败', unknown: '结果不明', cancelled: '已取消' }
+const categoryLabels: Record<string, string> = { authorization: '未授权', template: '模板问题', rate_limit: '频率受限', transient: '临时失败', source: '来源已变更', other: '其他原因' }
+const retryableCategory = (row: Notice) => row.status === 'failed' && (row.failureCategory === 'transient' || row.failureCategory === 'rate_limit')
 function date(v: string) { return new Date(v).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' }) }
 function selectTemplate() {
   const found = templates.value.find(t => t.clinicId === form.value.clinicId && t.kind === form.value.kind)
@@ -19,7 +21,7 @@ function selectTemplate() {
 async function load() {
   loading.value = true; error.value = ''
   try {
-    const [ts, cs, queue] = await Promise.all([api.messageTemplates(), api.clinics(), api.notificationQueue(status.value, page.value)])
+    const [ts, cs, queue] = await Promise.all([api.messageTemplates(), api.clinics(), api.notificationQueue(status.value, page.value, category.value)])
     templates.value = ts; clinics.value = cs.filter(c => auth.employee?.clinicIds.includes(c.id)); rows.value = queue.data; total.value = queue.meta.total
     if (!form.value.clinicId && clinics.value[0]) { form.value.clinicId = clinics.value[0].id; selectTemplate() }
   } catch (e) { error.value = errorMessage(e) } finally { loading.value = false }
@@ -54,7 +56,7 @@ onMounted(load)
       <el-button type="primary" :loading="saving" :disabled="!form.clinicId" @click="save">保存模板</el-button>
     </el-form>
   </el-card>
-  <el-card class="message-card"><template #header><div class="queue-header"><span>通知队列</span><el-select v-model="status" clearable placeholder="全部状态" :disabled="loading" @change="page = 1; load()"><el-option v-for="(label, key) in labels" :key="key" :label="label" :value="key" /></el-select></div></template>
+  <el-card class="message-card"><template #header><div class="queue-header"><span>通知队列</span><div class="queue-filters"><el-select v-model="category" clearable placeholder="全部失败原因" :disabled="loading" @change="page = 1; load()"><el-option v-for="(label, key) in categoryLabels" :key="key" :label="label" :value="key" /></el-select><el-select v-model="status" clearable placeholder="全部状态" :disabled="loading" @change="page = 1; load()"><el-option v-for="(label, key) in labels" :key="key" :label="label" :value="key" /></el-select></div></div></template>
     <el-table v-loading="loading" :data="rows" empty-text="暂无通知；启用模板后自动生成临近到期的提醒">
       <el-table-column prop="patientId" label="患者编号" min-width="170" />
       <el-table-column label="类型" width="100"><template #default="{ row }">{{ row.kind === 'revisit' ? '复诊' : '随访' }}</template></el-table-column>
@@ -62,12 +64,12 @@ onMounted(load)
       <el-table-column label="计划发送" min-width="180"><template #default="{ row }">{{ date(row.sendAt) }}</template></el-table-column>
       <el-table-column label="状态" width="120"><template #default="{ row }">{{ labels[row.status] }}</template></el-table-column>
       <el-table-column prop="attempts" label="尝试次数" width="100" />
-      <el-table-column prop="lastCode" label="结果代码" min-width="160" />
-      <el-table-column label="操作" width="200"><template #default="{ row }"><el-button link @click="history(row)">发送记录</el-button><el-button v-if="row.status === 'blocked'" link type="primary" :disabled="saving" @click="retry(row)">重新检查授权</el-button></template></el-table-column>
+      <el-table-column label="失败原因" min-width="160"><template #default="{ row }"><span v-if="row.failureCategory">{{ categoryLabels[row.failureCategory] || row.failureCategory }}</span><span v-else>—</span><br v-if="row.lastCode" /><small v-if="row.lastCode" class="failure-code">{{ row.lastCode }}</small></template></el-table-column>
+      <el-table-column label="操作" width="240"><template #default="{ row }"><el-button link @click="history(row)">发送记录</el-button><el-button v-if="row.status === 'blocked'" link type="primary" :disabled="saving" @click="retry(row)">重新检查授权</el-button><el-button v-if="retryableCategory(row)" link type="primary" :disabled="saving" @click="retry(row)">重新发送</el-button></template></el-table-column>
     </el-table>
     <el-pagination v-model:current-page="page" :total="total" :page-size="20" layout="prev, pager, next, total" :disabled="loading" @current-change="load" />
-    <p>临时失败自动退避重试，最多5次。结果不明的通知保留记录并停止重发。</p>
+    <p>临时失败（系统繁忙、限流、凭证失效）自动退避重试，最多5次；失败后仍可按“临时失败 / 频率受限”分类手动重新发送。未授权、模板问题与来源已变更需先处理原因再重试。结果不明的通知保留记录并停止重发。</p>
   </el-card>
-  <el-dialog v-model="showAttempts" title="发送记录"><el-table :data="attempts" empty-text="尚未尝试发送"><el-table-column label="时间"><template #default="{ row }">{{ date(row.createdAt) }}</template></el-table-column><el-table-column label="结果"><template #default="{ row }">{{ labels[row.status] || row.status }}</template></el-table-column><el-table-column prop="code" label="代码" /></el-table></el-dialog>
+  <el-dialog v-model="showAttempts" title="发送记录"><el-table :data="attempts" empty-text="尚未尝试发送"><el-table-column label="时间"><template #default="{ row }">{{ date(row.createdAt) }}</template></el-table-column><el-table-column label="结果"><template #default="{ row }">{{ labels[row.status] || row.status }}</template></el-table-column><el-table-column label="失败原因"><template #default="{ row }">{{ row.failureCategory ? (categoryLabels[row.failureCategory] || row.failureCategory) : '—' }}</template></el-table-column><el-table-column prop="code" label="代码" /></el-table></el-dialog>
 </template>
-<style scoped>.message-card{margin-top:20px}.template-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 24px}.queue-header{display:flex;align-items:center;justify-content:space-between}.queue-header .el-select{width:180px}p{color:#677681;font-size:13px}.el-pagination{margin-top:20px}@media(max-width:900px){.template-grid{grid-template-columns:1fr}}</style>
+<style scoped>.message-card{margin-top:20px}.template-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 24px}.queue-header{display:flex;align-items:center;justify-content:space-between}.queue-header .el-select{width:180px}.queue-filters{display:flex;gap:10px}.failure-code{color:#8a99ab;font-size:11px}p{color:#677681;font-size:13px}.el-pagination{margin-top:20px}@media(max-width:900px){.template-grid{grid-template-columns:1fr}}</style>

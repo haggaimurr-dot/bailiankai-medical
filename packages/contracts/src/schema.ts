@@ -4559,6 +4559,11 @@ export interface components {
             status: "queued" | "sending" | "sent" | "retry" | "blocked" | "failed" | "unknown" | "cancelled";
             attempts: number;
             lastCode: string;
+            /**
+             * @description 失败原因分类，由 lastCode 归类；无失败时为空
+             * @enum {string}
+             */
+            failureCategory?: "" | "authorization" | "template" | "rate_limit" | "transient" | "source" | "other";
             /** Format: date-time */
             updatedAt: string;
         };
@@ -4567,6 +4572,11 @@ export interface components {
             notificationId: string;
             status: string;
             code: string;
+            /**
+             * @description 失败原因分类，由 code 归类；无失败时为空
+             * @enum {string}
+             */
+            failureCategory?: "" | "authorization" | "template" | "rate_limit" | "transient" | "source" | "other";
             /** Format: date-time */
             createdAt: string;
         };
@@ -8216,6 +8226,7 @@ export interface operations {
         parameters: {
             query?: {
                 status?: string;
+                failureCategory?: "authorization" | "template" | "rate_limit" | "transient" | "source" | "other";
                 page?: number;
                 pageSize?: number;
             };

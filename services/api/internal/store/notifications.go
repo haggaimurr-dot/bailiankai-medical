@@ -19,7 +19,7 @@ type NotificationRepository interface {
 	SaveMessageTemplate(context.Context, model.MessageTemplate) (model.MessageTemplate, error)
 	MessageConsents(context.Context, string) ([]model.MessageConsent, error)
 	SetMessageConsent(context.Context, string, string, string, string, time.Time) error
-	Notifications(context.Context, string, int, int) ([]model.Notification, int64, error)
+	Notifications(context.Context, string, string, int, int) ([]model.Notification, int64, error)
 	NotificationAttempts(context.Context, string) ([]model.NotificationAttempt, error)
 	RetryNotification(context.Context, string, time.Time) error
 	PatientMessages(context.Context, string, int, int) ([]model.PatientMessage, int64, error)
@@ -107,17 +107,28 @@ func (s *MySQL) SetMessageConsent(ctx context.Context, patient, template, status
 		return tx.Create(&model.MessageConsentEvent{ID: randomID("consent-event-"), PatientID: patient, TemplateID: template, RequestKey: key, Status: status, CreatedAt: now}).Error
 	})
 }
-func (s *MySQL) Notifications(ctx context.Context, status string, page, size int) ([]model.Notification, int64, error) {
+func (s *MySQL) Notifications(ctx context.Context, status string, category string, page, size int) ([]model.Notification, int64, error) {
 	rows := make([]model.Notification, 0)
 	q := clinicScope(ctx, s.db.WithContext(ctx).Model(&model.Notification{}), "clinic_id")
 	if status != "" {
 		q = q.Where("status = ?", status)
+	}
+	if category != "" {
+		if codes := notificationFailureCodes(category); len(codes) > 0 {
+			q = q.Where("last_code IN ?", codes)
+		} else if category == "other" {
+			known := []string{"", "0", "authorization_required", "withdrawn", "43101", "40003", "expired_or_disabled", "40037", "41030", "40165", "45009", "-1", "token_unavailable", "worker_interrupted", "unknown", "40001", "42001", "source_changed"}
+			q = q.Where("last_code NOT IN ?", known)
+		}
 	}
 	var total int64
 	if err := q.Count(&total).Error; err != nil {
 		return rows, 0, err
 	}
 	err := q.Order("due_at DESC, id").Offset((page - 1) * size).Limit(size).Find(&rows).Error
+	for i := range rows {
+		rows[i].FailureCategory = notificationFailureCategory(rows[i].LastCode)
+	}
 	return rows, total, err
 }
 func (s *MySQL) NotificationAttempts(ctx context.Context, id string) ([]model.NotificationAttempt, error) {
@@ -127,6 +138,9 @@ func (s *MySQL) NotificationAttempts(ctx context.Context, id string) ([]model.No
 	}
 	rows := make([]model.NotificationAttempt, 0)
 	err := s.db.WithContext(ctx).Where("notification_id = ?", id).Order("created_at, id").Find(&rows).Error
+	for i := range rows {
+		rows[i].FailureCategory = notificationFailureCategory(rows[i].Code)
+	}
 	return rows, err
 }
 func (s *MySQL) RetryNotification(ctx context.Context, id string, now time.Time) error {
@@ -135,10 +149,18 @@ func (s *MySQL) RetryNotification(ctx context.Context, id string, now time.Time)
 		if err := clinicScope(ctx, tx, "clinic_id").Clauses(clause.Locking{Strength: "UPDATE"}).First(&row, "id = ?", id).Error; err != nil {
 			return followupDBError(err)
 		}
-		if row.Status != "blocked" || !row.DueAt.After(now) || row.Attempts >= 5 {
+		if row.Status != "blocked" && !(row.Status == "failed" && notificationFailureRetryable(notificationFailureCategory(row.LastCode))) || !row.DueAt.After(now) || row.Attempts >= 5 {
 			return ErrCareState
 		}
-		row.Status = "queued"
+		// Blocked rows never consumed the patient's consent, so they re-enter
+		// as queued (dispatch requires an accepted consent). Failed rows
+		// already consumed it, so they re-enter as retry (dispatch accepts a
+		// consumed consent for retries) instead of bouncing back to blocked.
+		if row.Status == "failed" {
+			row.Status = "retry"
+		} else {
+			row.Status = "queued"
+		}
 		row.SendAt = now
 		row.UpdatedAt = now
 		return tx.Save(&row).Error
@@ -180,6 +202,59 @@ func (s *MySQL) ScheduleReminders(ctx context.Context, now time.Time) error {
 	}
 	return nil
 }
+// notificationFailureCategory classifies a send failure code so the queue
+// can show and filter by cause. "" means no failure (success or no attempt
+// yet). WeChat subscribe-message errcodes: 43101 user refused, 40003 invalid
+// openid, 40037 invalid template id, 41030 invalid page, 40165 invalid data,
+// 45009 rate limited, -1 system busy, 40001/42001 access token invalid.
+func notificationFailureCategory(code string) string {
+	switch code {
+	case "", "0":
+		return ""
+	case "authorization_required", "withdrawn", "43101", "40003":
+		return "authorization"
+	case "expired_or_disabled", "40037", "41030", "40165":
+		return "template"
+	case "45009":
+		return "rate_limit"
+	case "-1", "token_unavailable", "worker_interrupted", "unknown", "40001", "42001":
+		return "transient"
+	case "source_changed":
+		return "source"
+	default:
+		return "other"
+	}
+}
+
+// notificationFailureCodes lists the raw codes that belong to a category, for
+// server-side queue filtering. Unknown categories yield no codes.
+func notificationFailureCodes(category string) []string {
+	switch category {
+	case "authorization":
+		return []string{"authorization_required", "withdrawn", "43101", "40003"}
+	case "template":
+		return []string{"expired_or_disabled", "40037", "41030", "40165"}
+	case "rate_limit":
+		return []string{"45009"}
+	case "transient":
+		return []string{"-1", "token_unavailable", "worker_interrupted", "unknown", "40001", "42001"}
+	case "source":
+		return []string{"source_changed"}
+	case "other":
+		return nil
+	default:
+		return nil
+	}
+}
+
+// notificationFailureRetryable reports whether a failed notification is worth
+// re-queuing: only temporary failures can succeed on a later attempt. Other
+// causes re-enter the same failure through the pre-send checks, so retrying
+// them would only burn the patient's one consent.
+func notificationFailureRetryable(category string) bool {
+	return category == "transient" || category == "rate_limit"
+}
+
 func reminderOutcome(code string, attempt int) (string, time.Duration) {
 	if code == "0" {
 		return "sent", 0

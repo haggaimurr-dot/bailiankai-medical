@@ -463,6 +463,17 @@ const (
 	MessageTemplateChangeStateTrial     MessageTemplateChangeState = "trial"
 )
 
+// Defines values for NotificationFailureCategory.
+const (
+	NotificationFailureCategoryAuthorization NotificationFailureCategory = "authorization"
+	NotificationFailureCategoryEmpty         NotificationFailureCategory = ""
+	NotificationFailureCategoryOther         NotificationFailureCategory = "other"
+	NotificationFailureCategoryRateLimit     NotificationFailureCategory = "rate_limit"
+	NotificationFailureCategorySource        NotificationFailureCategory = "source"
+	NotificationFailureCategoryTemplate      NotificationFailureCategory = "template"
+	NotificationFailureCategoryTransient     NotificationFailureCategory = "transient"
+)
+
 // Defines values for NotificationStatus.
 const (
 	NotificationStatusBlocked   NotificationStatus = "blocked"
@@ -473,6 +484,17 @@ const (
 	NotificationStatusSending   NotificationStatus = "sending"
 	NotificationStatusSent      NotificationStatus = "sent"
 	NotificationStatusUnknown   NotificationStatus = "unknown"
+)
+
+// Defines values for NotificationAttemptFailureCategory.
+const (
+	NotificationAttemptFailureCategoryAuthorization NotificationAttemptFailureCategory = "authorization"
+	NotificationAttemptFailureCategoryEmpty         NotificationAttemptFailureCategory = ""
+	NotificationAttemptFailureCategoryOther         NotificationAttemptFailureCategory = "other"
+	NotificationAttemptFailureCategoryRateLimit     NotificationAttemptFailureCategory = "rate_limit"
+	NotificationAttemptFailureCategorySource        NotificationAttemptFailureCategory = "source"
+	NotificationAttemptFailureCategoryTemplate      NotificationAttemptFailureCategory = "template"
+	NotificationAttemptFailureCategoryTransient     NotificationAttemptFailureCategory = "transient"
 )
 
 // Defines values for OperationsAnalyticsReportGroupBy.
@@ -728,6 +750,16 @@ const (
 const (
 	ReviewKnowledgeArticleJSONBodyDecisionApproved ReviewKnowledgeArticleJSONBodyDecision = "approved"
 	ReviewKnowledgeArticleJSONBodyDecisionRejected ReviewKnowledgeArticleJSONBodyDecision = "rejected"
+)
+
+// Defines values for ListNotificationQueueParamsFailureCategory.
+const (
+	Authorization ListNotificationQueueParamsFailureCategory = "authorization"
+	Other         ListNotificationQueueParamsFailureCategory = "other"
+	RateLimit     ListNotificationQueueParamsFailureCategory = "rate_limit"
+	Source        ListNotificationQueueParamsFailureCategory = "source"
+	Template      ListNotificationQueueParamsFailureCategory = "template"
+	Transient     ListNotificationQueueParamsFailureCategory = "transient"
 )
 
 // Defines values for AdminListSupportParamsStatus.
@@ -2450,31 +2482,43 @@ type MessageTemplateChangeState string
 
 // Notification defines model for Notification.
 type Notification struct {
-	Attempts   int                `json:"attempts"`
-	ClinicId   string             `json:"clinicId"`
-	DueAt      time.Time          `json:"dueAt"`
-	Id         string             `json:"id"`
-	Kind       string             `json:"kind"`
-	LastCode   string             `json:"lastCode"`
-	PatientId  string             `json:"patientId"`
-	SendAt     time.Time          `json:"sendAt"`
-	SourceId   string             `json:"sourceId"`
-	Status     NotificationStatus `json:"status"`
-	TemplateId string             `json:"templateId"`
-	UpdatedAt  time.Time          `json:"updatedAt"`
+	Attempts int       `json:"attempts"`
+	ClinicId string    `json:"clinicId"`
+	DueAt    time.Time `json:"dueAt"`
+
+	// FailureCategory 失败原因分类，由 lastCode 归类；无失败时为空
+	FailureCategory *NotificationFailureCategory `json:"failureCategory,omitempty"`
+	Id              string                       `json:"id"`
+	Kind            string                       `json:"kind"`
+	LastCode        string                       `json:"lastCode"`
+	PatientId       string                       `json:"patientId"`
+	SendAt          time.Time                    `json:"sendAt"`
+	SourceId        string                       `json:"sourceId"`
+	Status          NotificationStatus           `json:"status"`
+	TemplateId      string                       `json:"templateId"`
+	UpdatedAt       time.Time                    `json:"updatedAt"`
 }
+
+// NotificationFailureCategory 失败原因分类，由 lastCode 归类；无失败时为空
+type NotificationFailureCategory string
 
 // NotificationStatus defines model for Notification.Status.
 type NotificationStatus string
 
 // NotificationAttempt defines model for NotificationAttempt.
 type NotificationAttempt struct {
-	Code           string    `json:"code"`
-	CreatedAt      time.Time `json:"createdAt"`
-	Id             string    `json:"id"`
-	NotificationId string    `json:"notificationId"`
-	Status         string    `json:"status"`
+	Code      string    `json:"code"`
+	CreatedAt time.Time `json:"createdAt"`
+
+	// FailureCategory 失败原因分类，由 code 归类；无失败时为空
+	FailureCategory *NotificationAttemptFailureCategory `json:"failureCategory,omitempty"`
+	Id              string                              `json:"id"`
+	NotificationId  string                              `json:"notificationId"`
+	Status          string                              `json:"status"`
 }
+
+// NotificationAttemptFailureCategory 失败原因分类，由 code 归类；无失败时为空
+type NotificationAttemptFailureCategory string
 
 // NursingFeedback defines model for NursingFeedback.
 type NursingFeedback struct {
@@ -3549,10 +3593,14 @@ type UpdateKnowledgeCategoryJSONBody struct {
 
 // ListNotificationQueueParams defines parameters for ListNotificationQueue.
 type ListNotificationQueueParams struct {
-	Status   *string `form:"status,omitempty" json:"status,omitempty"`
-	Page     *int    `form:"page,omitempty" json:"page,omitempty"`
-	PageSize *int    `form:"pageSize,omitempty" json:"pageSize,omitempty"`
+	Status          *string                                     `form:"status,omitempty" json:"status,omitempty"`
+	FailureCategory *ListNotificationQueueParamsFailureCategory `form:"failureCategory,omitempty" json:"failureCategory,omitempty"`
+	Page            *int                                        `form:"page,omitempty" json:"page,omitempty"`
+	PageSize        *int                                        `form:"pageSize,omitempty" json:"pageSize,omitempty"`
 }
+
+// ListNotificationQueueParamsFailureCategory defines parameters for ListNotificationQueue.
+type ListNotificationQueueParamsFailureCategory string
 
 // ListPatientRecordsParams defines parameters for ListPatientRecords.
 type ListPatientRecordsParams struct {

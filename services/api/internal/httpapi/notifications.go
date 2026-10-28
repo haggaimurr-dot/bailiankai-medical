@@ -136,7 +136,7 @@ func (a *API) registerNotificationRoutes(r *gin.Engine) {
 		c.JSON(200, gin.H{"data": row})
 	})
 	admin.GET("/queue", func(c *gin.Context) {
-		if !validQuery(c, "status", "page", "pageSize") {
+		if !validQuery(c, "status", "failureCategory", "page", "pageSize") {
 			return
 		}
 		page, size := 1, 20
@@ -155,7 +155,12 @@ func (a *API) registerNotificationRoutes(r *gin.Engine) {
 			fail(c, 400, "INVALID_QUERY", "队列状态无效")
 			return
 		}
-		rows, total, err := a.repo.(store.NotificationRepository).Notifications(c.Request.Context(), status, page, size)
+		category := c.Query("failureCategory")
+		if category != "" && !strings.Contains("|authorization|template|rate_limit|transient|source|other|", "|"+category+"|") {
+			fail(c, 400, "INVALID_QUERY", "失败原因分类无效")
+			return
+		}
+		rows, total, err := a.repo.(store.NotificationRepository).Notifications(c.Request.Context(), status, category, page, size)
 		if err != nil {
 			knowledgeFailure(c, err)
 			return
@@ -179,7 +184,7 @@ func (a *API) registerNotificationRoutes(r *gin.Engine) {
 		}
 		if err := a.repo.(store.NotificationRepository).RetryNotification(c.Request.Context(), c.Param("resourceId"), a.now()); err != nil {
 			if err == store.ErrCareState {
-				fail(c, 409, "REMINDER_STATE", "仅可重新检查未到期且未超过尝试上限的授权阻塞任务")
+				fail(c, 409, "REMINDER_STATE", "仅可重新检查未到期且未超过尝试上限的授权阻塞任务，或重试临时失败的任务")
 				return
 			}
 			knowledgeFailure(c, err)
