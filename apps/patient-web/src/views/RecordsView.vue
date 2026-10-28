@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { showConfirmDialog, showToast } from 'vant'
 import { errorMessage } from '../api'
@@ -51,6 +51,19 @@ const confirmingId = ref('')
 
 const hasMore = computed(() => page.value * 20 < total.value)
 const visibleRecords = computed(() => (kindFilter.value ? records.value.filter((r) => r.kind === kindFilter.value) : records.value))
+
+// 按类型筛选须不遗漏：筛选只作用于已加载记录，选类型后自动加载剩余页，
+// 直至全部记录到齐再过滤；加载出错或超过 100 页即停，避免死循环。
+watch(kindFilter, async (value) => {
+  if (!value) return
+  let guard = 0
+  while (hasMore.value && guard < 100) {
+    guard++
+    const before = records.value.length
+    await load(true)
+    if (error.value || records.value.length === before) break
+  }
+})
 
 async function load(append = false) {
   if (append) {
