@@ -3675,7 +3675,7 @@ components:
         serviceIntroduction: {type: string, maxLength: 5000}
     Slot:
       type: object
-      required: [id, clinicId, doctorId, startsAt, endsAt, capacity, reserved, status, version]
+      required: [id, clinicId, doctorId, startsAt, endsAt, capacity, reserved, remaining, status, version]
       properties:
         id: {type: string}
         clinicId: {type: string}
@@ -3684,6 +3684,7 @@ components:
         endsAt: {type: string, format: date-time}
         capacity: {type: integer, minimum: 0, maximum: 100, format: int32}
         reserved: {type: integer, minimum: 0, format: int32}
+        remaining: {type: integer, minimum: 0, format: int32, description: '服务端计算的剩余名额：max(0, capacity - reserved)'}
         status: {type: string, enum: [open, closed]}
         version: {type: integer, minimum: 1, format: int32}
     SlotCreate:

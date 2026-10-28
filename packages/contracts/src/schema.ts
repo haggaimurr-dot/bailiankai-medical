@@ -3942,6 +3942,11 @@ export interface components {
             capacity: number;
             /** Format: int32 */
             reserved: number;
+            /**
+             * Format: int32
+             * @description 服务端计算的剩余名额：max(0, capacity - reserved)
+             */
+            remaining: number;
             /** @enum {string} */
             status: "open" | "closed";
             /** Format: int32 */

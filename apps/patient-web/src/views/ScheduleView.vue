@@ -96,7 +96,9 @@ async function loadSlots() {
     if (id !== requestId) return
     const views = rawSlots.map((slot): SlotView => {
       const doctor = allDoctors.find((item) => item.id === slot.doctorId)
-      const remaining = Math.max(0, slot.capacity - slot.reserved)
+      // Remaining comes from the API (contract field); fall back to the local
+      // derivation only if an older cached response lacks it.
+      const remaining = Number.isFinite(slot.remaining) ? slot.remaining : Math.max(0, slot.capacity - slot.reserved)
       const started = new Date(slot.startsAt).getTime() <= Date.now()
       const available = slot.status === 'open' && remaining > 0 && !started
       return {

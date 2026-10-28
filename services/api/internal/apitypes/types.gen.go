@@ -2955,15 +2955,18 @@ type ScheduleTemplate struct {
 
 // Slot defines model for Slot.
 type Slot struct {
-	Capacity int32      `json:"capacity"`
-	ClinicId string     `json:"clinicId"`
-	DoctorId string     `json:"doctorId"`
-	EndsAt   time.Time  `json:"endsAt"`
-	Id       string     `json:"id"`
-	Reserved int32      `json:"reserved"`
-	StartsAt time.Time  `json:"startsAt"`
-	Status   SlotStatus `json:"status"`
-	Version  int32      `json:"version"`
+	Capacity int32     `json:"capacity"`
+	ClinicId string    `json:"clinicId"`
+	DoctorId string    `json:"doctorId"`
+	EndsAt   time.Time `json:"endsAt"`
+	Id       string    `json:"id"`
+
+	// Remaining 服务端计算的剩余名额：max(0, capacity - reserved)
+	Remaining int32      `json:"remaining"`
+	Reserved  int32      `json:"reserved"`
+	StartsAt  time.Time  `json:"startsAt"`
+	Status    SlotStatus `json:"status"`
+	Version   int32      `json:"version"`
 }
 
 // SlotStatus defines model for Slot.Status.

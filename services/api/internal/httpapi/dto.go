@@ -46,5 +46,9 @@ func clinicPresentationDTO(p *model.ClinicPresentation) *apitypes.ClinicPresenta
 }
 
 func slotDTO(row model.Slot) apitypes.Slot {
-	return apitypes.Slot{Id: row.ID, ClinicId: row.ClinicID, DoctorId: row.DoctorID, StartsAt: row.StartsAt.In(database.Shanghai), EndsAt: row.EndsAt.In(database.Shanghai), Capacity: int32(row.Capacity), Reserved: int32(row.Reserved), Status: apitypes.SlotStatus(row.Status), Version: int32(row.Version)}
+	remaining := row.Capacity - row.Reserved
+	if remaining < 0 {
+		remaining = 0
+	}
+	return apitypes.Slot{Id: row.ID, ClinicId: row.ClinicID, DoctorId: row.DoctorID, StartsAt: row.StartsAt.In(database.Shanghai), EndsAt: row.EndsAt.In(database.Shanghai), Capacity: int32(row.Capacity), Reserved: int32(row.Reserved), Remaining: int32(remaining), Status: apitypes.SlotStatus(row.Status), Version: int32(row.Version)}
 }
