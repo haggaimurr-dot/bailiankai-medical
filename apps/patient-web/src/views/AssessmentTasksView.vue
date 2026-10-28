@@ -61,6 +61,87 @@ let timer: ReturnType<typeof setTimeout> | undefined
 let operation: Pending | null = null
 
 const detailLabel = computed(() => (selected.value ? statusLabels[selected.value.task.status] : ''))
+// 任务进度节点：每个节点都有时间说明，进行中的节点显示预计区间。
+// 时间全部来自任务本身的真实字段（submittedAt / nextAttemptAt /
+// analysisCompletedAt / reviewedAt）与管线已知耗时（质检 30 秒、分析 150 秒
+// 超时、worker 约 20 秒一轮）；人工复核无固定时限，不编造 SLA，只给已等待时长。
+type TimelineNode = { key: string; label: string; state: 'done' | 'current' | 'todo' | 'blocked'; time: string }
+const elapsedText = (from: string | null) => {
+  if (!from) return ''
+  const mins = Math.max(0, Math.round((Date.now() - Date.parse(from)) / 60000))
+  if (mins < 1) return '刚刚'
+  if (mins < 60) return `约 ${mins} 分钟`
+  const hours = Math.floor(mins / 60)
+  if (hours < 24) return `约 ${hours} 小时`
+  return `约 ${Math.floor(hours / 24)} 天`
+}
+const timeline = computed<TimelineNode[]>(() => {
+  const task = selected.value?.task
+  if (!task) return []
+  const s = task.status
+  const at = (ts: string | null) => (ts ? dateTime(ts) : '—')
+  const stageTime = (key: string, state: TimelineNode['state']): string => {
+    switch (key) {
+      case 'draft':
+        return state === 'done' ? `已创建 ${at(task.createdAt)}` : '等待您上传照片并提交'
+      case 'queued':
+        if (state === 'done') return `已提交 ${at(task.submittedAt)}`
+        if (state === 'current') return `预计 1 分钟内开始分析${task.submittedAt ? `（已等待 ${elapsedText(task.submittedAt)}）` : ''}`
+        return '约 1 分钟'
+      case 'analyzing':
+        if (state === 'done') return `分析完成 ${at(task.analysisCompletedAt)}`
+        if (state === 'current') return `预计 1–3 分钟完成分析${task.submittedAt ? `（已进行 ${elapsedText(task.submittedAt)}）` : ''}`
+        if (state === 'blocked') return `第 ${task.attemptCount} 次尝试失败`
+        return '约 1–3 分钟'
+      case 'awaiting_review':
+        if (state === 'done') return `复核完成 ${at(task.reviewedAt)}`
+        if (state === 'current')
+          return `分析已于 ${at(task.analysisCompletedAt)} 完成，等待医生复核（人工复核，完成后即展示）${task.analysisCompletedAt ? `（已等待 ${elapsedText(task.analysisCompletedAt)}）` : ''}`
+        return '人工复核，完成后即展示'
+      case 'completed':
+        return state === 'done' ? `已完成 ${at(task.reviewedAt)}` : '复核通过后即展示结果'
+      default:
+        return ''
+    }
+  }
+  // 各节点在当前状态下的完成情况；cancelled 按已有时间戳回推。
+  const doneAt = (key: string): boolean => {
+    if (s === 'cancelled') {
+      return key === 'draft' || (key === 'queued' && !!task.submittedAt) || (key === 'analyzing' && !!task.analysisCompletedAt) || (key === 'awaiting_review' && !!task.reviewedAt)
+    }
+    const order = ['draft', 'queued', 'analyzing', 'awaiting_review', 'completed']
+    const stage = { draft: 0, queued: 1, analyzing: 2, retry_wait: 2, awaiting_review: 3, completed: 4, rejected: 4, failed: 2, cancelled: -1 }[s]
+    return order.indexOf(key) < stage
+  }
+  const currentAt = (key: string): boolean => {
+    if (s === 'cancelled') return false
+    return { draft: 'draft', queued: 'queued', analyzing: 'analyzing', retry_wait: 'analyzing', awaiting_review: 'awaiting_review', completed: 'completed', rejected: 'awaiting_review', failed: 'analyzing' }[s] === key
+  }
+  const nodes: TimelineNode[] = (['draft', 'queued', 'analyzing', 'awaiting_review'] as const).map((key) => {
+    let state: TimelineNode['state'] = 'todo'
+    if (doneAt(key)) state = 'done'
+    else if (currentAt(key)) state = s === 'failed' || (s === 'retry_wait' && key === 'analyzing') ? 'blocked' : 'current'
+    return { key, label: statusLabels[key], state, time: stageTime(key, state) }
+  })
+  if (s === 'retry_wait') {
+    nodes.push({
+      key: 'retry_wait',
+      label: '等待重试',
+      state: 'current',
+      time: task.nextAttemptAt ? `将于 ${at(task.nextAttemptAt)} 自动重试（第 ${task.attemptCount} / ${task.maxAttempts} 次尝试）` : '系统将自动重试',
+    })
+  }
+  if (s === 'rejected') {
+    nodes.push({ key: 'rejected', label: '需补拍或面诊', state: 'blocked', time: `医生复核决定 ${at(task.reviewedAt)}` })
+  } else if (s === 'failed') {
+    nodes.push({ key: 'failed', label: '分析失败', state: 'blocked', time: `${failureMessage.value || '分析失败'}（第 ${task.attemptCount} / ${task.maxAttempts} 次尝试）` })
+  } else if (s === 'cancelled') {
+    nodes.push({ key: 'cancelled', label: '已取消', state: 'blocked', time: `已取消 ${at(task.updatedAt)}` })
+  } else {
+    nodes.push({ key: 'completed', label: '复核完成', state: doneAt('completed') ? 'done' : s === 'completed' ? 'done' : 'todo', time: stageTime('completed', s === 'completed' ? 'done' : 'todo') })
+  }
+  return nodes
+})
 const failureMessage = computed(() => {
   const code = selected.value?.task.failureCode
   if (!code) return ''
@@ -265,6 +346,19 @@ onUnmounted(() => {
         </p>
       </section>
 
+      <section class="card timeline">
+        <h2>进度节点</h2>
+        <ol>
+          <li v-for="node in timeline" :key="node.key" :class="node.state">
+            <span class="dot" aria-hidden="true">{{ node.state === 'done' ? '✓' : node.state === 'blocked' ? '!' : '' }}</span>
+            <div>
+              <strong>{{ node.label }}</strong>
+              <p class="muted">{{ node.time }}</p>
+            </div>
+          </li>
+        </ol>
+      </section>
+
       <section class="card" style="display: flex; flex-direction: column; gap: 10px">
         <button v-if="selected.task.status === 'draft'" class="primary" :disabled="busy || pending" @click="router.push({ path: '/assessment', query: { id: selected.task.id } })">
           继续准备照片
@@ -328,3 +422,15 @@ onUnmounted(() => {
     <p class="muted" style="text-align: center">照片辅助观察，具体以面诊为准。</p>
   </main>
 </template>
+
+<style scoped>
+.timeline ol { list-style: none; margin: 12px 0 0; padding: 0; }
+.timeline li { display: flex; gap: 12px; padding: 10px 0; border-top: 1px solid var(--line, #edf1f6); }
+.timeline li:first-child { border-top: 0; }
+.timeline .dot { flex: none; width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; margin-top: 2px; border: 2px solid #cbd5e1; color: #fff; background: #fff; }
+.timeline li.done .dot { background: #36897d; border-color: #36897d; }
+.timeline li.current .dot { background: #1763c6; border-color: #1763c6; }
+.timeline li.blocked .dot { background: #c25e5e; border-color: #c25e5e; }
+.timeline li.todo { opacity: 0.65; }
+.timeline li p { margin: 2px 0 0; }
+</style>
