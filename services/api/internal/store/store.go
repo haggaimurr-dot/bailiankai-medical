@@ -80,7 +80,7 @@ func (s *MySQL) Ready(ctx context.Context) error {
 			return err
 		}
 	}
-	for _, row := range []any{&[]model.MessageTemplate{}, &[]model.MessageConsent{}, &[]model.Notification{}, &[]model.NotificationAttempt{}, &[]model.MessageConsentEvent{}, &[]model.KnowledgeCategory{}, &[]model.KnowledgeArticle{}, &[]model.KnowledgeEvent{}} {
+	for _, row := range []any{&[]model.MessageTemplate{}, &[]model.MessageConsent{}, &[]model.Notification{}, &[]model.NotificationAttempt{}, &[]model.MessageConsentEvent{}, &[]model.PatientMessage{}, &[]model.KnowledgeCategory{}, &[]model.KnowledgeArticle{}, &[]model.KnowledgeEvent{}} {
 		if err := s.db.WithContext(ctx).Limit(1).Find(row).Error; err != nil {
 			return err
 		}

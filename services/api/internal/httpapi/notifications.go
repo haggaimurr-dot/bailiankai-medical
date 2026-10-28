@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"example.com/bailiankai/api/internal/apitypes"
 	"example.com/bailiankai/api/internal/model"
 	"example.com/bailiankai/api/internal/store"
 	"github.com/gin-gonic/gin"
@@ -53,6 +54,57 @@ func (a *API) registerNotificationRoutes(r *gin.Engine) {
 		}
 		err := a.repo.(store.NotificationRepository).SetMessageConsent(c.Request.Context(), currentPatient(c).ID, in.TemplateID, in.Status, in.RequestKey, a.now())
 		if err != nil {
+			knowledgeFailure(c, err)
+			return
+		}
+		c.JSON(200, gin.H{"data": gin.H{"saved": true}})
+	})
+	me.GET("", func(c *gin.Context) {
+		if !validQuery(c, "page", "pageSize") {
+			return
+		}
+		page, size := 1, 20
+		for key, target := range map[string]*int{"page": &page, "pageSize": &size} {
+			if v := c.Query(key); v != "" {
+				n, e := strconv.Atoi(v)
+				if e != nil || n < 1 || n > 1000000 || (key == "pageSize" && n > 100) {
+					fail(c, 400, "INVALID_QUERY", "分页参数无效")
+					return
+				}
+				*target = n
+			}
+		}
+		repo := a.repo.(store.NotificationRepository)
+		rows, total, err := repo.PatientMessages(c.Request.Context(), currentPatient(c).ID, page, size)
+		if err != nil {
+			knowledgeFailure(c, err)
+			return
+		}
+		unread, err := repo.UnreadPatientMessageCount(c.Request.Context(), currentPatient(c).ID)
+		if err != nil {
+			knowledgeFailure(c, err)
+			return
+		}
+		data := make([]apitypes.PatientMessage, 0, len(rows))
+		for _, row := range rows {
+			data = append(data, patientMessageDTO(row))
+		}
+		c.JSON(200, apitypes.PatientMessageList{Data: data, Total: int(total), UnreadCount: int(unread)})
+	})
+	me.GET("/unread-count", func(c *gin.Context) {
+		unread, err := a.repo.(store.NotificationRepository).UnreadPatientMessageCount(c.Request.Context(), currentPatient(c).ID)
+		if err != nil {
+			knowledgeFailure(c, err)
+			return
+		}
+		c.JSON(200, gin.H{"data": gin.H{"unreadCount": unread}})
+	})
+	me.POST("/:messageId/read", func(c *gin.Context) {
+		if id := c.Param("messageId"); id == "" || !validID(id) {
+			fail(c, 400, "INVALID_ID", "标识格式无效")
+			return
+		}
+		if err := a.repo.(store.NotificationRepository).MarkPatientMessageRead(c.Request.Context(), currentPatient(c).ID, c.Param("messageId"), a.now()); err != nil {
 			knowledgeFailure(c, err)
 			return
 		}

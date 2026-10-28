@@ -22,6 +22,9 @@ type NotificationRepository interface {
 	Notifications(context.Context, string, int, int) ([]model.Notification, int64, error)
 	NotificationAttempts(context.Context, string) ([]model.NotificationAttempt, error)
 	RetryNotification(context.Context, string, time.Time) error
+	PatientMessages(context.Context, string, int, int) ([]model.PatientMessage, int64, error)
+	UnreadPatientMessageCount(context.Context, string) (int64, error)
+	MarkPatientMessageRead(context.Context, string, string, time.Time) error
 }
 
 func (s *MySQL) MessageTemplates(ctx context.Context, public bool) ([]model.MessageTemplate, error) {

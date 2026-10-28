@@ -195,7 +195,12 @@ func (s *MySQL) AdminRescheduleAppointment(ctx context.Context, id string, in Ad
 			return e
 		}
 		detail := original.StartsAt.In(database.Shanghai).Format("2006-01-02 15:04") + " → " + target.StartsAt.In(database.Shanghai).Format("2006-01-02 15:04") + "；" + in.Reason
-		return tx.Create(&model.AppointmentEvent{ID: randomID("event-"), AppointmentID: id, ActorType: "operator", ActorID: employeeActor(ctx), Action: "suspend-move", FromStatus: initial.Status, ToStatus: initial.Status, CreatedAt: now, Detail: detail, RequestKey: &in.RequestKey, RequestHash: hash}).Error
+		if err := tx.Create(&model.AppointmentEvent{ID: randomID("event-"), AppointmentID: id, ActorType: "operator", ActorID: employeeActor(ctx), Action: "suspend-move", FromStatus: initial.Status, ToStatus: initial.Status, CreatedAt: now, Detail: detail, RequestKey: &in.RequestKey, RequestHash: hash}).Error; err != nil {
+			return err
+		}
+		msgAppt := row
+		msgAppt.SlotID = target.ID
+		return appointmentStatusMessage(tx, &msgAppt, "pending", "", detail, now)
 	})
 	if err != nil {
 		return model.Appointment{}, err

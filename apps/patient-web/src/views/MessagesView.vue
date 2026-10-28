@@ -3,11 +3,14 @@ import { onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { errorMessage } from '../api'
 import { patientApi } from '../patient'
+import { useMessageStore } from '../stores/messages'
 import { useSessionStore } from '../stores/session'
+import { dateTime } from '../utils/appointment'
 import type { components } from '../../../../packages/contracts/src/schema'
 
 type MessageTemplate = components['schemas']['MessageTemplate']
 type MessageConsentChange = components['schemas']['MessageConsentChange']
+type PatientMessage = components['schemas']['PatientMessage']
 
 const statusLabels: Record<string, string> = { accepted: '已授权一次提醒', consumed: '本次授权已使用', rejected: '未同意', revoked: '已撤回' }
 const pendingStorageKey = (id: string) => `message-consent-pending:${id}`
@@ -18,8 +21,13 @@ interface TemplateRow extends MessageTemplate {
 
 const router = useRouter()
 const store = useSessionStore()
+const messageStore = useMessageStore()
 
 const templates = ref<TemplateRow[]>([])
+const inbox = ref<PatientMessage[]>([])
+const inboxTotal = ref(0)
+const inboxLoading = ref(false)
+const inboxError = ref('')
 const busy = ref(false)
 const loading = ref(false)
 const error = ref('')
@@ -63,6 +71,7 @@ async function load() {
       ...template,
       statusLabel: statusLabels[consents.find((c) => c.templateId === template.templateId)?.status || ''] || '尚未授权',
     }))
+    void loadInbox()
   } catch (e) {
     if (gen === generation) error.value = errorMessage(e)
   } finally {
@@ -70,6 +79,37 @@ async function load() {
       busy.value = false
       loading.value = false
     }
+  }
+}
+
+async function loadInbox() {
+  if (!patientId) return
+  inboxLoading.value = true
+  inboxError.value = ''
+  try {
+    const messages = await patientApi.patientMessages(patientId)
+    inbox.value = messages.data
+    inboxTotal.value = messages.total
+    messageStore.unreadCount = messages.unreadCount
+  } catch (e) {
+    inboxError.value = errorMessage(e)
+  } finally {
+    inboxLoading.value = false
+  }
+}
+
+async function openMessage(message: PatientMessage) {
+  if (!message.read) {
+    try {
+      await patientApi.markPatientMessageRead(message.id, patientId)
+      message.read = true
+      messageStore.markOneRead()
+    } catch {
+      // Still navigate; the message stays unread and can be retried.
+    }
+  }
+  if (message.appointmentId) {
+    void router.push({ name: 'appointment-detail', params: { id: message.appointmentId } })
   }
 }
 
@@ -114,6 +154,30 @@ onUnmounted(() => generation++)
     </section>
 
     <template v-else>
+      <section class="card">
+        <h2>站内消息 <span v-if="messageStore.unreadCount > 0" class="chip">未读 {{ messageStore.unreadCount }}</span></h2>
+        <p class="muted">预约确认、改期、取消等状态变化会发到这里，点一条查看对应预约。</p>
+        <van-loading v-if="inboxLoading && !inbox.length" style="text-align: center; padding: 16px 0">正在读取消息</van-loading>
+        <p v-else-if="inboxError" class="muted">{{ inboxError }} <button class="text-link" @click="loadInbox">重试</button></p>
+        <div v-else-if="!inbox.length" class="muted" style="padding: 8px 0">暂无站内消息。</div>
+        <button
+          v-for="message in inbox"
+          :key="message.id"
+          class="inbox-row"
+          :class="{ unread: !message.read }"
+          @click="openMessage(message)"
+        >
+          <span v-if="!message.read" class="inbox-dot" aria-label="未读"></span>
+          <span class="inbox-main">
+            <strong>{{ message.title }}</strong>
+            <span class="inbox-body">{{ message.body }}</span>
+            <span class="muted">{{ dateTime(message.createdAt) }}</span>
+          </span>
+          <span class="inbox-arrow">›</span>
+        </button>
+        <p v-if="inboxTotal > inbox.length" class="muted">共 {{ inboxTotal }} 条，仅显示最近 {{ inbox.length }} 条。</p>
+      </section>
+
       <div class="error-box" style="background: var(--mlk-primitive-color-amber-50, #fff6e5); color: var(--amber)">
         订阅一次提醒需在微信小程序内通过微信订阅消息完成，网页端暂不支持订阅；这里可查看当前订阅状态，并可停止后续提醒。
       </div>
@@ -134,3 +198,15 @@ onUnmounted(() => generation++)
     </template>
   </main>
 </template>
+
+<style scoped>
+.inbox-row { display: flex; gap: 8px; width: 100%; text-align: left; border: 0; border-top: 1px solid var(--line); background: none; padding: 12px 0 0; margin-top: 12px; cursor: pointer; color: var(--ink); }
+.inbox-row:first-of-type { border-top: 0; margin-top: 4px; padding-top: 4px; }
+.inbox-row.unread .inbox-body { color: var(--ink); }
+.inbox-dot { width: 8px; height: 8px; border-radius: 50%; background: #dc2626; margin-top: 6px; flex: none; }
+.inbox-main { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.inbox-main strong { font-size: 14px; }
+.inbox-body { font-size: 13px; color: var(--muted); line-height: 1.6; }
+.inbox-arrow { color: var(--muted); font-size: 18px; flex: none; }
+.text-link { border: 0; background: none; color: var(--brand); cursor: pointer; padding: 0; }
+</style>

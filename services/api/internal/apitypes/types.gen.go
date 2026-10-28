@@ -526,6 +526,11 @@ const (
 	PatientIdentityPhoneAuthorizationRevoked    PatientIdentityPhoneAuthorization = "revoked"
 )
 
+// Defines values for PatientMessageKind.
+const (
+	PatientMessageKindAppointmentStatus PatientMessageKind = "appointment_status"
+)
+
 // Defines values for PhotoAngle.
 const (
 	PhotoAngleFront PhotoAngle = "front"
@@ -2700,6 +2705,27 @@ type PatientLogin struct {
 	Code string `json:"code"`
 }
 
+// PatientMessage defines model for PatientMessage.
+type PatientMessage struct {
+	AppointmentId string             `json:"appointmentId"`
+	Body          string             `json:"body"`
+	CreatedAt     time.Time          `json:"createdAt"`
+	Id            string             `json:"id"`
+	Kind          PatientMessageKind `json:"kind"`
+	Read          bool               `json:"read"`
+	Title         string             `json:"title"`
+}
+
+// PatientMessageKind defines model for PatientMessage.Kind.
+type PatientMessageKind string
+
+// PatientMessageList defines model for PatientMessageList.
+type PatientMessageList struct {
+	Data        []PatientMessage `json:"data"`
+	Total       int              `json:"total"`
+	UnreadCount int              `json:"unreadCount"`
+}
+
 // PatientPhoneAuthorization defines model for PatientPhoneAuthorization.
 type PatientPhoneAuthorization struct {
 	Code    string `json:"code"`
@@ -3716,6 +3742,12 @@ type ListKnowledgeFavoritesParams struct {
 	Q          *string `form:"q,omitempty" json:"q,omitempty"`
 	Page       *int    `form:"page,omitempty" json:"page,omitempty"`
 	PageSize   *int    `form:"pageSize,omitempty" json:"pageSize,omitempty"`
+}
+
+// ListPatientMessagesParams defines parameters for ListPatientMessages.
+type ListPatientMessagesParams struct {
+	Page     *int `form:"page,omitempty" json:"page,omitempty"`
+	PageSize *int `form:"pageSize,omitempty" json:"pageSize,omitempty"`
 }
 
 // SetPrivacyConsentJSONBody defines parameters for SetPrivacyConsent.

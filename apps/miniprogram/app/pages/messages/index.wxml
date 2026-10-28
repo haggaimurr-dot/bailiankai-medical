@@ -1,6 +1,17 @@
 <view class="page">
  <view class="heading">消息与复诊提醒</view>
  <view class="description">自愿订阅复诊或随访提醒。每次同意可接收一次消息；再次同意不会在本地累加次数。可随时停止后续提醒。</view>
+ <view class="card">
+  <view class="title">站内消息<view wx:if="{{unreadCount > 0}}" class="unread-badge">未读 {{unreadCount}}</view></view>
+  <view class="description">预约确认、改期、取消等状态变化会发到这里，点一条查看对应预约。</view>
+  <view wx:if="{{inboxError}}" class="error">{{inboxError}}</view>
+  <view wx:elif="{{!inbox.length}}" class="description">暂无站内消息。</view>
+  <view wx:for="{{inbox}}" wx:key="id" class="inbox-row {{item.read ? '' : 'unread'}}" data-id="{{item.id}}" bindtap="openMessage">
+   <view wx:if="{{!item.read}}" class="inbox-dot"></view>
+   <view class="inbox-main"><view class="inbox-title">{{item.title}}</view><view class="inbox-body">{{item.body}}</view><view class="description">{{item.timeLabel}}</view></view>
+   <view class="inbox-arrow">›</view>
+  </view>
+ </view>
  <view wx:for="{{templates}}" wx:key="id" class="card">
   <view class="title">{{item.kind === 'revisit' ? '复诊提醒' : '随访提醒'}}</view>
   <view class="description">院区编号：{{item.clinicId}}</view><view class="status">{{item.statusLabel}}</view>

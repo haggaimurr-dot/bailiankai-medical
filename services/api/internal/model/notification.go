@@ -29,6 +29,19 @@ type MessageConsentEvent struct {
 	Status     string    `json:"status"`
 	CreatedAt  time.Time `json:"createdAt"`
 }
+
+// PatientMessage is an in-app inbox message. Kind is appointment_status for
+// appointment status changes; ReadAt is nil until the patient opens it.
+type PatientMessage struct {
+	ID            string     `gorm:"primaryKey;size:64" json:"id"`
+	PatientID     string     `json:"patientId"`
+	Kind          string     `json:"kind"`
+	Title         string     `json:"title"`
+	Body          string     `json:"body"`
+	AppointmentID string     `json:"appointmentId"`
+	ReadAt        *time.Time `json:"readAt"`
+	CreatedAt     time.Time  `json:"createdAt"`
+}
 type Notification struct {
 	ID         string    `gorm:"primaryKey" json:"id"`
 	ClinicID   string    `json:"clinicId"`

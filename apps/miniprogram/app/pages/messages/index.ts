@@ -1,14 +1,16 @@
 import { patientApi, cachedSession, requirePatientIdentity } from '../../services/patient';
+import { dateTime } from '../../utils/appointment';
 import { errorMessage } from '../../services/api';
 import type { components } from '../../../../../packages/contracts/src/schema';
 type Template = components['schemas']['MessageTemplate'] & { statusLabel: string };
 type Change = components['schemas']['MessageConsentChange'];
+type PatientMessage = components['schemas']['PatientMessage'];
 const labels: Record<string, string> = { accepted: '已授权一次提醒', consumed: '本次授权已使用', rejected: '未同意', revoked: '已撤回' };
 const pendingKey = (id: string) => `message-consent-pending:${id}`;
-Page<{ templates: Template[]; patientId: string; busy: boolean; error: string; notice: string }, {
- generation: number; load(): Promise<void>; subscribe(e: WechatMiniprogram.CustomEvent): void; revoke(e: WechatMiniprogram.CustomEvent): Promise<void>; persist(change: Change): Promise<void>;
+Page<{ templates: Template[]; inbox: (PatientMessage & { timeLabel: string })[]; unreadCount: number; inboxError: string; patientId: string; busy: boolean; error: string; notice: string }, {
+ generation: number; load(): Promise<void>; loadInbox(): Promise<void>; openMessage(e: WechatMiniprogram.CustomEvent): Promise<void>; subscribe(e: WechatMiniprogram.CustomEvent): void; revoke(e: WechatMiniprogram.CustomEvent): Promise<void>; persist(change: Change): Promise<void>;
 }>({
- data: { templates: [], patientId: '', busy: false, error: '', notice: '' }, generation: 0,
+ data: { templates: [], inbox: [], unreadCount: 0, inboxError: '', patientId: '', busy: false, error: '', notice: '' }, generation: 0,
  onShow() { void this.load(); }, onUnload() { this.generation++; },
  async load() {
   const generation = ++this.generation, session = cachedSession();
@@ -19,8 +21,26 @@ Page<{ templates: Template[]; patientId: string; busy: boolean; error: string; n
    if (pending) { await patientApi.setMessageConsent(pending, session.patient.id); wx.removeStorageSync(pendingKey(session.patient.id)); }
    const [templates, consents] = await Promise.all([patientApi.messageTemplates(session.patient.id), patientApi.messageConsents(session.patient.id)]);
    if (generation === this.generation) this.setData({ templates: templates.map(t => ({ ...t, statusLabel: labels[consents.find(c => c.templateId === t.templateId)?.status || ''] || '尚未授权' })) });
+   void this.loadInbox();
   } catch (e) { if (generation === this.generation) this.setData({ error: errorMessage(e) }); }
   finally { if (generation === this.generation) this.setData({ busy: false }); }
+ },
+ async loadInbox() {
+  const patientId = this.data.patientId;
+  if (!patientId) return;
+  try {
+   const messages = await patientApi.patientMessages(patientId);
+   this.setData({ inbox: messages.data.map(m => ({ ...m, timeLabel: dateTime(m.createdAt) })), unreadCount: messages.unreadCount, inboxError: '' });
+  } catch (e) { this.setData({ inboxError: errorMessage(e) }); }
+ },
+ async openMessage(e) {
+  const id = String(e.currentTarget.dataset.id || '');
+  const message = this.data.inbox.find(m => m.id === id);
+  if (!message) return;
+  if (!message.read) {
+   try { await patientApi.markPatientMessageRead(id, this.data.patientId); this.setData({ inbox: this.data.inbox.map(m => (m.id === id ? { ...m, read: true } : m)), unreadCount: Math.max(0, this.data.unreadCount - 1) }); } catch { /* 仍跳转；未读状态下次再试 */ }
+  }
+  if (message.appointmentId) wx.navigateTo({ url: `/pages/appointment-detail/index?id=${encodeURIComponent(message.appointmentId)}` });
  },
  async persist(change) {
   const patientId = this.data.patientId;

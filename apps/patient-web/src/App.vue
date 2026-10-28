@@ -1,12 +1,18 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useMessageStore } from './stores/messages'
 
 const route = useRoute()
 const router = useRouter()
+const messageStore = useMessageStore()
 const activeTab = computed(() => String(route.meta.tab || ''))
 const showTabs = computed(() => Boolean(route.meta.tab))
 const showBack = computed(() => !route.meta.tab && route.path !== '/')
+const unreadLabel = computed(() => (messageStore.unreadCount > 99 ? '99+' : String(messageStore.unreadCount)))
+
+onMounted(() => void messageStore.refresh())
+watch(() => route.path, () => void messageStore.refresh())
 
 const tabs = [
   { key: 'home', label: '首页', icon: 'wap-home-o', path: '/' },
@@ -37,7 +43,10 @@ const tabs = [
         :class="{ active: activeTab === tab.key }"
         @click="router.push(tab.path)"
       >
-        <van-icon :name="tab.icon" size="22" />
+        <span class="tab-icon">
+          <van-icon :name="tab.icon" size="22" />
+          <span v-if="tab.key === 'messages' && messageStore.unreadCount > 0" class="tab-badge">{{ unreadLabel }}</span>
+        </span>
         <span>{{ tab.label }}</span>
       </button>
     </nav>

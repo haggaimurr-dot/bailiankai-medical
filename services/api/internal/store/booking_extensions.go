@@ -166,7 +166,16 @@ func (s *MySQL) RescheduleAppointment(ctx context.Context, id, patientID, key st
 		if employeeScoped(ctx) {
 			actorType, actorID = "operator", employeeActor(ctx)
 		}
-		return tx.Create(&model.AppointmentEvent{ID: randomID("event-"), AppointmentID: id, ActorType: actorType, ActorID: actorID, Action: action, FromStatus: row.Status, ToStatus: "pending", CreatedAt: now, RequestKey: &key, RequestHash: hash, Detail: detail}).Error
+		if err := tx.Create(&model.AppointmentEvent{ID: randomID("event-"), AppointmentID: id, ActorType: actorType, ActorID: actorID, Action: action, FromStatus: row.Status, ToStatus: "pending", CreatedAt: now, RequestKey: &key, RequestHash: hash, Detail: detail}).Error; err != nil {
+			return err
+		}
+		msgAppt := row
+		msgAppt.SlotID = target.ID
+		msgDetail := detail
+		if action == "claim" {
+			msgDetail = "claim"
+		}
+		return appointmentStatusMessage(tx, &msgAppt, "pending", "", msgDetail, now)
 	})
 	if err != nil {
 		return model.Appointment{}, err

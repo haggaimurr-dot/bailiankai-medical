@@ -45,6 +45,13 @@ func clinicPresentationDTO(p *model.ClinicPresentation) *apitypes.ClinicPresenta
 	return result
 }
 
+func patientMessageDTO(row model.PatientMessage) apitypes.PatientMessage {
+	return apitypes.PatientMessage{
+		Id: row.ID, Kind: apitypes.PatientMessageKind(row.Kind), Title: row.Title, Body: row.Body,
+		AppointmentId: row.AppointmentID, Read: row.ReadAt != nil, CreatedAt: row.CreatedAt.In(database.Shanghai),
+	}
+}
+
 func slotDTO(row model.Slot) apitypes.Slot {
 	remaining := row.Capacity - row.Reserved
 	if remaining < 0 {

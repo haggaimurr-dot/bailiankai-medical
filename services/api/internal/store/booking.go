@@ -395,7 +395,10 @@ func persistTransition(tx *gorm.DB, a *model.Appointment, to, reason, actorType,
 		return ErrConflict
 	}
 	a.Status, a.RejectionReason, a.Version, a.UpdatedAt = to, reason, a.Version+1, now
-	return writeEvent(tx, *a, actorType, actorID, action, from, now)
+	if err := writeEvent(tx, *a, actorType, actorID, action, from, now); err != nil {
+		return err
+	}
+	return appointmentStatusMessage(tx, a, to, reason, "", now)
 }
 
 // Mutations use the same patient -> slot -> appointment locking order.
