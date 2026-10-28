@@ -78,6 +78,14 @@ export function confirmDialog(title: string, content: string, confirmText = '确
   });
 }
 
+/** Choice dialog: 'confirm' when the confirm button is tapped, 'cancel' when
+ * the cancel button is tapped, null on any other dismissal. */
+export function confirmChoice(title: string, content: string, confirmText: string, cancelText: string): Promise<'confirm' | 'cancel' | null> {
+  return new Promise((resolve) => {
+    wx.showModal({ title, content, confirmText, cancelText, confirmColor: '#c0392b', success: (result) => resolve(result.confirm ? 'confirm' : 'cancel'), fail: () => resolve(null) });
+  });
+}
+
 export function confirmNewSession(): Promise<boolean> {
   if (renewingSession) return renewingSession;
   // 确认对话框也属于同一轮重建，多个页面共享它，不能各自发起新身份。

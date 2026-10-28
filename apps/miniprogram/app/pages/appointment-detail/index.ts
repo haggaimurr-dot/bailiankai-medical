@@ -1,6 +1,6 @@
 import type { components } from '../../../../../packages/contracts/src/schema';
 import { ApiError, errorMessage } from '../../services/api';
-import { confirmDialog, confirmNewSession, isSessionExpired, patientApi } from '../../services/patient';
+import { confirmChoice, confirmDialog, confirmNewSession, isSessionExpired, patientApi } from '../../services/patient';
 import { appointmentView, dateTime, type AppointmentView } from '../../utils/appointment';
 
 interface DetailData {
@@ -14,7 +14,7 @@ interface DetailMethods {
   id: string; generation: number; timelineGeneration: number; initialized: boolean; disposed: boolean;
   load(): Promise<void>; refresh(): void; cancelAppointment(): Promise<void>;
   newIdentity(): Promise<void>; openAppointments(): void; openSchedule(): void;
-  loadTimeline(): Promise<void>; openReschedule(): void;
+  loadTimeline(): Promise<void>; openReschedule(): void; openRebook(): void;
   openPhotos(): void; openCarePlan(): void; openFollowups(): void;
 }
 Page<DetailData, DetailMethods>({
@@ -71,7 +71,11 @@ Page<DetailData, DetailMethods>({
     if (!appointment?.cancellable || this.data.loading || this.data.cancelling) return;
     this.setData({ cancelling: true, notice: '' });
     try {
-      if (!(await confirmDialog('确认取消预约', '取消后终止本次预约或候补，已占用的名额会释放。如需再次到院，请重新提交申请。', '取消预约'))) return;
+      if (appointment.canReschedule) {
+        const choice = await confirmChoice('确认取消预约', '取消后终止本次预约或候补，已占用的名额会释放。只是想换个时间？点「改期」直接改期，不用取消重约。', '取消预约', '改期');
+        if (choice === 'cancel') { this.openReschedule(); return; }
+        if (choice !== 'confirm') return;
+      } else if (!(await confirmDialog('确认取消预约', '取消后终止本次预约或候补，已占用的名额会释放。如需再次到院，请重新提交申请。', '取消预约'))) return;
       const cancelled = await patientApi.cancel(appointment.id, appointment.version);
       if (this.disposed) return;
       this.setData({ appointment: appointmentView(cancelled), notice: '预约或候补已取消。' });
@@ -103,6 +107,11 @@ Page<DetailData, DetailMethods>({
   },
   openReschedule() {
     if (!this.data.loading && !this.data.cancelling && this.data.appointment?.canReschedule) wx.navigateTo({ url: `/pages/reschedule/index?id=${encodeURIComponent(this.id)}` });
+  },
+  openRebook() {
+    const appointment = this.data.appointment;
+    if (!appointment) return;
+    wx.navigateTo({ url: `/pages/schedule/index?clinicId=${encodeURIComponent(appointment.clinicId)}&doctorId=${encodeURIComponent(appointment.doctorId)}` });
   },
   async newIdentity() {
     if (this.data.creatingIdentity) return;

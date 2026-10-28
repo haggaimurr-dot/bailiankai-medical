@@ -161,13 +161,41 @@ async function showCheckInCode() {
   }
 }
 
+/** Cancel dialog with a reschedule escape hatch: tapping 改期 jumps to the
+ * atomic reschedule page instead of cancelling. Vant rejects the promise
+ * with the action string, so 'cancel' means the 改期 button was tapped. */
+async function cancelChoice(): Promise<'cancel' | 'reschedule' | null> {
+  const current = appointment.value
+  if (!current) return null
+  if (!current.canReschedule) {
+    return (await confirmDialog('确认取消预约', '取消后终止本次预约或候补，已占用的名额会释放。如需再次到院，请重新提交申请。', '取消预约')) ? 'cancel' : null
+  }
+  try {
+    await showConfirmDialog({
+      title: '确认取消预约',
+      message: '取消后终止本次预约或候补，已占用的名额会释放。只是想换个时间？点「改期」直接改期，不用取消重约。',
+      confirmButtonText: '取消预约',
+      confirmButtonColor: '#c0392b',
+      cancelButtonText: '改期',
+    })
+    return 'cancel'
+  } catch (cause) {
+    return cause === 'cancel' ? 'reschedule' : null
+  }
+}
+
 async function cancelAppointment() {
   const current = appointment.value
   if (!current?.cancellable || loading.value || cancelling.value) return
   cancelling.value = true
   notice.value = ''
   try {
-    if (!(await confirmDialog('确认取消预约', '取消后终止本次预约或候补，已占用的名额会释放。如需再次到院，请重新提交申请。', '取消预约'))) return
+    const choice = await cancelChoice()
+    if (choice === 'reschedule') {
+      openReschedule()
+      return
+    }
+    if (choice !== 'cancel') return
     const cancelled = await patientApi.cancel(current.id, current.version)
     if (disposed) return
     appointment.value = appointmentView(cancelled)
@@ -209,6 +237,14 @@ function openReschedule() {
   if (!loading.value && !cancelling.value && appointment.value?.canReschedule) {
     void router.push({ name: 'reschedule', params: { id } })
   }
+}
+
+/** After a cancel, rebook the same doctor: the schedule page preselects the
+ * original clinic + doctor from the query. */
+function openRebook() {
+  const current = appointment.value
+  if (!current) return
+  void router.push({ name: 'schedule', query: { clinicId: current.clinicId, doctorId: current.doctorId } })
 }
 
 function openPhotos() {
@@ -341,6 +377,10 @@ onUnmounted(() => {
         </button>
 
         <p v-if="notice" class="notice-line" role="alert">{{ notice }}</p>
+
+        <button v-if="appointment.status === 'cancelled'" class="ghost block-btn" @click="openRebook">
+          重新预约（{{ appointment.doctorName }}）
+        </button>
 
         <button class="primary" :disabled="cancelling" @click="refresh">刷新预约结果</button>
         <button v-if="appointment.cancellable" class="ghost danger-btn" :disabled="cancelling" @click="cancelAppointment">

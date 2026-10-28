@@ -22,6 +22,7 @@
     </view>
     <view wx:if="{{appointment.canReschedule}}" class="secondary-action"><t-button theme="primary" variant="outline" block disabled="{{cancelling}}" bind:tap="openReschedule">{{appointment.status === 'waiting' ? '查询空位并申请转预约' : '申请改期'}}</t-button></view>
     <view wx:if="{{notice}}" class="action-notice">{{notice}}</view>
+    <view wx:if="{{appointment.status === 'cancelled'}}" class="secondary-action"><t-button theme="primary" variant="outline" block bind:tap="openRebook">重新预约（{{appointment.doctorName}}）</t-button></view>
     <view class="detail-actions"><t-button theme="primary" block disabled="{{cancelling}}" bind:tap="refresh">刷新预约结果</t-button><view wx:if="{{appointment.cancellable}}" class="secondary-action"><t-button class="cancel-appointment" theme="danger" variant="outline" block loading="{{cancelling}}" bind:tap="cancelAppointment">取消预约</t-button></view></view>
     <view class="secondary-action"><t-button theme="primary" variant="text" bind:tap="openAppointments">查看我的预约</t-button></view>
     <view class="footer-note">尚未到诊或记录治疗且时段开始前，可取消候补、待确认或已确认预约。</view>
