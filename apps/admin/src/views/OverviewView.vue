@@ -67,7 +67,7 @@ function csvCell(value: string | number | null | undefined): string {
 function exportCsv() {
   const data = report.value
   if (!data || !resultQuery.value) return
-  const lines: string[][] = []
+  const lines: (string | number)[][] = []
   lines.push([`运营分析导出 · ${scopeLabel(resultQuery.value)}`])
   lines.push([`生成时间 ${generatedAt(data.generatedAt)} · 北京时间`])
   lines.push([])
