@@ -206,7 +206,11 @@ func (s *MySQL) ChangeKnowledge(ctx context.Context, kind, id, action string, in
 			case "update":
 				row.Title, row.Summary, row.Body = in.Title, in.Summary, in.Body
 				row.SourceText = in.SourceText
-				row.ReviewStatus, row.ReviewNote, row.ReviewerID, row.ReviewerName, row.ReviewedAt = "pending", "", "", "", nil
+				// Resubmission resets the status to pending, but keeps the last
+				// review's note, reviewer and time: the author revises against
+				// the rejection opinion, and the next reviewer still sees what
+				// was asked to change. The next review decision overwrites it.
+				row.ReviewStatus = "pending"
 			case "sort":
 				row.SortOrder = in.SortOrder
 			case "review":
