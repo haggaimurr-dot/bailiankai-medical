@@ -92,7 +92,10 @@ func (s *MySQL) SupportTickets(ctx context.Context, f SupportFilter) ([]model.Su
 	if err := q.Count(&total).Error; err != nil {
 		return rows, 0, err
 	}
-	err := q.Order("updated_at DESC,id DESC").Offset((f.Page - 1) * f.Size).Limit(f.Size).Find(&rows).Error
+	// Queue order: overdue unresolved tickets first, then longest waiting
+	// (oldest created), with id as the deterministic tie-break so the order
+	// is stable across refreshes.
+	err := q.Order(clause.Expr{SQL: "CASE WHEN due_at < ? AND status NOT IN ('resolved', 'closed') THEN 0 ELSE 1 END, created_at ASC, id ASC", Vars: []interface{}{f.Now}}).Offset((f.Page - 1) * f.Size).Limit(f.Size).Find(&rows).Error
 	return rows, total, err
 }
 func (s *MySQL) SupportDetail(ctx context.Context, id, patientID string, page, size int) (model.SupportTicket, []model.SupportEvent, int64, error) {
