@@ -197,10 +197,10 @@ func createAdviceTodos(tx *gorm.DB, patientID string, event TimelineEvent, now t
 		}
 		return 0, err
 	}
-	var treatmentID string
+	var treatmentID *string
 	var treatment model.Treatment
 	if err := tx.Select("id").Where("appointment_id = ?", event.AppointmentID).Order("treated_at DESC").First(&treatment).Error; err == nil {
-		treatmentID = treatment.ID
+		treatmentID = &treatment.ID
 	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
 		return 0, err
 	}

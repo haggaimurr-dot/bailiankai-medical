@@ -190,7 +190,7 @@ func (s *MySQL) RecordTreatment(ctx context.Context, id string, input TreatmentI
 			return err
 		}
 		for _, offset := range input.Offsets {
-			task := model.FollowupTask{ID: randomID("followup-"), AppointmentID: id, TreatmentID: result.ID, PatientID: appointment.PatientID, AssigneeID: assigneeID, AssignedAt: now, Title: fmt.Sprintf("治疗后第 %d 天随访", offset), DueAt: input.TreatedAt.AddDate(0, 0, offset), Status: "pending", Version: 1}
+			task := model.FollowupTask{ID: randomID("followup-"), AppointmentID: id, TreatmentID: &result.ID, PatientID: appointment.PatientID, AssigneeID: assigneeID, AssignedAt: now, Title: fmt.Sprintf("治疗后第 %d 天随访", offset), DueAt: input.TreatedAt.AddDate(0, 0, offset), Status: "pending", Version: 1}
 			if err := tx.Create(&task).Error; err != nil {
 				return err
 			}

@@ -44,7 +44,7 @@ func exportClinicalRecords(t *testing.T, f *bookingFixture, patientID, appointme
 	if err := f.db.Create(&revision).Error; err != nil {
 		t.Fatal(err)
 	}
-	task := model.FollowupTask{ID: "archive-followup", AppointmentID: appointmentID, TreatmentID: treatment.ID, PatientID: patientID, AssigneeID: f.slot.DoctorID, AssignedAt: f.now, Title: private, DueAt: f.now.AddDate(0, 0, 2), Status: "pending", Version: 1, Symptoms: private, Response: private, Disposition: private, Severity: 2}
+	task := model.FollowupTask{ID: "archive-followup", AppointmentID: appointmentID, TreatmentID: &treatment.ID, PatientID: patientID, AssigneeID: f.slot.DoctorID, AssignedAt: f.now, Title: private, DueAt: f.now.AddDate(0, 0, 2), Status: "pending", Version: 1, Symptoms: private, Response: private, Disposition: private, Severity: 2}
 	if err := f.db.Create(&task).Error; err != nil {
 		t.Fatal(err)
 	}

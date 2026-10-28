@@ -240,7 +240,10 @@ func (s *MySQL) ChangeCase(ctx context.Context, id, action, patient string, in C
 					return followupDBError(err)
 				}
 				var treatment model.Treatment
-				if err := tx.First(&treatment, "id = ? AND appointment_id = ?", task.TreatmentID, appt.ID).Error; err != nil {
+				if task.TreatmentID == nil {
+					return ErrCareState
+				}
+				if err := tx.First(&treatment, "id = ? AND appointment_id = ?", *task.TreatmentID, appt.ID).Error; err != nil {
 					return followupDBError(err)
 				}
 				if before.Angle != after.Angle || seen[before.Angle] || before.UploadedAt.After(treatment.TreatedAt) || after.UploadedAt.Before(treatment.TreatedAt) {

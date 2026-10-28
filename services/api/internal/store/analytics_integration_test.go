@@ -131,7 +131,7 @@ func (f *analyticsFixture) treatment(appointment model.Appointment) model.Treatm
 
 func (f *analyticsFixture) task(label string, treatment model.Treatment, dueAt, status string) {
 	f.t.Helper()
-	f.create(&model.FollowupTask{ID: f.prefix + "task-" + label, AppointmentID: treatment.AppointmentID, TreatmentID: treatment.ID, PatientID: f.patient, AssigneeID: f.second, AssignedAt: f.now, Title: "改派随访", DueAt: analyticsDate(f.t, dueAt), Status: status, Version: 1})
+	f.create(&model.FollowupTask{ID: f.prefix + "task-" + label, AppointmentID: treatment.AppointmentID, TreatmentID: &treatment.ID, PatientID: f.patient, AssigneeID: f.second, AssignedAt: f.now, Title: "改派随访", DueAt: analyticsDate(f.t, dueAt), Status: status, Version: 1})
 }
 
 func (f *analyticsFixture) ctx(clinics ...string) context.Context {

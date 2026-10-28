@@ -33,7 +33,7 @@ func TestCaseLifecycleMySQL(t *testing.T) {
 	plan := model.CarePlan{ID: "case-plan", AppointmentID: appt.ID, UpdatedAt: f.now}
 	pv := model.CarePlanVersion{ID: "case-plan-version", CarePlanID: plan.ID, Version: 1, ContentJSON: "{}", PublishedBy: "test", PublishedAt: f.now}
 	treatment := model.Treatment{ID: "case-treatment", AppointmentID: appt.ID, PatientID: patient.Patient.ID, PlanVersionID: pv.ID, Summary: "test", TreatedAt: f.now.Add(-time.Hour), RecordedAt: f.now, Version: 1, RequestHash: strings.Repeat("a", 64)}
-	task := model.FollowupTask{ID: "case-task", AppointmentID: appt.ID, PatientID: patient.Patient.ID, TreatmentID: treatment.ID, AssigneeID: "doctor-demo-1", AssignedAt: f.now, Title: "test", DueAt: f.now, Status: "submitted", Version: 1, SubmittedAt: &f.now}
+	task := model.FollowupTask{ID: "case-task", AppointmentID: appt.ID, PatientID: patient.Patient.ID, TreatmentID: &treatment.ID, AssigneeID: "doctor-demo-1", AssignedAt: f.now, Title: "test", DueAt: f.now, Status: "submitted", Version: 1, SubmittedAt: &f.now}
 	for _, row := range []any{&plan, &pv, &treatment, &task} {
 		if err := f.db.Create(row).Error; err != nil {
 			t.Fatal(err)

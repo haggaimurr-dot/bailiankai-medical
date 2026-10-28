@@ -42,7 +42,9 @@ type TreatmentRevision struct {
 type FollowupTask struct {
 	ID            string `gorm:"primaryKey;size:64"`
 	AppointmentID string
-	TreatmentID   string
+	// TreatmentID is nil for advice-derived todos: confirming a published
+	// plan's instructions creates follow-up tasks with no treatment record.
+	TreatmentID *string
 	PatientID     string
 	AssigneeID    string
 	AssignedAt    time.Time

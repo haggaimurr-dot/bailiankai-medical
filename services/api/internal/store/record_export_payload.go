@@ -132,6 +132,13 @@ type archiveFollowup struct {
 	HasFreeText          bool       `json:"hasFreeText"`
 }
 
+func strVal(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
+}
+
 func archiveReference(key, id string) string {
 	if id == "" {
 		return ""
@@ -224,7 +231,7 @@ func archiveTreatmentDTO(job model.RecordExportJob, row model.Treatment, revisio
 	return dto
 }
 func archiveFollowupDTO(job model.RecordExportJob, row model.FollowupTask) archiveFollowup {
-	dto := archiveFollowup{archiveRecordIdentity: archiveIdentity(job, row.ID), AppointmentReference: archiveReference(job.ReferenceKey, row.AppointmentID), TreatmentReference: archiveReference(job.ReferenceKey, row.TreatmentID), Status: row.Status, DueAt: row.DueAt, AssignedAt: row.AssignedAt, SubmittedAt: row.SubmittedAt, ReviewedAt: row.ReviewedAt, Severity: row.Severity, Concern: row.Concern, HasFreeText: archiveHasText(row.Title, row.Symptoms, row.Response, row.Disposition)}
+	dto := archiveFollowup{archiveRecordIdentity: archiveIdentity(job, row.ID), AppointmentReference: archiveReference(job.ReferenceKey, row.AppointmentID), TreatmentReference: archiveReference(job.ReferenceKey, strVal(row.TreatmentID)), Status: row.Status, DueAt: row.DueAt, AssignedAt: row.AssignedAt, SubmittedAt: row.SubmittedAt, ReviewedAt: row.ReviewedAt, Severity: row.Severity, Concern: row.Concern, HasFreeText: archiveHasText(row.Title, row.Symptoms, row.Response, row.Disposition)}
 	if !job.Masked {
 		dto.Title = row.Title
 		dto.Symptoms = row.Symptoms

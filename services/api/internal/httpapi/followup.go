@@ -52,6 +52,13 @@ func (a *API) followupAvailable(c *gin.Context) {
 	c.Next()
 }
 func (a *API) careNow() time.Time { return a.now().In(database.Shanghai).Truncate(time.Millisecond) }
+
+func strVal(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
+}
 func validTaskID(c *gin.Context) bool {
 	id := c.Param("taskId")
 	if id == "" || !validID(id) {
@@ -83,7 +90,7 @@ func (a *API) followupDTO(c *gin.Context, row model.FollowupTask, admin bool) (a
 	if err != nil {
 		return apitypes.FollowupTask{}, err
 	}
-	result := apitypes.FollowupTask{Id: row.ID, AppointmentId: row.AppointmentID, TreatmentId: row.TreatmentID, PatientName: row.PatientName, AssigneeId: row.AssigneeID, AssigneeName: row.AssigneeName, AssignedAt: row.AssignedAt, Title: row.Title, DueAt: row.DueAt, Status: apitypes.FollowupTaskStatus(row.Status), Version: int32(row.Version), Symptoms: row.Symptoms, Severity: int32(row.Severity), Concern: row.Concern, Response: row.Response, Disposition: row.Disposition, SubmittedAt: row.SubmittedAt, ReviewedAt: row.ReviewedAt, Overdue: row.Status == "pending" && row.DueAt.Before(a.now()), Photos: make([]apitypes.CarePhoto, 0, len(photos)), PhotosGranted: granted}
+	result := apitypes.FollowupTask{Id: row.ID, AppointmentId: row.AppointmentID, TreatmentId: strVal(row.TreatmentID), PatientName: row.PatientName, AssigneeId: row.AssigneeID, AssigneeName: row.AssigneeName, AssignedAt: row.AssignedAt, Title: row.Title, DueAt: row.DueAt, Status: apitypes.FollowupTaskStatus(row.Status), Version: int32(row.Version), Symptoms: row.Symptoms, Severity: int32(row.Severity), Concern: row.Concern, Response: row.Response, Disposition: row.Disposition, SubmittedAt: row.SubmittedAt, ReviewedAt: row.ReviewedAt, Overdue: row.Status == "pending" && row.DueAt.Before(a.now()), Photos: make([]apitypes.CarePhoto, 0, len(photos)), PhotosGranted: granted}
 	for _, photo := range photos {
 		result.Photos = append(result.Photos, followupPhotoDTO(photo))
 	}

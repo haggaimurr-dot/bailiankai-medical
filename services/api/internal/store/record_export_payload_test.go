@@ -9,6 +9,8 @@ import (
 	"example.com/bailiankai/api/internal/model"
 )
 
+func strPtr(s string) *string { return &s }
+
 func TestRecordExportMaskedAllowlistRemovesEmbeddedPII(t *testing.T) {
 	job := model.RecordExportJob{ID: "public-export-id", Masked: true, ReferenceKey: strings.Repeat("a", 64)}
 	private := "赵某 13812345678 地址 身份证 patient-source-id"
@@ -25,7 +27,7 @@ func TestRecordExportMaskedAllowlistRemovesEmbeddedPII(t *testing.T) {
 		archiveConsultationDTO(job, consultation),
 		plan,
 		archiveTreatmentDTO(job, model.Treatment{ID: "treatment-source-id", AppointmentID: "appointment-source-id", PlanVersionID: "plan-source-id", TreatmentFields: fields, Summary: private, Notes: private, RequestHash: private, Version: 2, TreatedAt: now}, []model.TreatmentRevision{{ID: "revision-source-id", PlanVersionID: "plan-source-id", TreatmentFields: fields, Summary: private, Notes: private, CorrectionReason: private, ActorID: private, Version: 1}}),
-		archiveFollowupDTO(job, model.FollowupTask{ID: "task-source-id", AppointmentID: "appointment-source-id", TreatmentID: "treatment-source-id", Title: private, Symptoms: private, Response: private, Disposition: private, AssigneeID: private, PatientName: private, Status: "reviewed", Severity: 2, Concern: true, DueAt: now}),
+		archiveFollowupDTO(job, model.FollowupTask{ID: "task-source-id", AppointmentID: "appointment-source-id", TreatmentID: strPtr("treatment-source-id"), Title: private, Symptoms: private, Response: private, Disposition: private, AssigneeID: private, PatientName: private, Status: "reviewed", Severity: 2, Concern: true, DueAt: now}),
 	}
 	encoded, err := json.Marshal(values)
 	if err != nil {
