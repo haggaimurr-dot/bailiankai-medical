@@ -201,9 +201,29 @@ type AssessmentOperation struct {
 	CreatedAt    time.Time
 }
 type AssessmentConsent struct {
-	Version string `json:"version"`
-	Content string `json:"content"`
-	Granted bool   `json:"granted"`
+	Version        string  `json:"version"`
+	Content        string  `json:"content"`
+	Granted        bool    `json:"granted"`
+	GrantedVersion *string `json:"grantedVersion,omitempty"`
+}
+
+// AssessmentConsentPolicy is one published version of the AI-use consent
+// text (P2-8). New content is published as a new version; grants given
+// under an older version stop matching and the patient must re-confirm.
+// When the table is empty the seed constants above are the current policy.
+type AssessmentConsentPolicy struct {
+	ID        string    `gorm:"primaryKey"`
+	Version   string    `gorm:"uniqueIndex"`
+	Content   string
+	CreatedBy string
+	CreatedAt time.Time
+}
+
+// AssessmentConsentPolicyList is the admin read model: current policy plus
+// the version history, newest first.
+type AssessmentConsentPolicyList struct {
+	Policy  AssessmentConsentPolicy
+	History []AssessmentConsentPolicy
 }
 type AssessmentPublicReview struct {
 	ID           string             `json:"id"`

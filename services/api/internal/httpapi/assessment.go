@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 
+	"example.com/bailiankai/api/internal/apitypes"
 	"example.com/bailiankai/api/internal/store"
 	"github.com/gin-gonic/gin"
 )
@@ -40,6 +41,8 @@ func (a *API) registerAssessmentRoutes(r *gin.Engine) {
 	admin := r.Group("/api/v1/admin/assessments", a.authenticate, a.assessmentAvailable)
 	admin.GET("", a.listAssessments)
 	admin.GET("/reviewers", a.assessmentReviewers)
+	admin.GET("/consent-policy", a.getAssessmentConsentPolicy)
+	admin.POST("/consent-policy", a.createAssessmentConsentPolicy)
 	admin.GET("/:assessmentId", a.getAssessment)
 	admin.GET("/:assessmentId/photos/:photoRef/content", a.assessmentPhoto)
 	admin.GET("/:assessmentId/events", a.assessmentEvents)
@@ -324,6 +327,37 @@ func (a *API) assessmentReviewers(c *gin.Context) {
 		data = append(data, gin.H{"id": row.ID, "displayName": row.DisplayName, "clinicIds": row.ClinicIDs})
 	}
 	c.JSON(200, gin.H{"data": data})
+}
+func consentPolicyDTO(row store.AssessmentConsentPolicy) apitypes.AssessmentConsentPolicy {
+	return apitypes.AssessmentConsentPolicy{Version: row.Version, Content: row.Content, CreatedAt: row.CreatedAt, CreatedBy: row.CreatedBy}
+}
+func (a *API) getAssessmentConsentPolicy(c *gin.Context) {
+	out, err := a.assessments.GetConsentPolicy(c.Request.Context())
+	if err != nil {
+		a.assessmentError(c, err)
+		return
+	}
+	history := []apitypes.AssessmentConsentPolicy{}
+	for _, row := range out.History {
+		history = append(history, consentPolicyDTO(row))
+	}
+	c.JSON(200, gin.H{"data": apitypes.AssessmentConsentPolicyList{Policy: consentPolicyDTO(out.Policy), History: history}})
+}
+func (a *API) createAssessmentConsentPolicy(c *gin.Context) {
+	var body apitypes.AssessmentConsentPolicyInput
+	if !assessmentBody(c, &body, []string{"content"}, []string{"version"}) {
+		return
+	}
+	version := ""
+	if body.Version != nil {
+		version = *body.Version
+	}
+	row, err := a.assessments.CreateConsentPolicy(c.Request.Context(), body.Content, version, a.now())
+	if err != nil {
+		a.assessmentError(c, err)
+		return
+	}
+	c.JSON(200, gin.H{"data": apitypes.AssessmentConsentPolicyList{Policy: consentPolicyDTO(row), History: []apitypes.AssessmentConsentPolicy{consentPolicyDTO(row)}}})
 }
 
 func normalizeAssessmentPhoto(raw []byte) ([]byte, int, int, error) {

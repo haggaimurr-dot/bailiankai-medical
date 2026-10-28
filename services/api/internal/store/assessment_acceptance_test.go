@@ -257,3 +257,56 @@ func TestAssessmentMySQLPolicyVersionAndClinicIsolation(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestAssessmentMySQLConsentPolicyVersionBumpRequiresReconfirmation(t *testing.T) {
+	a := newAIFixture(t)
+	view := a.prepared(t)
+	before, err := a.service.GetConsentPolicy(a.manager)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !view.Consent.Granted || view.Consent.GrantedVersion == nil || *view.Consent.GrantedVersion != before.Policy.Version {
+		t.Fatal("seed grant not current", view.Consent)
+	}
+	// A manager publishes a new version of the consent text (auto-bump).
+	policy, err := a.service.CreateConsentPolicy(a.manager, "新版AI用途授权（测试）：照片仅用于本次AI辅助观察及医生复核。", "", a.now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The bumped version must differ from the current one; restore the shared
+	// test database afterwards so other fixtures keep granting under v1.
+	t.Cleanup(func() { a.f.db.Where("version = ?", policy.Version).Delete(&store.AssessmentConsentPolicy{}) })
+	if policy.Version == before.Policy.Version {
+		t.Fatal("version did not bump", policy.Version)
+	}
+	// The old grant no longer matches: granted is false, but the version the
+	// patient last acted on is still visible for the update prompt.
+	view, err = a.service.Get(context.Background(), view.Task.ID, a.patient)
+	if err != nil || view.Consent.Granted || view.Consent.Version != policy.Version || view.Consent.GrantedVersion == nil || *view.Consent.GrantedVersion != before.Policy.Version {
+		t.Fatal("old grant stayed current after bump", view.Consent, err)
+	}
+	// No new use under the new terms until re-confirmed.
+	if _, err := a.service.Change(context.Background(), view.Task.ID, a.patient, "bump-submit", "submit", store.AssessmentChange{Version: view.Task.Version}, a.now); !errors.Is(err, store.ErrAssessmentConsent) {
+		t.Fatal(err)
+	}
+	// Granting under the old version is rejected.
+	if _, err := a.service.Change(context.Background(), view.Task.ID, a.patient, "old-version-grant", "consent", store.AssessmentChange{Version: view.Task.Version, PolicyVersion: before.Policy.Version, Granted: true}, a.now); !errors.Is(err, store.ErrAssessmentInput) {
+		t.Fatal(err)
+	}
+	// Re-confirm under the new version restores access.
+	view, err = a.service.Change(context.Background(), view.Task.ID, a.patient, "new-version-grant", "consent", store.AssessmentChange{Version: view.Task.Version, PolicyVersion: policy.Version, Granted: true}, a.now)
+	if err != nil || !view.Consent.Granted || view.Consent.GrantedVersion == nil || *view.Consent.GrantedVersion != policy.Version {
+		t.Fatal("re-confirm failed", view.Consent, err)
+	}
+	// Only a manager may publish; a duplicate version is a conflict.
+	if _, err := a.service.CreateConsentPolicy(a.doctor, "医生无权发布新版授权文案（测试）。", "", a.now); !errors.Is(err, store.ErrForbidden) {
+		t.Fatal(err)
+	}
+	if _, err := a.service.CreateConsentPolicy(a.manager, "重复版本号（测试）。", policy.Version, a.now); !errors.Is(err, store.ErrConflict) {
+		t.Fatal(err)
+	}
+	list, err := a.service.GetConsentPolicy(a.manager)
+	if err != nil || list.Policy.Version != policy.Version || len(list.History) < 2 {
+		t.Fatal("policy list wrong", list, err)
+	}
+}

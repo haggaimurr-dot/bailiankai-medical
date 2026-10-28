@@ -62,12 +62,7 @@ const (
 
 // Defines values for AssessmentCapabilitiesConsentVersion.
 const (
-	AssessmentCapabilitiesConsentVersionPhotoAiV1 AssessmentCapabilitiesConsentVersion = "photo-ai-v1"
-)
-
-// Defines values for AssessmentConsentVersion.
-const (
-	AssessmentConsentVersionPhotoAiV1 AssessmentConsentVersion = "photo-ai-v1"
+	PhotoAiV1 AssessmentCapabilitiesConsentVersion = "photo-ai-v1"
 )
 
 // Defines values for AssessmentEvidenceAngle.
@@ -1045,19 +1040,37 @@ type AssessmentCapabilitiesConsentVersion string
 
 // AssessmentConsent defines model for AssessmentConsent.
 type AssessmentConsent struct {
-	Content string                   `json:"content"`
-	Granted bool                     `json:"granted"`
-	Version AssessmentConsentVersion `json:"version"`
+	Content        string  `json:"content"`
+	Granted        bool    `json:"granted"`
+	GrantedVersion *string `json:"grantedVersion"`
+	Version        string  `json:"version"`
 }
-
-// AssessmentConsentVersion defines model for AssessmentConsent.Version.
-type AssessmentConsentVersion string
 
 // AssessmentConsentChange defines model for AssessmentConsentChange.
 type AssessmentConsentChange struct {
 	Granted       bool   `json:"granted"`
 	PolicyVersion string `json:"policyVersion"`
 	Version       int    `json:"version"`
+}
+
+// AssessmentConsentPolicy defines model for AssessmentConsentPolicy.
+type AssessmentConsentPolicy struct {
+	Content   string    `json:"content"`
+	CreatedAt time.Time `json:"createdAt"`
+	CreatedBy string    `json:"createdBy"`
+	Version   string    `json:"version"`
+}
+
+// AssessmentConsentPolicyInput defines model for AssessmentConsentPolicyInput.
+type AssessmentConsentPolicyInput struct {
+	Content string  `json:"content"`
+	Version *string `json:"version,omitempty"`
+}
+
+// AssessmentConsentPolicyList defines model for AssessmentConsentPolicyList.
+type AssessmentConsentPolicyList struct {
+	History []AssessmentConsentPolicy `json:"history"`
+	Policy  AssessmentConsentPolicy   `json:"policy"`
 }
 
 // AssessmentContent defines model for AssessmentContent.
@@ -3921,6 +3934,9 @@ type ConfirmArrivalScanJSONRequestBody = CheckInScan
 
 // ResolveArrivalScanJSONRequestBody defines body for ResolveArrivalScan for application/json ContentType.
 type ResolveArrivalScanJSONRequestBody = CheckInScan
+
+// CreateAssessmentConsentPolicyJSONRequestBody defines body for CreateAssessmentConsentPolicy for application/json ContentType.
+type CreateAssessmentConsentPolicyJSONRequestBody = AssessmentConsentPolicyInput
 
 // AssignAssessmentJSONRequestBody defines body for AssignAssessment for application/json ContentType.
 type AssignAssessmentJSONRequestBody = AssessmentAssignment

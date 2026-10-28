@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -116,7 +118,17 @@ func assessmentView(tx *gorm.DB, task Assessment, admin bool) (AssessmentView, e
 	if err != nil {
 		return AssessmentView{}, err
 	}
-	view := AssessmentView{Task: task, Photos: []AssessmentPhoto{}, Consent: AssessmentConsent{Version: AssessmentConsentVersion, Content: AssessmentConsentContent, Granted: granted}}
+	policy, err := currentAssessmentPolicy(tx)
+	if err != nil {
+		return AssessmentView{}, err
+	}
+	consent := AssessmentConsent{Version: policy.Version, Content: policy.Content, Granted: granted}
+	if gv, err := latestConsentEventVersion(tx, task.ID); err != nil {
+		return AssessmentView{}, err
+	} else if gv != "" {
+		consent.GrantedVersion = &gv
+	}
+	view := AssessmentView{Task: task, Photos: []AssessmentPhoto{}, Consent: consent}
 	if !admin {
 		view.Task.ReviewerEmployeeID = ""
 	}
@@ -531,7 +543,11 @@ func (s *AssessmentService) Change(ctx context.Context, id, patientID, key, acti
 	return s.operate(ctx, id, patientID, key, action, in, in.Version, now, func(tx *gorm.DB, t *Assessment) error {
 		switch action {
 		case "consent":
-			if patientID == "" || (in.Granted && in.PolicyVersion != AssessmentConsentVersion) {
+			policy, err := currentAssessmentPolicy(tx)
+			if err != nil {
+				return err
+			}
+			if patientID == "" || (in.Granted && in.PolicyVersion != policy.Version) {
 				return ErrAssessmentInput
 			}
 			if in.Granted {
@@ -545,7 +561,7 @@ func (s *AssessmentService) Change(ctx context.Context, id, patientID, key, acti
 			if !in.Granted && !t.ConsentGranted {
 				return ErrCareState
 			}
-			event := AssessmentConsentEvent{ID: randomID("ai-consent-"), AssessmentID: id, PatientID: t.PatientID, PolicyVersion: AssessmentConsentVersion, PolicyContent: AssessmentConsentContent, Granted: in.Granted, CreatedAt: now}
+			event := AssessmentConsentEvent{ID: randomID("ai-consent-"), AssessmentID: id, PatientID: t.PatientID, PolicyVersion: policy.Version, PolicyContent: policy.Content, Granted: in.Granted, CreatedAt: now}
 			if err := tx.Create(&event).Error; err != nil {
 				return err
 			}
@@ -780,7 +796,110 @@ func assessmentGranted(tx *gorm.DB, t Assessment) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	return event.Granted && event.PolicyVersion == AssessmentConsentVersion && event.PolicyContent == AssessmentConsentContent, nil
+	policy, err := currentAssessmentPolicy(tx)
+	if err != nil {
+		return false, err
+	}
+	return event.Granted && event.PolicyVersion == policy.Version && event.PolicyContent == policy.Content, nil
+}
+
+// currentAssessmentPolicy returns the newest published consent text. When
+// the table is empty (pre-migration data) the seed constants are current,
+// so existing grants keep working.
+func currentAssessmentPolicy(tx *gorm.DB) (AssessmentConsentPolicy, error) {
+	var policy AssessmentConsentPolicy
+	err := tx.Order("created_at DESC, id DESC").First(&policy).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return AssessmentConsentPolicy{Version: AssessmentConsentVersion, Content: AssessmentConsentContent}, nil
+	}
+	return policy, err
+}
+
+// latestConsentEventVersion is the version the patient last acted on
+// (granted or revoked), or "" when the patient never touched consent.
+func latestConsentEventVersion(tx *gorm.DB, assessmentID string) (string, error) {
+	var event AssessmentConsentEvent
+	err := tx.Select("policy_version").Order("created_at DESC, id DESC").First(&event, "assessment_id = ?", assessmentID).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return "", nil
+	}
+	if err != nil {
+		return "", err
+	}
+	return event.PolicyVersion, nil
+}
+
+var consentPolicyVersionPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,63}$`)
+var consentPolicyVersionBumpPattern = regexp.MustCompile(`^(.*-v)([0-9]+)$`)
+
+// nextConsentPolicyVersion derives the next version from the current one
+// ("photo-ai-v1" -> "photo-ai-v2"); versions without a -vN suffix get "-v2".
+func nextConsentPolicyVersion(current string) string {
+	if m := consentPolicyVersionBumpPattern.FindStringSubmatch(current); m != nil {
+		if n, err := strconv.Atoi(m[2]); err == nil {
+			return m[1] + strconv.Itoa(n+1)
+		}
+	}
+	return current + "-v2"
+}
+
+// GetConsentPolicy returns the current consent text plus the version
+// history, newest first. Any employee may read it; only a manager may
+// publish a new version.
+func (s *AssessmentService) GetConsentPolicy(ctx context.Context) (AssessmentConsentPolicyList, error) {
+	tx := s.repo.db.WithContext(ctx)
+	if _, err := assessmentAdmin(ctx, tx); err != nil {
+		return AssessmentConsentPolicyList{}, err
+	}
+	policy, err := currentAssessmentPolicy(tx)
+	if err != nil {
+		return AssessmentConsentPolicyList{}, err
+	}
+	var history []AssessmentConsentPolicy
+	if err := tx.Order("created_at DESC, id DESC").Limit(20).Find(&history).Error; err != nil {
+		return AssessmentConsentPolicyList{}, err
+	}
+	return AssessmentConsentPolicyList{Policy: policy, History: history}, nil
+}
+
+// CreateConsentPolicy publishes a new version of the AI-use consent text
+// (manager only). Grants given under older versions stop matching
+// immediately: patients see the update prompt and must re-confirm before
+// the new terms can be used. An empty version auto-bumps from the current
+// one; a supplied version must be unique.
+func (s *AssessmentService) CreateConsentPolicy(ctx context.Context, content, version string, now time.Time) (AssessmentConsentPolicy, error) {
+	tx := s.repo.db.WithContext(ctx)
+	actor, err := assessmentAdmin(ctx, tx)
+	if err != nil {
+		return AssessmentConsentPolicy{}, err
+	}
+	if actor.Role != "manager" {
+		return AssessmentConsentPolicy{}, ErrForbidden
+	}
+	content = strings.TrimSpace(content)
+	if utf8.RuneCountInString(content) < 10 || utf8.RuneCountInString(content) > 5000 {
+		return AssessmentConsentPolicy{}, ErrAssessmentInput
+	}
+	current, err := currentAssessmentPolicy(tx)
+	if err != nil {
+		return AssessmentConsentPolicy{}, err
+	}
+	if version == "" {
+		version = nextConsentPolicyVersion(current.Version)
+	} else if !consentPolicyVersionPattern.MatchString(version) {
+		return AssessmentConsentPolicy{}, ErrAssessmentInput
+	}
+	var existing AssessmentConsentPolicy
+	if err := tx.First(&existing, "version = ?", version).Error; err == nil {
+		return AssessmentConsentPolicy{}, ErrConflict
+	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return AssessmentConsentPolicy{}, err
+	}
+	policy := AssessmentConsentPolicy{ID: randomID("acp-"), Version: version, Content: content, CreatedBy: actor.ID, CreatedAt: now}
+	if err := tx.Create(&policy).Error; err != nil {
+		return AssessmentConsentPolicy{}, err
+	}
+	return policy, nil
 }
 func assessmentCancel(t *Assessment, code string) {
 	t.Status = "cancelled"

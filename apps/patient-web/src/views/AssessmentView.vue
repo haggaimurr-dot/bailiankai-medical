@@ -88,8 +88,31 @@ const canSubmit = computed(() => {
   )
 })
 
+const policyUpdated = computed(() => {
+  const c = view.value?.consent
+  return Boolean(c && !c.granted && c.grantedVersion && c.grantedVersion !== c.version)
+})
+let policyUpdateShown = ''
+
 function apply(next: AssessmentView) {
   view.value = next
+  // 文案已更新且旧授权失效：进页时提醒一次（5 秒轮询不再重复弹）。
+  const c = next.consent
+  if (!c.granted && c.grantedVersion && c.grantedVersion !== c.version) {
+    const key = `${next.task.id}:${c.version}`
+    if (policyUpdateShown !== key) {
+      policyUpdateShown = key
+      void showConfirmDialog({
+        title: '授权文案已更新',
+        message: `授权文案已更新（${c.grantedVersion} → ${c.version}），请重新确认后才能继续使用 AI 辅助评估。\n\n${c.content}`,
+        confirmButtonText: '重新确认',
+        cancelButtonText: '稍后',
+        confirmButtonColor: '#1763c6',
+      })
+        .then(() => void toggleConsent())
+        .catch(() => {})
+    }
+  }
 }
 
 function schedule() {
@@ -375,6 +398,7 @@ onUnmounted(() => {
           <p class="muted">任务版本 {{ view.task.version }}</p>
           <h2>独立AI用途授权</h2>
           <p class="muted">{{ view.consent.granted ? '已同意AI用途' : '尚未同意或已撤回' }}</p>
+          <p v-if="policyUpdated" class="mlk-error">授权文案已更新（{{ view.consent.grantedVersion }} → {{ view.consent.version }}），请重新确认后才能继续使用。</p>
           <button
             class="ghost"
             style="width: 100%"

@@ -20,6 +20,25 @@ const loading = ref(false), saving = ref(false), error = ref(''), success = ref(
 const clinics = ref<components['schemas']['Clinic'][]>([]), reviewers = ref<components['schemas']['AssessmentReviewer'][]>([]), reviewer = ref('')
 const events = ref<components['schemas']['AssessmentEvent'][]>([]), capabilities = ref<components['schemas']['AssessmentCapabilities'] | null>(null)
 const decision = ref<'approved'|'amended'|'rejected'>('approved'), note = ref(''), limitations = ref(''), preparation = ref('')
+const policy = ref<components['schemas']['AssessmentConsentPolicyList'] | null>(null)
+const policyEditing = ref(false), policyContent = ref(''), policyVersion = ref(''), policySaving = ref(false)
+async function loadPolicy() {
+  if (auth.employee?.role !== 'manager') return
+  try { policy.value = await api.assessmentConsentPolicy() } catch { /* 文案读失败不影响任务队列 */ }
+}
+function startPolicyEdit() {
+  if (!policy.value) return
+  policyContent.value = policy.value.policy.content; policyVersion.value = ''; policyEditing.value = true
+}
+async function savePolicy() {
+  if (policySaving.value || !policyContent.value.trim()) return
+  policySaving.value = true; error.value = ''; success.value = ''
+  try {
+    policy.value = await api.createAssessmentConsentPolicy(policyContent.value.trim(), policyVersion.value.trim() || undefined)
+    policyEditing.value = false
+    success.value = `已发布授权文案新版 ${policy.value.policy.version}，旧版授权已失效，患者需重新确认。`
+  } catch (cause) { error.value = errorMessage(cause) } finally { policySaving.value = false }
+}
 const edited = ref<AssessmentContent>({ summary:'', observations:[], limitations:[], consultationAdvice:{recommended:true,reason:'',preparation:[]} })
 const canReview = computed(() => auth.employee?.role === 'doctor' && selected.value?.task.reviewerEmployeeId === auth.employee.id && selected.value.consent.granted && ['awaiting_review','completed','rejected'].includes(selected.value.task.status))
 type WriteBody = components['schemas']['AssessmentAssignment'] | components['schemas']['AssessmentReviewCreate']
@@ -143,6 +162,7 @@ onMounted(async () => {
   if (!alive) return
   if (results[0].status === 'fulfilled') capabilities.value = results[0].value
   if (results[1].status === 'fulfilled') clinics.value = results[1].value.filter(c=>auth.employee?.clinicIds.includes(c.id))
+  void loadPolicy()
 })
 onBeforeUnmount(() => { alive = false; generation++; if(timer) clearInterval(timer); document.removeEventListener('visibilitychange',visibility) })
 </script>
@@ -154,6 +174,23 @@ onBeforeUnmount(() => { alive = false; generation++; if(timer) clearInterval(tim
   <el-alert v-if="error" :title="error" type="error" :closable="false" class="feedback" />
   <el-alert v-if="success" :title="success" type="success" :closable="false" class="feedback" />
   <el-button v-if="pending" :loading="saving" @click="write()">重试原操作</el-button>
+  <div v-if="!id && auth.employee?.role==='manager'" class="surface panel">
+    <h2>AI 用途授权文案</h2>
+    <p v-if="policy">当前版本 {{policy.policy.version}} · {{time(policy.policy.createdAt)}} · 发布人 {{policy.policy.createdBy || '系统'}}</p>
+    <p v-if="policy">{{policy.policy.content}}</p>
+    <p v-else>授权文案加载中或暂不可用。</p>
+    <el-button :disabled="!policy || policySaving" @click="startPolicyEdit">编辑文案并发布新版</el-button>
+    <template v-if="policyEditing">
+      <el-form label-position="top">
+        <el-form-item label="新版文案"><el-input v-model="policyContent" type="textarea" :rows="6" maxlength="5000" show-word-limit /></el-form-item>
+        <el-form-item label="版本号（留空自动升版，如 photo-ai-v2）"><el-input v-model="policyVersion" maxlength="64" placeholder="留空自动升版" /></el-form-item>
+      </el-form>
+      <p>发布新版后，之前按旧版授权的患者需重新确认，旧授权立即失效。</p>
+      <el-button type="primary" :loading="policySaving" :disabled="!policyContent.trim()" @click="savePolicy">发布新版</el-button>
+      <el-button :disabled="policySaving" @click="policyEditing=false">取消</el-button>
+    </template>
+    <details v-if="policy && policy.history.length>1"><summary>历史版本（{{policy.history.length}}）</summary><p v-for="item in policy.history" :key="item.version">{{item.version}} · {{time(item.createdAt)}} · {{item.createdBy || '系统'}}</p></details>
+  </div>
   <div v-if="!id" class="surface panel">
     <p v-if="mode==='entry'">评估由患者从小程序“AI 辅助评估”入口独立创建并明确授权。工作人员可在下方队列分配复核医生。</p>
     <div class="toolbar"><el-select v-model="status" placeholder="全部状态" clearable aria-label="评估状态" @change="page=1;load()"><el-option v-for="(label,value) in labels" :key="value" :label="label" :value="value" /></el-select><el-select v-model="clinicId" clearable placeholder="全部授权院区" @change="page=1;load()"><el-option v-for="clinic in clinics" :key="clinic.id" :value="clinic.id" :label="clinic.name" /></el-select><el-input v-model="query" placeholder="完整任务编号" @keyup.enter="page=1;load()" /><el-button @click="page=1;load()">查询任务</el-button><span>共 {{total}} 项</span></div>
