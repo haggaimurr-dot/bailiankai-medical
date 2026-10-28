@@ -20,6 +20,19 @@ const angles = [
   { value: 'left', label: '本人左侧45°' },
   { value: 'right', label: '本人右侧45°' },
 ] as const
+// 拍摄指引：示意图（非真人照片，避免用患者照片作示例）。
+// 正确示例按三角度各一张；错误示范列出质检最常见的四种失败原因与重拍做法。
+const guideCorrect = [
+  { value: 'front', label: '正面 · 正确', tip: '面部居中，双眼平视镜头' },
+  { value: 'left', label: '本人左侧 45° · 正确', tip: '向左转头，露出左侧面颊' },
+  { value: 'right', label: '本人右侧 45° · 正确', tip: '向右转头，露出右侧面颊' },
+] as const
+const guideMistakes = [
+  { id: 'backlit', title: '逆光', cause: '光源在身后，面部发黑，肤色与痘印看不清。', fix: '面向窗户或灯光，让光落在脸上再拍。' },
+  { id: 'occluded', title: '遮挡', cause: '头发、手或口罩遮住面部，关键区域缺失。', fix: '把头发拢到耳后，移开遮挡物再拍。' },
+  { id: 'tilted', title: '角度倾斜', cause: '头部倾斜或转头过多，左右照片无法对应。', fix: '按角度转头，双眼平视镜头，头摆正。' },
+  { id: 'dark', title: '太暗 / 过曝', cause: '光线太暗或太亮，面部细节丢失。', fix: '选自然光充足处，避免直射强光与闪光灯。' },
+] as const
 const qualityLabels: Record<string, string> = { pending: '等待检查', passed: '质检通过', rejected: '请按提示补拍', unavailable: '检查暂不可用' }
 const assessmentKey = () => `ai-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`
 
@@ -375,6 +388,85 @@ onUnmounted(() => {
         <section class="card">
           <h2>三角度照片</h2>
           <p class="muted">自然光、无遮挡、关闭美颜；本人左右方向请核对。短边至少512像素。</p>
+          <div class="guide">
+            <h3>正确示例</h3>
+            <div class="guide-row">
+              <figure v-for="item in guideCorrect" :key="item.value" class="guide-fig">
+                <svg v-if="item.value === 'front'" viewBox="0 0 72 72" class="guide-svg" aria-hidden="true">
+                  <rect width="72" height="72" rx="10" fill="#eef4fb" />
+                  <circle cx="59" cy="13" r="6" fill="#f6c453" />
+                  <path d="M14 64 Q14 48 36 48 Q58 48 58 64 Z" fill="#9db8d6" />
+                  <circle cx="36" cy="33" r="16" fill="#f2c9a0" />
+                  <circle cx="30" cy="31" r="1.8" fill="#333" />
+                  <circle cx="42" cy="31" r="1.8" fill="#333" />
+                  <path d="M31 40 Q36 43 41 40" stroke="#b07a4a" stroke-width="1.5" fill="none" />
+                </svg>
+                <svg v-else-if="item.value === 'left'" viewBox="0 0 72 72" class="guide-svg" aria-hidden="true">
+                  <rect width="72" height="72" rx="10" fill="#eef4fb" />
+                  <circle cx="59" cy="13" r="6" fill="#f6c453" />
+                  <path d="M14 64 Q14 48 36 48 Q58 48 58 64 Z" fill="#9db8d6" />
+                  <circle cx="35" cy="33" r="16" fill="#f2c9a0" />
+                  <path d="M49 30 Q56 33 49 37 Z" fill="#f2c9a0" />
+                  <circle cx="41" cy="31" r="1.8" fill="#333" />
+                  <path d="M38 40 Q42 42 46 40" stroke="#b07a4a" stroke-width="1.5" fill="none" />
+                </svg>
+                <svg v-else viewBox="0 0 72 72" class="guide-svg" aria-hidden="true">
+                  <rect width="72" height="72" rx="10" fill="#eef4fb" />
+                  <circle cx="59" cy="13" r="6" fill="#f6c453" />
+                  <path d="M14 64 Q14 48 36 48 Q58 48 58 64 Z" fill="#9db8d6" />
+                  <circle cx="37" cy="33" r="16" fill="#f2c9a0" />
+                  <path d="M23 30 Q16 33 23 37 Z" fill="#f2c9a0" />
+                  <circle cx="31" cy="31" r="1.8" fill="#333" />
+                  <path d="M26 40 Q30 42 34 40" stroke="#b07a4a" stroke-width="1.5" fill="none" />
+                </svg>
+                <figcaption>
+                  <span class="guide-ok">✓ {{ item.label }}</span>
+                  <small>{{ item.tip }}</small>
+                </figcaption>
+              </figure>
+            </div>
+            <h3>错误示范 · 对照重拍</h3>
+            <div class="guide-row mistakes">
+              <figure v-for="item in guideMistakes" :key="item.id" class="guide-fig wrong">
+                <svg v-if="item.id === 'backlit'" viewBox="0 0 72 72" class="guide-svg" aria-hidden="true">
+                  <rect width="72" height="72" rx="10" fill="#fff3c4" />
+                  <circle cx="58" cy="14" r="10" fill="#f6c453" />
+                  <path d="M14 64 Q14 48 36 48 Q58 48 58 64 Z" fill="#5a5a5a" />
+                  <circle cx="36" cy="33" r="16" fill="#3f3f3f" />
+                </svg>
+                <svg v-else-if="item.id === 'occluded'" viewBox="0 0 72 72" class="guide-svg" aria-hidden="true">
+                  <rect width="72" height="72" rx="10" fill="#eef4fb" />
+                  <path d="M14 64 Q14 48 36 48 Q58 48 58 64 Z" fill="#9db8d6" />
+                  <circle cx="36" cy="33" r="16" fill="#f2c9a0" />
+                  <path d="M20 34 Q18 14 36 14 Q54 14 52 32 Q50 22 42 20 Q28 18 24 34 Z" fill="#5b4636" />
+                  <circle cx="30" cy="31" r="1.8" fill="#333" />
+                </svg>
+                <svg v-else-if="item.id === 'tilted'" viewBox="0 0 72 72" class="guide-svg" aria-hidden="true">
+                  <rect width="72" height="72" rx="10" fill="#eef4fb" />
+                  <g transform="rotate(20 36 36)">
+                    <path d="M14 64 Q14 48 36 48 Q58 48 58 64 Z" fill="#9db8d6" />
+                    <circle cx="36" cy="33" r="16" fill="#f2c9a0" />
+                    <circle cx="30" cy="31" r="1.8" fill="#333" />
+                    <circle cx="42" cy="31" r="1.8" fill="#333" />
+                    <path d="M31 40 Q36 43 41 40" stroke="#b07a4a" stroke-width="1.5" fill="none" />
+                  </g>
+                </svg>
+                <svg v-else viewBox="0 0 72 72" class="guide-svg" aria-hidden="true">
+                  <rect width="72" height="72" rx="10" fill="#3a3a3a" />
+                  <path d="M14 64 Q14 48 36 48 Q58 48 58 64 Z" fill="#555" />
+                  <circle cx="36" cy="33" r="16" fill="#6b6b6b" />
+                  <circle cx="30" cy="31" r="1.5" fill="#444" />
+                  <circle cx="42" cy="31" r="1.5" fill="#444" />
+                </svg>
+                <figcaption>
+                  <span class="guide-bad">✕ {{ item.title }}</span>
+                  <small>原因：{{ item.cause }}</small>
+                  <small>正确做法：{{ item.fix }}</small>
+                </figcaption>
+              </figure>
+            </div>
+            <p class="muted">质检不通过时，按提示找到对应的错误示范重拍。</p>
+          </div>
           <div v-for="row in angleRows" :key="row.value" class="card" style="margin-top: 10px">
             <strong>{{ row.label }} · {{ row.quality }}</strong>
             <p v-for="line in row.advice" :key="line" class="muted">{{ line }}</p>
@@ -415,3 +507,16 @@ onUnmounted(() => {
     <p class="muted" style="text-align: center">照片辅助观察，具体以面诊为准。</p>
   </main>
 </template>
+
+<style scoped>
+.guide { margin-top: 12px; }
+.guide h3 { font-size: 14px; margin: 14px 0 8px; }
+.guide-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.guide-fig { flex: 1 1 30%; min-width: 100px; margin: 0; }
+.guide-row.mistakes .guide-fig { flex-basis: 45%; }
+.guide-svg { width: 100%; height: auto; display: block; border-radius: 10px; }
+.guide-fig figcaption { margin-top: 6px; font-size: 12px; line-height: 1.6; }
+.guide-fig figcaption small { display: block; color: var(--muted); }
+.guide-ok { color: var(--green); font-weight: 700; }
+.guide-bad { color: var(--danger); font-weight: 700; }
+</style>
