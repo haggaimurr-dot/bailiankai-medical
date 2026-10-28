@@ -7,6 +7,7 @@ import { ApiError, errorMessage } from '../api'
 import { clearSubmission, isSessionExpired, loadSubmission, patientApi } from '../patient'
 import { useSessionStore } from '../stores/session'
 import { appointmentView, dateTime, type AppointmentView } from '../utils/appointment'
+import { countdownLabel } from '../utils/date'
 
 type TimelineEvent = components['schemas']['AppointmentTimelineEvent'] & { label: string; timeLabel: string }
 
@@ -28,6 +29,7 @@ const notice = ref('')
 const checkInImage = ref('')
 const checkInToken = ref('')
 const checkInExpiry = ref('')
+const checkInRemaining = ref(-1)
 const checkInLoading = ref(false)
 const checkInError = ref('')
 
@@ -35,6 +37,7 @@ let generation = 0
 let timelineGeneration = 0
 let disposed = false
 let checkInTimer: ReturnType<typeof setTimeout> | null = null
+let checkInInterval: ReturnType<typeof setInterval> | null = null
 
 const timelineLabels: Record<string, string> = {
   'suspend-move': '停诊改期', submit: '提交预约', waitlist: '登记候补', claim: '候补转为待确认',
@@ -74,6 +77,27 @@ function clearCheckInTimer() {
     clearTimeout(checkInTimer)
     checkInTimer = null
   }
+  if (checkInInterval) {
+    clearInterval(checkInInterval)
+    checkInInterval = null
+  }
+  checkInRemaining.value = -1
+}
+
+/** Live countdown (1s tick) until the code expires; the setTimeout in
+ * showCheckInCode remains the authority that clears the code itself. */
+function startCheckInCountdown(expiresAt: string) {
+  clearCheckInTimer()
+  const update = () => {
+    const left = Math.ceil((Date.parse(expiresAt) - Date.now()) / 1000)
+    checkInRemaining.value = Math.max(0, left)
+    if (left <= 0 && checkInInterval) {
+      clearInterval(checkInInterval)
+      checkInInterval = null
+    }
+  }
+  update()
+  checkInInterval = setInterval(update, 1000)
 }
 
 async function loadTimeline() {
@@ -147,6 +171,7 @@ async function showCheckInCode() {
     checkInToken.value = code.token
     checkInExpiry.value = dateTime(code.expiresAt)
     clearCheckInTimer()
+    startCheckInCountdown(code.expiresAt)
     checkInTimer = setTimeout(() => {
       if (!disposed && checkInImage.value) {
         checkInImage.value = ''
@@ -308,7 +333,9 @@ onUnmounted(() => {
           <div v-if="checkInImage" class="checkin-box">
             <img class="checkin-img" :src="checkInImage" alt="签到二维码" />
             <div class="checkin-code">{{ checkInToken }}</div>
+            <p v-if="checkInRemaining >= 0" class="checkin-countdown">剩余 {{ countdownLabel(checkInRemaining) }}</p>
             <p class="muted">有效至 {{ checkInExpiry }}（北京时间）</p>
+            <p class="muted">过期后点「刷新签到码」重新领取，新码 5 分钟有效。</p>
           </div>
         </section>
 
@@ -409,6 +436,7 @@ onUnmounted(() => {
 .checkin-box { text-align: center; margin-top: 14px; }
 .checkin-img { width: 280px; max-width: 100%; display: block; margin: 0 auto; }
 .checkin-code { font-size: 20px; font-weight: 800; letter-spacing: 2px; margin-top: 10px; word-break: break-all; }
+.checkin-countdown { font-size: 18px; font-weight: 700; color: var(--amber); margin: 8px 0 0; }
 .notice-line { background: #eff6ff; border: 1px solid #dbeafe; color: var(--brand-dark); border-radius: 10px; padding: 10px 12px; font-size: 13px; line-height: 1.6; margin: 0; }
 .result-card .result-title { font-size: 22px; font-weight: 800; margin: 8px 0 4px; }
 .deadline { color: var(--amber); font-size: 13px; line-height: 1.6; }

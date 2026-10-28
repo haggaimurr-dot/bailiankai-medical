@@ -30,3 +30,9 @@ export function clinicTime(isoTime: string): string {
 export function shanghaiDate(offsetDays = 0): string {
   return upcomingDays(offsetDays + 1)[offsetDays].date
 }
+
+/** 倒计时文案：秒数转 m:ss，负数按 0 计。 */
+export function countdownLabel(totalSeconds: number): string {
+  const seconds = Math.max(0, Math.floor(totalSeconds))
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`
+}

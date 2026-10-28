@@ -20,3 +20,4 @@
 .timeline-event { border-left: 2rpx solid #d8c9b9; padding: 8rpx 0 24rpx 24rpx; margin-left: 8rpx; }
 .timeline-title { font-size: 28rpx; font-weight: 600; margin-bottom: 8rpx; }
 .timeline-detail { font-size: 26rpx; line-height: 1.7; margin-top: 8rpx; }
+.checkin-countdown { font-size: 32rpx; font-weight: 700; color: #b45309; text-align: center; margin-top: 12rpx; }

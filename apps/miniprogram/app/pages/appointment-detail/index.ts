@@ -2,15 +2,17 @@ import type { components } from '../../../../../packages/contracts/src/schema';
 import { ApiError, errorMessage } from '../../services/api';
 import { confirmChoice, confirmDialog, confirmNewSession, isSessionExpired, patientApi } from '../../services/patient';
 import { appointmentView, dateTime, type AppointmentView } from '../../utils/appointment';
+import { countdownLabel } from '../../utils/date';
 
 interface DetailData {
-  checkInImage: string; checkInExpiry: string; checkInLoading: boolean; checkInError: string;
+  checkInImage: string; checkInExpiry: string; checkInCountdown: string; checkInLoading: boolean; checkInError: string;
   loading: boolean; error: string; expired: boolean; creatingIdentity: boolean;
   timeline: (components['schemas']['AppointmentTimelineEvent'] & { label: string; timeLabel: string })[]; timelineError: string;
   appointment: AppointmentView | null; cancelling: boolean; notice: string;
 }
 interface DetailMethods {
-  showCheckInCode(): Promise<void>; checkInTimer: ReturnType<typeof setTimeout> | null;
+  showCheckInCode(): Promise<void>; checkInTimer: ReturnType<typeof setTimeout> | null; checkInInterval: ReturnType<typeof setInterval> | null;
+  startCheckInCountdown(expiresAt: string): void; clearCheckInCountdown(): void;
   id: string; generation: number; timelineGeneration: number; initialized: boolean; disposed: boolean;
   load(): Promise<void>; refresh(): void; cancelAppointment(): Promise<void>;
   newIdentity(): Promise<void>; openAppointments(): void; openSchedule(): void;
@@ -18,16 +20,32 @@ interface DetailMethods {
   openPhotos(): void; openCarePlan(): void; openFollowups(): void;
 }
 Page<DetailData, DetailMethods>({
-  data: { checkInImage: '', checkInExpiry: '', checkInLoading: false, checkInError: '', loading: true, error: '', expired: false, creatingIdentity: false, appointment: null, timeline: [], timelineError: '', cancelling: false, notice: '' },
-  checkInTimer: null, id: '', generation: 0, timelineGeneration: 0, initialized: false, disposed: false,
+  data: { checkInImage: '', checkInExpiry: '', checkInCountdown: '', checkInLoading: false, checkInError: '', loading: true, error: '', expired: false, creatingIdentity: false, appointment: null, timeline: [], timelineError: '', cancelling: false, notice: '' },
+  checkInTimer: null, checkInInterval: null, id: '', generation: 0, timelineGeneration: 0, initialized: false, disposed: false,
   onLoad(options) { this.id = options.id || ''; void this.load(); },
   onShow() { if (this.initialized && !this.data.loading && !this.data.cancelling) void this.load(); },
-  onUnload() { this.timelineGeneration += 1; this.generation += 1; this.disposed = true; },
+  onUnload() { this.timelineGeneration += 1; this.generation += 1; this.disposed = true; this.clearCheckInCountdown(); },
+  clearCheckInCountdown() {
+    if (this.checkInTimer) { clearTimeout(this.checkInTimer); this.checkInTimer = null; }
+    if (this.checkInInterval) { clearInterval(this.checkInInterval); this.checkInInterval = null; }
+    this.setData({ checkInCountdown: '' });
+  },
+  startCheckInCountdown(expiresAt: string) {
+    this.clearCheckInCountdown();
+    const update = () => {
+      const left = Math.ceil((Date.parse(expiresAt) - Date.now()) / 1000);
+      this.setData({ checkInCountdown: countdownLabel(left) });
+      if (left <= 0 && this.checkInInterval) { clearInterval(this.checkInInterval); this.checkInInterval = null; }
+    };
+    update();
+    this.checkInInterval = setInterval(update, 1000);
+  },
   onPullDownRefresh() { if (this.data.cancelling) wx.stopPullDownRefresh(); else void this.load(); },
   async load() {
     if (this.disposed) return;
     this.timelineGeneration++;
     const generation = ++this.generation;
+    this.clearCheckInCountdown();
     this.setData({ checkInImage: '', checkInExpiry: '', checkInError: '', loading: true, error: '', expired: false });
     try {
       if (!this.id) throw new Error('缺少预约编号，请从“我的预约”重新进入。');
@@ -57,6 +75,7 @@ Page<DetailData, DetailMethods>({
       await new Promise<void>((resolve, reject) => wx.getFileSystemManager().writeFile({filePath, data:code.imageDataUrl.split(',')[1]!, encoding:'base64', success:() => resolve(), fail:reject}));
       if (!this.disposed && generation === this.generation) {
         this.setData({checkInImage:filePath,checkInExpiry:dateTime(code.expiresAt)});
+        this.startCheckInCountdown(code.expiresAt);
         this.checkInTimer = setTimeout(() => {
           wx.getFileSystemManager().unlink({filePath, fail:() => {}});
           if (!this.disposed && this.data.checkInImage === filePath) this.setData({checkInImage:'',checkInError:'签到码已到期，请重新领取。'});
