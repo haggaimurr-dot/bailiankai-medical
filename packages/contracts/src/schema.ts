@@ -3794,6 +3794,93 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/patients/{patientId}/tier": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description 管理端查看患者标签分层。 */
+        get: operations["getPatientTier"];
+        /** @description 管理端设置患者标签分层（vip/normal/high_risk）。 */
+        put: operations["setPatientTier"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shared-records/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description 公开分享链接查看档案摘要（token 即凭证，过期/撤销后 404）。 */
+        get: operations["sharedRecord"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/record-share-links": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description 患者端查看自己的档案分享链接。 */
+        get: operations["listRecordShareLinks"];
+        put?: never;
+        /** @description 患者端生成档案分享链接。 */
+        post: operations["createRecordShareLink"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/record-share-links/{linkId}/revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description 患者端撤销档案分享链接。 */
+        post: operations["revokeRecordShareLink"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/last-visit-summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description 患者端获取上次就诊要点（复诊时带出）。 */
+        get: operations["lastVisitSummary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -17370,6 +17457,186 @@ export interface operations {
                 content: {
                     "application/json": {
                         data: Record<string, never>[];
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getPatientTier: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                patientId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 标签 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: Record<string, never>;
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    setPatientTier: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                patientId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    tier: string;
+                    reason?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description 已设置 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: Record<string, never>;
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    sharedRecord: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 档案摘要 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: Record<string, never>;
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listRecordShareLinks: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 链接列表 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: Record<string, never>[];
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createRecordShareLink: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    ttlHours: number;
+                };
+            };
+        };
+        responses: {
+            /** @description 已生成 */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: Record<string, never>;
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    revokeRecordShareLink: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                linkId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 已撤销 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: Record<string, never>;
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    lastVisitSummary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 上次要点 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: Record<string, never>;
                     };
                 };
             };

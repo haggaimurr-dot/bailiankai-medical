@@ -3965,6 +3965,140 @@ paths:
                 properties:
                   data: {type: array, items: {type: object}}
         default: {$ref: '#/components/responses/Error'}
+  /api/v1/admin/patients/{patientId}/tier:
+    get:
+      operationId: getPatientTier
+      description: 管理端查看患者标签分层。
+      security: [{EmployeeBearer: []}]
+      parameters:
+        - {name: patientId, in: path, required: true, schema: {type: string}}
+      responses:
+        '200':
+          description: 标签
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {type: object}
+        default: {$ref: '#/components/responses/Error'}
+    put:
+      operationId: setPatientTier
+      description: 管理端设置患者标签分层（vip/normal/high_risk）。
+      security: [{EmployeeBearer: []}]
+      parameters:
+        - {name: patientId, in: path, required: true, schema: {type: string}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [tier]
+              properties:
+                tier: {type: string}
+                reason: {type: string}
+      responses:
+        '200':
+          description: 已设置
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {type: object}
+        default: {$ref: '#/components/responses/Error'}
+  /api/v1/shared-records/{token}:
+    get:
+      operationId: sharedRecord
+      description: 公开分享链接查看档案摘要（token 即凭证，过期/撤销后 404）。
+      responses:
+        '200':
+          description: 档案摘要
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {type: object}
+        default: {$ref: '#/components/responses/Error'}
+  /api/v1/me/record-share-links:
+    get:
+      operationId: listRecordShareLinks
+      description: 患者端查看自己的档案分享链接。
+      security: [{PatientBearer: []}]
+      responses:
+        '200':
+          description: 链接列表
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {type: array, items: {type: object}}
+        default: {$ref: '#/components/responses/Error'}
+    post:
+      operationId: createRecordShareLink
+      description: 患者端生成档案分享链接。
+      security: [{PatientBearer: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ttlHours]
+              properties:
+                ttlHours: {type: integer}
+      responses:
+        '201':
+          description: 已生成
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {type: object}
+        default: {$ref: '#/components/responses/Error'}
+  /api/v1/me/record-share-links/{linkId}/revoke:
+    post:
+      operationId: revokeRecordShareLink
+      description: 患者端撤销档案分享链接。
+      security: [{PatientBearer: []}]
+      parameters:
+        - {name: linkId, in: path, required: true, schema: {type: string}}
+      responses:
+        '200':
+          description: 已撤销
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {type: object}
+        default: {$ref: '#/components/responses/Error'}
+  /api/v1/me/last-visit-summary:
+    get:
+      operationId: lastVisitSummary
+      description: 患者端获取上次就诊要点（复诊时带出）。
+      security: [{PatientBearer: []}]
+      responses:
+        '200':
+          description: 上次要点
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {type: object}
+        default: {$ref: '#/components/responses/Error'}
 components:
   securitySchemes:
     PatientBearer:
