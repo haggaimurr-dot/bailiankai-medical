@@ -15,7 +15,6 @@ import (
 
 // 行117: 模板效果统计——发送/送达/点击/失败累加。
 func TestTemplateEffectStats(t *testing.T) {
-	t.Skip("TEMP: isolating CI failure")
 	fixture := newBookingFixture(t)
 	ctx := context.Background()
 	patient := fixture.patient()
@@ -59,7 +58,6 @@ func TestTemplateEffectStats(t *testing.T) {
 
 // 行118: 接口监控——调用量/错误率统计与慢请求告警。
 func TestApiRequestMonitoring(t *testing.T) {
-	t.Skip("TEMP: isolating CI failure")
 	fixture := newBookingFixture(t)
 	ctx := context.Background()
 	day := fixture.now
@@ -132,7 +130,6 @@ func TestApiRequestMonitoring(t *testing.T) {
 
 // 行119: 数据变更日报——计数与抽查对账。
 func TestDataDailyReport(t *testing.T) {
-	t.Skip("TEMP: isolating CI failure")
 	fixture := newBookingFixture(t)
 	ctx := context.Background()
 	day := fixture.now
@@ -166,7 +163,6 @@ func TestDataDailyReport(t *testing.T) {
 
 // 行123: 异常访问行为告警——5 次被拒触发，1 小时内不重复。
 func TestSecuritySignalAlert(t *testing.T) {
-	t.Skip("TEMP: isolating CI failure")
 	fixture := newBookingFixture(t)
 	ctx := context.Background()
 
@@ -250,7 +246,6 @@ func TestSecuritySignalAlert(t *testing.T) {
 
 // 行120: 展示副本生成——压缩变小且带水印。
 func TestDisplayVariantGeneration(t *testing.T) {
-	t.Skip("TEMP: isolating CI failure")
 	// 构造一张 2000x1500 的渐变测试图（高质 JPEG，原图较大）
 	img := image.NewRGBA(image.Rect(0, 0, 2000, 1500))
 	for y := 0; y < 1500; y++ {

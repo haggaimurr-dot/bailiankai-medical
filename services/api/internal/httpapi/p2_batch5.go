@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"os"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -39,7 +40,13 @@ func (a *API) registerP2Batch5PatientRoutes(patient *gin.RouterGroup) {
 // the configured threshold. Only the route pattern is stored, never query
 // strings or bodies. Best-effort: monitoring must never break the request.
 func (a *API) requestMonitor() gin.HandlerFunc {
+	// 测试环境可通过 BLK_DISABLE_MONITOR=1 关闭，避免干扰现有测试
+	disabled := os.Getenv("BLK_DISABLE_MONITOR") == "1"
 	return func(c *gin.Context) {
+		if disabled {
+			c.Next()
+			return
+		}
 		if c.Request.URL.Path == "/healthz" || c.Request.URL.Path == "/readyz" {
 			c.Next()
 			return
