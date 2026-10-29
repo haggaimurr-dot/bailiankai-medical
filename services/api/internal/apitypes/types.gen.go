@@ -3586,6 +3586,18 @@ type SupportPage struct {
 	Meta PageMeta        `json:"meta"`
 }
 
+// SupportStats defines model for SupportStats.
+type SupportStats struct {
+	// AvgFirstResponseMinutes Mean minutes from ticket creation to first patient-visible employee message; internal notes do not count
+	AvgFirstResponseMinutes *float32 `json:"avgFirstResponseMinutes"`
+
+	// AvgRating Mean rating over rated tickets only
+	AvgRating        *float32 `json:"avgRating"`
+	RatedTickets     int      `json:"ratedTickets"`
+	RespondedTickets int      `json:"respondedTickets"`
+	TotalTickets     int      `json:"totalTickets"`
+}
+
 // SupportTicket defines model for SupportTicket.
 type SupportTicket struct {
 	AssigneeId    string              `json:"assigneeId"`

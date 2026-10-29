@@ -26,8 +26,10 @@ function date(v: string | null) { return v ? new Date(v).toLocaleString('zh-CN',
 function isOverdue(t: Ticket) { return !!t.dueAt && Date.parse(t.dueAt) < Date.now() && !['resolved','closed'].includes(t.status) }
 function key() { return `support_${Date.now()}_${Math.random().toString(36).slice(2)}` }
 function selectRow(row: Ticket) { if (!saving.value && !uploading.value && !restoring.value) void open(row) }
+const stats = ref<components['schemas']['SupportStats'] | null>(null)
 async function load(silent = false) {
   const g = ++generation; if (!silent) loading.value = true
+  if (!silent) api.supportStats().then(value => { if (g === generation) stats.value = value }).catch(() => {})
   try { const result = await api.supportTickets(status.value, assignment.value, overdue.value, page.value); if (g === generation) { rows.value = result.data; total.value = result.meta.total }; return true }
   catch (e) { if (g === generation) error.value = errorMessage(e); return false }
   finally { if (g === generation) loading.value = false }
@@ -108,6 +110,7 @@ onUnmounted(() => { generation++; detailGeneration++; if (timer) clearInterval(t
       <el-select v-model="assignment" placeholder="全部可见工单" clearable @change="page=1;load()"><el-option label="我的工单" value="mine" /><el-option label="待分派" value="unassigned" /></el-select>
       <el-checkbox v-model="overdue" @change="page=1;load()">仅逾期未解决</el-checkbox><span>共 {{ total }} 条</span>
     </div>
+    <div v-if="stats" class="support-stats"><span>工单 <strong>{{ stats.totalTickets }}</strong> 条</span><span>已首响 <strong>{{ stats.respondedTickets }}</strong> 条</span><span>平均首响 <strong>{{ stats.avgFirstResponseMinutes == null ? '—' : stats.avgFirstResponseMinutes.toFixed(0) }}</strong> 分钟</span><span>已评分 <strong>{{ stats.ratedTickets }}</strong> 条</span><span>平均评分 <strong>{{ stats.avgRating == null ? '—' : stats.avgRating.toFixed(1) }}</strong> / 5 星</span><small>首响只计患者可见的客服消息，内部记录不计入；评分只计已评分工单。全部授权院区。</small></div>
     <div class="support-columns">
       <section class="support-panel queue" aria-label="咨询工单队列">
         <el-table :data="rows" v-loading="loading" :row-class-name="({ row }: { row: Ticket }) => isOverdue(row) ? 'overdue-row' : ''" @row-click="selectRow" highlight-current-row empty-text="暂无符合条件的咨询工单">
@@ -142,5 +145,6 @@ onUnmounted(() => { generation++; detailGeneration++; if (timer) clearInterval(t
 </template>
 
 <style scoped>
-.page-heading,.support-filters{display:flex;align-items:center;gap:16px;justify-content:space-between;margin-bottom:22px}.page-heading h1{margin:0}.page-heading p,.support-meta{color:#7c8796;font-size:13px}.support-filters{justify-content:flex-start;flex-wrap:wrap;margin-top:20px}.support-filters .el-select{width:180px}.support-columns{display:grid;grid-template-columns:minmax(340px,0.9fr) minmax(380px,1.1fr);gap:22px}.support-panel{background:white;border:1px solid #e8edf3;border-radius:16px;padding:24px;min-width:0}.support-history{max-height:460px;overflow:auto}.support-history article{background:#f2f7fc;border-radius:12px;padding:14px;margin:12px 0}.support-history article.internal{background:#fff8e8}.support-history p{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.7;margin-bottom:0}.support-compose{margin-top:20px}.overdue{color:#c94d4d;margin-top:6px;font-size:12px}:deep(.overdue-row td){background:#fff5f5 !important}:deep(.overdue-row td:first-child){box-shadow:inset 3px 0 0 #e02424}input{padding:10px;border:1px solid #dce4ed;border-radius:6px}.el-pagination{margin-top:18px}@media(max-width:1050px){.support-columns{grid-template-columns:1fr}}
+.page-heading,.support-filters{display:flex;align-items:center;gap:16px;justify-content:space-between;margin-bottom:22px}.page-heading h1{margin:0}.page-heading p,.support-meta{color:#7c8796;font-size:13px}.support-filters{justify-content:flex-start;flex-wrap:wrap;margin-top:20px}.support-filters .el-select{width:180px}.support-columns{display:grid;grid-template-columns:minmax(340px,0.9fr) minmax(380px,1.1fr);gap:22px}
+.support-stats{display:flex;flex-wrap:wrap;gap:18px;align-items:center;margin:20px 0;padding:12px 16px;border:1px solid #e8edf3;border-radius:12px;background:#f7fafc;font-size:13px;color:#4a5568}.support-stats strong{color:#1a202c}.support-stats small{color:#7c8796}.support-panel{background:white;border:1px solid #e8edf3;border-radius:16px;padding:24px;min-width:0}.support-history{max-height:460px;overflow:auto}.support-history article{background:#f2f7fc;border-radius:12px;padding:14px;margin:12px 0}.support-history article.internal{background:#fff8e8}.support-history p{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.7;margin-bottom:0}.support-compose{margin-top:20px}.overdue{color:#c94d4d;margin-top:6px;font-size:12px}:deep(.overdue-row td){background:#fff5f5 !important}:deep(.overdue-row td:first-child){box-shadow:inset 3px 0 0 #e02424}input{padding:10px;border:1px solid #dce4ed;border-radius:6px}.el-pagination{margin-top:18px}@media(max-width:1050px){.support-columns{grid-template-columns:1fr}}
 </style>

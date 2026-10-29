@@ -36,7 +36,7 @@ func allowedEmployeeOperation(role, method, path string) bool {
 	if path == "/api/v1/admin/care-plan-templates" || path == "/api/v1/admin/care-plan-templates/:templateId" {
 		return (role == "manager" || store.ClinicalRole(role)) && (method == "GET" || method == "POST" || method == "DELETE")
 	}
-	if path == "/api/v1/admin/support" || path == "/api/v1/admin/support/agents" || path == "/api/v1/admin/support/:ticketId" || path == "/api/v1/admin/support/:ticketId/actions" || path == "/api/v1/admin/support/:ticketId/attachments/:attachmentId" {
+	if path == "/api/v1/admin/support" || path == "/api/v1/admin/support/agents" || path == "/api/v1/admin/support/stats" || path == "/api/v1/admin/support/:ticketId" || path == "/api/v1/admin/support/:ticketId/actions" || path == "/api/v1/admin/support/:ticketId/attachments/:attachmentId" {
 		return (role == "manager" || role == "customer_service") && (method == "GET" || method == "POST" && path == "/api/v1/admin/support/:ticketId/actions")
 	}
 	if !store.ValidEmployeeRole(role) {

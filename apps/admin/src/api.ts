@@ -124,6 +124,7 @@ export const api = {
   supportTickets: (status = '', assignment = '', overdue = false, page = 1) => requestEnvelope<components['schemas']['SupportPage']>(`/admin/support?${new URLSearchParams({ ...(status ? { status } : {}), ...(assignment ? { assignment } : {}), overdue: String(overdue), page: String(page), pageSize: '20' })}`, adminRequest()),
   supportDetail: (id: string, page = 1) => requestEnvelope<components['schemas']['SupportDetail']>(`/admin/support/${encodeURIComponent(id)}?page=${page}&pageSize=20`, adminRequest()),
   supportAgents: () => request<components['schemas']['SupportAgent'][]>('/admin/support/agents', adminRequest()),
+  supportStats: () => request<components['schemas']['SupportStats']>('/admin/support/stats', adminRequest()),
   supportAction: (id: string, body: components['schemas']['SupportAction']) => request<components['schemas']['SupportTicket']>(`/admin/support/${encodeURIComponent(id)}/actions`, adminRequest({ method: 'POST', body: JSON.stringify(body) })),
   knowledgeCategories: () => request<KnowledgeCategory[]>('/admin/knowledge/categories', adminRequest({ cache: 'no-store' })),
   knowledgeArticles: (filters: { clinicId?: string; categoryId?: string; status?: string; reviewStatus?: string; q?: string; page: number }) => requestEnvelope<{ data: KnowledgeArticle[]; meta: { total: number } }>('/admin/knowledge/articles' + query({ ...filters, pageSize: 20 }), adminRequest({ cache: 'no-store' })),

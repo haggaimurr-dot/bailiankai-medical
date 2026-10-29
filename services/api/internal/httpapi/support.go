@@ -95,6 +95,16 @@ func (a *API) registerSupportRoutes(r *gin.Engine) {
 			}
 			return ""
 		}
+		if !patient {
+			group.GET("/stats", func(c *gin.Context) {
+				stats, err := a.repo.(store.SupportRepository).SupportStats(c.Request.Context())
+				if err != nil {
+					supportFailure(c, err)
+					return
+				}
+				c.JSON(200, gin.H{"data": stats})
+			})
+		}
 		group.GET("", func(c *gin.Context) {
 			if !validQuery(c, "status", "assignment", "overdue", "page", "pageSize") {
 				return

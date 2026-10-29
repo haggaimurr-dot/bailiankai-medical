@@ -148,6 +148,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/support/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["adminSupportStats"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/followup-templates": {
         parameters: {
             query?: never;
@@ -3308,6 +3324,15 @@ export interface components {
             displayName: string;
             clinicIds: string[];
         };
+        SupportStats: {
+            totalTickets: number;
+            respondedTickets: number;
+            /** @description Mean minutes from ticket creation to first patient-visible employee message; internal notes do not count */
+            avgFirstResponseMinutes?: number | null;
+            ratedTickets: number;
+            /** @description Mean rating over rated tickets only */
+            avgRating?: number | null;
+        };
         SupportCreate: {
             clinicId: string;
             subject: string;
@@ -6225,6 +6250,82 @@ export interface operations {
                 content: {
                     "application/json": {
                         data: components["schemas"]["SupportAgent"][];
+                    };
+                };
+            };
+            /** @description 参数、权限、状态或服务错误 */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description 参数、权限、状态或服务错误 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description 参数、权限、状态或服务错误 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description 参数、权限、状态或服务错误 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description 参数、权限、状态或服务错误 */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description 参数、权限、状态或服务错误 */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    adminSupportStats: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 客服响应时长与满意度统计 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["SupportStats"];
                     };
                 };
             };

@@ -43,8 +43,46 @@ type SupportAgent struct {
 	DisplayName string   `json:"displayName"`
 	ClinicIDs   []string `json:"clinicIds"`
 }
+type SupportStats struct {
+	TotalTickets          int64    `json:"totalTickets"`
+	RespondedTickets      int64    `json:"respondedTickets"`
+	AvgFirstResponseMin   *float64 `json:"avgFirstResponseMinutes"`
+	RatedTickets          int64    `json:"ratedTickets"`
+	AvgRating             *float64 `json:"avgRating"`
+}
+
+// SupportStats 返回与工单队列同一口径的客服统计：首响取首条患者可见的
+// 客服消息（内部记录不计入首响），满意度只计已评分工单。口径共用 supportQuery，
+// 因此客服只看自己负责或未分派的工单统计，主管看全部授权院区。
+func (s *MySQL) SupportStats(ctx context.Context) (SupportStats, error) {
+	var out SupportStats
+	q := s.supportQuery(ctx, s.db.WithContext(ctx).Model(&model.SupportTicket{}), "")
+	var row struct {
+		TotalTickets        int64
+		RespondedTickets    int64
+		AvgFirstResponseMin *float64
+		RatedTickets        int64
+		AvgRating           *float64
+	}
+	err := q.Select(`COUNT(*) AS total_tickets,
+		COUNT(fr.first_at) AS responded_tickets,
+		AVG(TIMESTAMPDIFF(SECOND, support_tickets.created_at, fr.first_at) / 60.0) AS avg_first_response_min,
+		COUNT(CASE WHEN support_tickets.rating > 0 THEN 1 END) AS rated_tickets,
+		AVG(CASE WHEN support_tickets.rating > 0 THEN support_tickets.rating END) AS avg_rating`).
+		Joins(`LEFT JOIN (SELECT ticket_id, MIN(created_at) AS first_at FROM support_events
+			WHERE actor_type = 'employee' AND kind = 'message' AND internal = FALSE GROUP BY ticket_id) fr
+			ON fr.ticket_id = support_tickets.id`).Scan(&row).Error
+	if err != nil {
+		return out, err
+	}
+	out.TotalTickets, out.RespondedTickets, out.AvgFirstResponseMin, out.RatedTickets, out.AvgRating =
+		row.TotalTickets, row.RespondedTickets, row.AvgFirstResponseMin, row.RatedTickets, row.AvgRating
+	return out, nil
+}
+
 type SupportRepository interface {
 	SupportTickets(context.Context, SupportFilter) ([]model.SupportTicket, int64, error)
+	SupportStats(context.Context) (SupportStats, error)
 	SupportDetail(context.Context, string, string, int, int) (model.SupportTicket, []model.SupportEvent, int64, error)
 	CreateSupport(context.Context, string, SupportInput, time.Time) (model.SupportTicket, error)
 	ChangeSupport(context.Context, string, string, SupportInput, time.Time) (model.SupportTicket, error)
