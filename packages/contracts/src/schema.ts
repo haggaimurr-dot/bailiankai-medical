@@ -4353,6 +4353,11 @@ export interface components {
             issuer: string;
             /** @description HTTPS public credential image; empty means text only */
             imageUrl: string;
+            /**
+             * Format: date
+             * @description Credential expiry date YYYY-MM-DD; empty means no expiry
+             */
+            expiresAt?: string;
         };
         /** @description GCJ-02 coordinates verified by the clinic; omit if unknown */
         ClinicLocation: {

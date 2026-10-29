@@ -4068,6 +4068,7 @@ components:
         number: {type: string, maxLength: 120}
         issuer: {type: string, maxLength: 120}
         imageUrl: {type: string, maxLength: 2048, description: HTTPS public credential image; empty means text only}
+        expiresAt: {type: string, format: date, description: Credential expiry date YYYY-MM-DD; empty means no expiry}
     ClinicLocation:
       type: object
       additionalProperties: false

@@ -30,10 +30,23 @@ func doctorDTO(row model.Doctor) apitypes.Doctor {
 	return result
 }
 
+// credentialExpiry converts a validated YYYY-MM-DD expiry string to the
+// contract date type; empty or unparseable values stay absent.
+func credentialExpiry(value string) *openapi_types.Date {
+	if value == "" {
+		return nil
+	}
+	parsed, err := time.Parse("2006-01-02", value)
+	if err != nil || parsed.Format("2006-01-02") != value {
+		return nil
+	}
+	return &openapi_types.Date{Time: parsed}
+}
+
 func credentialDTOs(rows []model.Credential) []apitypes.Credential {
 	result := make([]apitypes.Credential, 0, len(rows))
 	for _, row := range rows {
-		result = append(result, apitypes.Credential{Name: row.Name, Number: row.Number, Issuer: row.Issuer, ImageUrl: row.ImageURL})
+		result = append(result, apitypes.Credential{Name: row.Name, Number: row.Number, Issuer: row.Issuer, ImageUrl: row.ImageURL, ExpiresAt: credentialExpiry(row.ExpiresAt)})
 	}
 	return result
 }

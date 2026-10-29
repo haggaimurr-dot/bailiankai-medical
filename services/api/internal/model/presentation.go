@@ -8,10 +8,11 @@ import (
 
 // Presentation is part of the directory draft and its published snapshot.
 type Credential struct {
-	Name     string `json:"name"`
-	Number   string `json:"number"`
-	Issuer   string `json:"issuer"`
-	ImageURL string `json:"imageUrl"`
+	Name      string `json:"name"`
+	Number    string `json:"number"`
+	Issuer    string `json:"issuer"`
+	ImageURL  string `json:"imageUrl"`
+	ExpiresAt string `json:"expiresAt,omitempty"`
 }
 
 type ClinicLocation struct {

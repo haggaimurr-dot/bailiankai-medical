@@ -3,6 +3,7 @@ package httpapi
 import (
 	"example.com/bailiankai/api/internal/model"
 	"math"
+	"time"
 )
 
 func validCredentials(rows []model.Credential) bool {
@@ -12,6 +13,12 @@ func validCredentials(rows []model.Credential) bool {
 	for _, row := range rows {
 		if !textLength(row.Name, 1, 120) || !textLength(row.Number, 0, 120) || !textLength(row.Issuer, 0, 120) || !validAvatar(row.ImageURL) {
 			return false
+		}
+		if row.ExpiresAt != "" {
+			parsed, err := time.Parse("2006-01-02", row.ExpiresAt)
+			if err != nil || parsed.Format("2006-01-02") != row.ExpiresAt {
+				return false
+			}
 		}
 	}
 	return true

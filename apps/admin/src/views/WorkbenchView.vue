@@ -2,7 +2,8 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { api, canEditSchedule, errorMessage } from '../api'
-import { auth } from '../auth'
+import { auth, canAccess } from '../auth'
+import { expiringCredentials, expiryText, type ExpiringCredential } from '../dates'
 import SchedulePatients from '../components/SchedulePatients.vue'
 import { useScheduleStore } from '../stores/schedule'
 
@@ -21,6 +22,15 @@ const submitted = ref<number | null>(null), alerts = ref<number | null>(null)
 const exportInProgress = ref<number | null>(null), exportReady = ref<number | null>(null), exportFailed = ref<number | null>(null)
 const loginAnomalies = ref<number | null>(null)
 const backlogPending = ref<number | null>(null), backlogBreached = ref(false), backlogOldest = ref<number | null>(null)
+const canDirectory = computed(() => canAccess('/doctors'))
+const qualificationList = ref<{ doctor: string; item: ExpiringCredential }[]>([])
+const qualificationDetail = computed(() => {
+  const first = qualificationList.value[0]
+  if (!first) return '30 天内无到期资质'
+  const rest = qualificationList.value.length > 1 ? ` 等 ${qualificationList.value.length} 位医生` : ''
+  return `${first.doctor}：${first.item.name} ${expiryText(first.item)}${rest}`
+})
+const qualificationLevel = computed(() => qualificationList.value.some(entry => entry.item.daysLeft < 0) ? 1 as const : qualificationList.value.length > 0 ? 2 as const : 3 as const)
 const canExportJobs = computed(() => ['manager', 'doctor', 'clinician', 'nurse'].includes(auth.employee?.role || ''))
 const exportDetail = computed(() => {
   if (exportInProgress.value === null) return '导出任务进度与完成提醒'
@@ -44,6 +54,7 @@ const cards = computed(() => [
   ...(canExportJobs.value ? [{ title: '档案导出', count: exportInProgress.value === null ? null : exportInProgress.value + (exportReady.value ?? 0) + (exportFailed.value ?? 0), detail: exportDetail.value, to: '/patients?exports=open', level: (((exportReady.value ?? 0) > 0 || (exportFailed.value ?? 0) > 0) ? 2 : 3) as 2 | 3 }] : []),
   ...(manager.value ? [{ title: '登录异常', count: loginAnomalies.value, detail: '连续输错密码的账号，查看登录日志', to: '/employees', level: 1 as const }] : []),
   ...(manager.value ? [{ title: '消息队列积压', count: backlogPending.value, detail: backlogBreached.value ? `待发送 ${backlogPending.value ?? 0} 条，最老已等 ${backlogOldest.value ?? 0} 分钟` : '待发送提醒未超阈值', to: '/messages', level: (backlogBreached.value ? 1 : 3) as 1 | 3 }] : []),
+  ...(canDirectory.value ? [{ title: '资质到期', count: qualificationList.value.length, detail: qualificationDetail.value, to: '/doctors', level: qualificationLevel.value }] : []),
 ].sort((a, b) => a.level - b.level))
 function timestamp(value: string) { return new Intl.DateTimeFormat('zh-CN', { timeZone: 'Asia/Shanghai', dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value)) }
 async function loadNotifications() {
@@ -81,7 +92,7 @@ async function load() {
   busy.value = true; errors.value = []
   const results = await Promise.allSettled([api.handoffReceipts('pending'), api.followups('submitted'), api.followups('alert'), loadNotifications(), loadApptNotifications(), ...(canExportJobs.value ? [api.recordExports(1)] : [])])
   if (request !== generation) return
-  pending.value = null; overdue.value = null; supervisor.value = null; submitted.value = null; alerts.value = null; loginAnomalies.value = null; backlogPending.value = null; backlogBreached.value = false; backlogOldest.value = null
+  pending.value = null; overdue.value = null; supervisor.value = null; submitted.value = null; alerts.value = null; loginAnomalies.value = null; backlogPending.value = null; backlogBreached.value = false; backlogOldest.value = null; qualificationList.value = []
   exportInProgress.value = null; exportReady.value = null; exportFailed.value = null
   const [handoffs, reviews, abnormal] = results
   if (handoffs.status === 'fulfilled') { pending.value = handoffs.value.meta.total; overdue.value = handoffs.value.meta.overdueTotal; supervisor.value = handoffs.value.meta.todoTotal }
@@ -97,6 +108,17 @@ async function load() {
       const bl = await api.notificationBacklog()
       backlogPending.value = bl.pendingCount; backlogBreached.value = bl.breached; backlogOldest.value = bl.oldestAgeMinutes
     } catch (cause) { errors.value.push(`消息队列积压：${errorMessage(cause)}`) }
+  }
+  if (canDirectory.value) {
+    try {
+      const doctors = await api.adminDoctors()
+      const found: { doctor: string; item: ExpiringCredential }[] = []
+      for (const doctor of doctors) {
+        const first = expiringCredentials(doctor.presentation?.credentials)[0]
+        if (first) found.push({ doctor: doctor.name, item: first })
+      }
+      qualificationList.value = found.sort((a, b) => a.item.daysLeft - b.item.daysLeft)
+    } catch (cause) { errors.value.push(`资质到期：${errorMessage(cause)}`) }
   }
   if (canExportJobs.value) {
     const exportsResult = results[5]

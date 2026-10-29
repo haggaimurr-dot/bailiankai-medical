@@ -6,6 +6,7 @@ import { api, ApiError, errorMessage, type ClinicAdmin, type DoctorAdmin, type C
 import { auth, canAccess, setAuth, type Employee } from '../auth'
 import { useScheduleStore } from '../stores/schedule'
 import CredentialEditor from '../components/CredentialEditor.vue'
+import { expiringCredentials, expiryText, type ExpiringCredential } from '../dates'
 import DirectoryPreview from '../components/DirectoryPreview.vue'
 
 type Kind = 'clinics' | 'doctors'
@@ -195,6 +196,10 @@ const reviewOpen = ref(false), reviewRow = ref<DoctorAdmin | null>(null), review
 function reviewLabel(row: DoctorAdmin) {
   return row.qualificationReview?.status === 'approved' ? '审核通过' : row.qualificationReview?.status === 'rejected' ? '已退回' : '待审核'
 }
+// 新增-P1–P2：资质到期提醒。取该医生 30 天内到期（含已过期）的首项资质。
+function expiryOf(row: DoctorAdmin): ExpiringCredential | undefined {
+  return expiringCredentials(row.presentation?.credentials)[0]
+}
 function openReview(row: DoctorAdmin) {
   reviewRow.value = JSON.parse(JSON.stringify(row)); reviewNote.value = ''; reviewStatus.value = 'approved'; reviewConfirmed.value = false; reviewError.value = ''; reviewStale.value = false; reviewOpen.value = true
 }
@@ -223,7 +228,7 @@ onMounted(load)
         <el-table-column prop="name" label="名称" min-width="150" />
         <el-table-column :label="kind === 'doctors' ? '职称 / 所属院区' : '地址 / 电话'" min-width="200"><template #default="{ row }"><div>{{ row.title || row.address }}</div><small>{{ row.clinicId ? clinicName(row.clinicId) : row.phone }}</small></template></el-table-column>
         <el-table-column label="状态" width="105"><template #default="{ row }"><el-tag :type="row.active ? 'success' : 'info'">{{ row.active ? '启用' : '停用' }}</el-tag></template></el-table-column>
-        <el-table-column v-if="kind === 'doctors'" label="资质审核" min-width="140"><template #default="{ row }"><el-tag :type="row.qualificationReview?.status === 'approved' ? 'success' : row.qualificationReview?.status === 'rejected' ? 'danger' : 'warning'">{{ reviewLabel(row) }}</el-tag><div><small>{{ row.presentation?.isDemo ? '演示资料' : row.presentation ? '正式资料' : '待补资料' }}</small></div></template></el-table-column>
+        <el-table-column v-if="kind === 'doctors'" label="资质审核" min-width="140"><template #default="{ row }"><el-tag :type="row.qualificationReview?.status === 'approved' ? 'success' : row.qualificationReview?.status === 'rejected' ? 'danger' : 'warning'">{{ reviewLabel(row) }}</el-tag><div><small>{{ row.presentation?.isDemo ? '演示资料' : row.presentation ? '正式资料' : '待补资料' }}</small></div><div v-if="expiryOf(row)"><el-tag :type="expiryOf(row)!.daysLeft < 0 ? 'danger' : 'warning'" size="small">⚠ {{ expiryOf(row)!.name }} {{ expiryText(expiryOf(row)!) }}</el-tag></div></template></el-table-column>
         <el-table-column label="上次发布 / 当前版本" min-width="160"><template #default="{ row }"><div>{{ row.publishedAt ? timestamp(row.publishedAt) : '未发布' }}</div><small>当前草稿 v{{ row.version }}</small></template></el-table-column>
         <el-table-column label="操作" min-width="340"><template #default="{ row }"><div class="row-actions"><el-button size="small" :disabled="busy || !ready" @click="edit(row)">编辑</el-button><el-button size="small" :disabled="busy || !ready" @click="toggle(row)">{{ row.active ? '停用' : '启用' }}</el-button><el-button v-if="kind === 'doctors'" size="small" :disabled="busy || !ready || !row.active || !row.presentation" @click="openReview(row)">资质审核</el-button><el-button size="small" :disabled="busy || !ready" @click="preview(row)">预览与发布</el-button><el-button size="small" :disabled="busy" @click="history(row)">历史</el-button><el-button v-if="kind === 'doctors'" size="small" :disabled="busy || !ready" @click="openAccount(row)">账号关联</el-button><el-button v-if="kind === 'doctors' && canAccess('/schedule')" size="small" :disabled="busy || !row.active || !row.publishedAt" @click="viewSchedule(row)">查看排班</el-button></div></template></el-table-column>
       </el-table>

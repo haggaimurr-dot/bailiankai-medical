@@ -1866,6 +1866,9 @@ type ConsultationTemplateCreateVisitType string
 
 // Credential defines model for Credential.
 type Credential struct {
+	// ExpiresAt Credential expiry date YYYY-MM-DD; empty means no expiry
+	ExpiresAt *openapi_types.Date `json:"expiresAt,omitempty"`
+
 	// ImageUrl HTTPS public credential image; empty means text only
 	ImageUrl string `json:"imageUrl"`
 	Issuer   string `json:"issuer"`
