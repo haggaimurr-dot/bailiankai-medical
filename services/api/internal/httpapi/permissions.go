@@ -58,6 +58,18 @@ func allowedEmployeeOperation(role, method, path string) bool {
 	if path == "/api/v1/admin/handover-batches/:batchId/nudge" {
 		return role == "manager" && method == "POST"
 	}
+	if path == "/api/v1/admin/patients/:patientId/recovery-stage-plans" {
+		return (role == "manager" || store.ClinicalRole(role)) && (method == "GET" || method == "POST")
+	}
+	if path == "/api/v1/admin/recovery-stage-plans/check" {
+		return role == "manager" && method == "POST"
+	}
+	if path == "/api/v1/admin/faqs" {
+		return (role == "manager" || role == "doctor" || role == "clinician") && (method == "GET" || method == "POST")
+	}
+	if path == "/api/v1/admin/faqs/:faqId" {
+		return (role == "manager" || role == "doctor" || role == "clinician") && (method == "PUT" || method == "DELETE")
+	}
 	if path == "/api/v1/admin/support" || path == "/api/v1/admin/support/agents" || path == "/api/v1/admin/support/stats" || path == "/api/v1/admin/support/:ticketId" || path == "/api/v1/admin/support/:ticketId/actions" || path == "/api/v1/admin/support/:ticketId/attachments/:attachmentId" {
 		return (role == "manager" || role == "customer_service") && (method == "GET" || method == "POST" && path == "/api/v1/admin/support/:ticketId/actions")
 	}

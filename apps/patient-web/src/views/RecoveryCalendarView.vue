@@ -23,6 +23,7 @@ const month = ref(beijingDate().slice(0, 7))
 const selectedDate = ref(beijingDate())
 const rangeEvents = ref<CalendarEvent[]>([])
 const allTasks = ref<FollowupTask[]>([])
+const stagePlans = ref<any[]>([])
 const pendingScope = ref<'range' | 'all'>('range')
 const seriesId = ref('')
 const baselineId = ref('')
@@ -150,7 +151,11 @@ function openEvent(event: CalendarEvent) {
   router.push({ path: '/followups', query: { appointmentId: event.appointmentId, taskId: event.taskId } })
 }
 
-onMounted(load)
+async function loadStagePlans() {
+  try { stagePlans.value = await patientApi.recoveryStagePlans(session.patient?.id) || [] }
+  catch { /* 无计划时静默 */ }
+}
+onMounted(() => { load(); loadStagePlans() })
 </script>
 
 <template>
@@ -176,6 +181,18 @@ onMounted(load)
 
     <template v-else>
       <p class="muted">当前日历范围：{{ gridStart }} 至 {{ gridEnd }}</p>
+      <button class="link-btn" @click="router.push('/recovery/trend')">查看恢复趋势图 →</button>
+      <section v-if="stagePlans.length" class="card stage-plans">
+        <h3>我的恢复阶段计划</h3>
+        <div v-for="plan in stagePlans" :key="plan.id" class="stage-plan">
+          <p class="stage-title">开始 {{ plan.startDate }} · 已推送 {{ plan.milestones.filter((m: any) => m.notified).length }}/6</p>
+          <div v-for="m in plan.milestones" :key="m.id" class="stage-row">
+            <span :class="['stage-dot', m.notified ? 'done' : 'todo']"></span>
+            <span>{{ m.stageLabel }}</span>
+            <span class="stage-status">{{ m.notified ? '小结已推送' : '待到达' }}</span>
+          </div>
+        </div>
+      </section>
       <div class="summary-strip">
         <span><strong>{{ summary.tasks }}</strong> 范围内随访任务</span>
         <span><strong>{{ summary.pending }}</strong> 范围内待填写</span>

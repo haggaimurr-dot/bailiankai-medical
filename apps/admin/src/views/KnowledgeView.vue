@@ -14,6 +14,31 @@ const form = reactive({ categoryId: '', title: '', summary: '', body: '', source
 const quizForm = ref<KnowledgeQuizQuestion[]>([])
 const stats = ref<{ total: number; uniquePatients: number; articles: { articleId: string; title: string; opens: number; uniquePatients: number }[] } | null>(null)
 const statsDays = ref(30)
+// 行 108：常见问题自助问答
+const faqs = ref<any[]>([]), faqEditing = ref<any | null>(null), faqKeyword = ref(''), faqCategory = ref('')
+const faqForm = reactive({ category: '通用', question: '', answer: '', sortOrder: 0, enabled: true })
+async function loadFaqs() {
+  await run(async () => {
+    const result: any = await api.faqs({ keyword: faqKeyword.value.trim(), category: faqCategory.value })
+    faqs.value = result.data || []
+  })
+}
+function startFaq(row?: any) {
+  faqEditing.value = row || null
+  faqForm.category = row?.category || '通用'; faqForm.question = row?.question || ''
+  faqForm.answer = row?.answer || ''; faqForm.sortOrder = row?.sortOrder || 0; faqForm.enabled = row?.enabled ?? true
+}
+async function saveFaq() {
+  await run(async () => {
+    if (faqEditing.value) await api.updateFaq(faqEditing.value.id, { ...faqForm })
+    else await api.createFaq({ ...faqForm })
+    faqEditing.value = null; await loadFaqs()
+  })
+}
+async function removeFaq(row: any) {
+  try { await ElMessageBox.confirm(`删除问题「${row.question.slice(0, 30)}」？`, '确认删除') } catch { return }
+  await run(async () => { await api.deleteFaq(row.id); await loadFaqs() })
+}
 async function loadStats() { await run(async () => { stats.value = await api.knowledgeStats({ ...(filters.clinicId ? { clinicId: filters.clinicId } : {}), days: statsDays.value }) }) }
 const categoryForm = reactive({ clinicId: '', name: '', sortOrder: 0, active: true })
 const filteredCategories = computed(() => categories.value.filter(c => !filters.clinicId || c.clinicId === filters.clinicId))
@@ -98,6 +123,10 @@ onMounted(() => void run(refresh))
    <el-button v-if="manager" type="primary" :disabled="busy || !clinics.length" @click="startCategory()">新增分类</el-button><el-table :data="categories"><el-table-column prop="name" label="分类"/><el-table-column prop="clinicId" label="院区编号"/><el-table-column prop="sortOrder" label="排序"/><el-table-column label="状态"><template #default="{row}">{{ row.active ? '启用' : '停用' }}</template></el-table-column><el-table-column label="操作"><template #default="{row}"><el-button v-if="manager" :disabled="busy" @click="startCategory(row)">编辑分类</el-button><el-button :disabled="busy" @click="showCategoryHistory(row)">历史</el-button></template></el-table-column></el-table>
    <el-card v-if="categoryEditing"><el-form label-position="top" :disabled="busy"><el-form-item label="院区"><el-select v-model="categoryForm.clinicId" :disabled="!!selectedCategory"><el-option v-for="c in clinics" :key="c.id" :label="c.name" :value="c.id"/></el-select></el-form-item><el-form-item label="分类名称"><el-input v-model="categoryForm.name" maxlength="120"/></el-form-item><el-form-item label="排序"><el-input-number v-model="categoryForm.sortOrder" :min="0" :max="1000000" :precision="0"/></el-form-item><el-form-item label="启用分类（停用后所有所属文章暂停对外展示）"><el-switch v-model="categoryForm.active"/></el-form-item><el-button type="primary" :disabled="!categoryForm.name.trim() || !categoryForm.clinicId" @click="saveCategory">保存分类</el-button><el-button @click="categoryEditing = false">取消</el-button></el-form></el-card>
    <div v-if="categoryHistory.length"><h3>分类变更历史</h3><div v-for="event in categoryHistory" :key="event.id"><p>版本 {{ event.version }} · {{ actions[event.action] }} · {{ event.actorId }} · {{ date(event.createdAt) }}</p><pre class="snapshot">{{ event.contentJson }}</pre></div></div>
+  </el-tab-pane><el-tab-pane label="常见问题" @tab-click="loadFaqs">
+   <div class="filters"><el-input v-model="faqKeyword" placeholder="搜索问题/答案关键词" clearable style="width: 260px" @keyup.enter="loadFaqs" /><el-input v-model="faqCategory" placeholder="分类筛选" clearable style="width: 140px" /><el-button :disabled="busy" @click="loadFaqs">搜索</el-button><el-button v-if="manager" type="primary" :disabled="busy" @click="startFaq()">新增问题</el-button></div>
+   <el-table :data="faqs"><el-table-column prop="category" label="分类" width="110"/><el-table-column prop="question" label="问题" min-width="220"/><el-table-column prop="sortOrder" label="排序" width="80"/><el-table-column label="状态" width="80"><template #default="{row}">{{ row.enabled ? '启用' : '停用' }}</template></el-table-column><el-table-column label="操作" width="180"><template #default="{row}"><el-button v-if="manager" :disabled="busy" @click="startFaq(row)">编辑</el-button><el-button v-if="manager" :disabled="busy" type="danger" plain @click="removeFaq(row)">删除</el-button></template></el-table-column></el-table>
+   <el-card v-if="faqEditing !== null || faqForm.question || faqForm.answer"><el-form label-position="top" :disabled="busy"><el-form-item label="分类"><el-input v-model="faqForm.category" maxlength="64" /></el-form-item><el-form-item label="问题"><el-input v-model="faqForm.question" maxlength="500" /></el-form-item><el-form-item label="答案"><el-input v-model="faqForm.answer" type="textarea" :rows="4" /></el-form-item><el-form-item label="排序"><el-input-number v-model="faqForm.sortOrder" :min="0" :precision="0" /></el-form-item><el-form-item label="启用（停用后患者端不可见）"><el-switch v-model="faqForm.enabled" /></el-form-item><el-button type="primary" :disabled="!faqForm.question.trim() || !faqForm.answer.trim()" @click="saveFaq">保存</el-button><el-button @click="faqEditing = null; faqForm.question = ''; faqForm.answer = ''">取消</el-button></el-form></el-card>
   </el-tab-pane></el-tabs>
  </section>
 </template>

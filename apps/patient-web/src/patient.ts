@@ -152,6 +152,8 @@ export const patientApi = {
   messageTemplates: async (patientId: string) => (await authenticated<components['schemas']['MessageTemplate'][]>('/me/messages/templates', {}, patientId)).data!,
   messageConsents: async (patientId: string) => (await authenticated<components['schemas']['MessageConsent'][]>('/me/messages/consents', {}, patientId)).data!,
   patientMessages: async (patientId: string, page = 1, pageSize = 20) => (await authenticated<components['schemas']['PatientMessageList']>('/me/messages', { data: { page, pageSize } }, patientId)).data!,
+  recoveryStagePlans: async (patientId?: string) => (await authenticated<any[]>('/me/recovery-stage-plans', {}, patientId)).data!,
+  faqs: async (patientId: string | undefined, keyword = '') => (await authenticated<any[]>('/me/faqs', { data: { ...(keyword ? { keyword } : {}) } }, patientId)).data!,
   patientMessageUnreadCount: async (patientId: string) => (await authenticated<{ unreadCount: number }>('/me/messages/unread-count', {}, patientId)).data!,
   markPatientMessageRead: async (id: string, patientId: string) => (await authenticated<components['schemas']['MessageSaved']>(`/me/messages/${encodeURIComponent(id)}/read`, { method: 'POST', data: {} }, patientId)).data!,
   setMessageConsent: async (data: components['schemas']['MessageConsentChange'], patientId: string) => (await authenticated<components['schemas']['MessageSaved']>('/me/messages/consents', { method: 'POST', data }, patientId)).data!,

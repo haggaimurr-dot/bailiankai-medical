@@ -39,6 +39,43 @@ function applySummaryTemplate() {
 }
 const batches = ref<any[]>([]), batchPage = ref(1), batchTotal = ref(0), batchLoading = ref(false), batchError = ref('')
 const batchDialog = ref(false), batchTaskIds = ref<string[]>([]), batchToStaffId = ref(''), batchReason = ref(''), batchSaving = ref(false)
+// 行 107：恢复阶段计划
+const stagePatientSearch = ref(''), stagePatients = ref<any[]>([]), stagePatientId = ref(''), stagePlans = ref<any[]>([]), stageLoading = ref(false), stageError = ref('')
+const stageDialog = ref(false), stageAppointmentId = ref(''), stageStartDate = ref(''), stageSaving = ref(false)
+async function searchStagePatients() {
+  stageLoading.value = true; stageError.value = ''
+  try {
+    const result: any = await api.patients(stagePatientSearch.value.trim(), 1)
+    stagePatients.value = result.data?.items || result.data || []
+  } catch (cause) { stageError.value = errorMessage(cause) }
+  finally { stageLoading.value = false }
+}
+async function loadStagePlans() {
+  if (!stagePatientId.value) return
+  stageLoading.value = true; stageError.value = ''
+  try {
+    const result: any = await api.recoveryStagePlans(stagePatientId.value)
+    stagePlans.value = result.data || []
+  } catch (cause) { stageError.value = errorMessage(cause) }
+  finally { stageLoading.value = false }
+}
+async function submitStagePlan() {
+  stageSaving.value = true; stageError.value = ''
+  try {
+    await api.createRecoveryStagePlan(stagePatientId.value, { appointmentId: stageAppointmentId.value.trim(), startDate: stageStartDate.value })
+    stageDialog.value = false; ElMessage.success('已绑定 42 天恢复阶段计划'); await loadStagePlans()
+  } catch (cause) { stageError.value = errorMessage(cause) }
+  finally { stageSaving.value = false }
+}
+async function runStageCheck() {
+  stageLoading.value = true
+  try {
+    const result: any = await api.checkRecoveryStagePlans()
+    ElMessage.success(`阶段检查完成，推送 ${result.data?.notified ?? 0} 条小结`)
+    await loadStagePlans()
+  } catch (cause) { ElMessage.error(errorMessage(cause)) }
+  finally { stageLoading.value = false }
+}
 const batchCandidateTasks = ref<FollowupTask[]>([])
 const nudgingId = ref('')
 async function loadBatches() {
@@ -441,6 +478,26 @@ onBeforeUnmount(() => { generation++; listGeneration++; receiptGeneration++; if 
       <p class="account-hint">通知已读不会代替交接确认。修改时限后，待确认交接按新时限判断；已发送的通知保留。时限适用于全部院区，保存需具备全部院区授权。</p>
     </section>
     <FollowupTools v-if="!props.handoffOnly && (mode === 'templates' || mode === 'nursing')" :mode="mode" @templates-changed="loadTemplates" />
+    <section v-if="!props.handoffOnly" class="panel">
+      <div class="panel-head"><div><h2>恢复阶段计划</h2><p>给患者绑定 42 天恢复阶段提醒（7/14/21/28/35/42 天），到达阶段节点自动生成小结并推送到患者站内信。</p></div><div><el-button v-if="auth.employee?.role === 'manager'" :disabled="stageLoading" @click="runStageCheck">立即检查阶段节点</el-button></div></div>
+      <el-alert v-if="stageError" type="error" :closable="false" :title="stageError" />
+      <div class="handoff-form"><el-input v-model="stagePatientSearch" placeholder="搜索患者姓名/手机号" style="width: 240px" @keyup.enter="searchStagePatients" /><el-button :disabled="stageLoading" @click="searchStagePatients">搜索</el-button>
+        <el-select v-if="stagePatients.length" v-model="stagePatientId" placeholder="选择患者" @change="loadStagePlans"><el-option v-for="pt in stagePatients" :key="pt.id" :label="pt.displayName || pt.name || pt.id" :value="pt.id" /></el-select>
+        <el-button v-if="stagePatientId" type="primary" :disabled="stageLoading" @click="stageDialog = true; stageAppointmentId = ''; stageStartDate = ''">绑定阶段计划</el-button></div>
+      <el-skeleton v-if="stageLoading" :rows="2" animated />
+      <div v-else-if="stagePatientId && !stagePlans.length" class="empty">该患者暂无恢复阶段计划</div>
+      <div v-for="plan in stagePlans" :key="plan.id" class="batch-card">
+        <div class="batch-head"><strong>开始日期 {{ plan.startDate }}</strong><el-tag size="small" :type="plan.status === 'active' ? 'success' : 'info'">{{ plan.status === 'active' ? '进行中' : plan.status }}</el-tag></div>
+        <div class="batch-meta">6 个阶段节点：{{ plan.milestones.filter((m: any) => m.notified).length }}/6 已推送</div>
+        <el-progress :percentage="Math.round(plan.milestones.filter((m: any) => m.notified).length * 100 / 6)" />
+        <div v-for="m in plan.milestones" :key="m.id" class="history-row">{{ m.stageLabel }} <el-tag size="small" :type="m.notified ? 'success' : 'info'">{{ m.notified ? '已推送' : '待到达' }}</el-tag><span v-if="m.summary" class="muted"> · {{ m.summary.slice(0, 60) }}…</span></div>
+      </div>
+      <el-dialog v-model="stageDialog" title="绑定 42 天恢复阶段计划" width="480px">
+        <el-input v-model="stageAppointmentId" placeholder="关联预约 ID（可选）" style="margin-bottom: 12px" />
+        <el-date-picker v-model="stageStartDate" type="date" value-format="YYYY-MM-DD" placeholder="治疗开始日期" style="width: 100%" />
+        <template #footer><el-button @click="stageDialog = false">取消</el-button><el-button type="primary" :loading="stageSaving" :disabled="!stageStartDate" @click="submitStagePlan">绑定</el-button></template>
+      </el-dialog>
+    </section>
     <div v-if="!props.handoffOnly && mode === 'queue'" class="date-filter"><span>随访到期日期（北京时间）</span><el-date-picker v-model="dates" type="daterange" value-format="YYYY-MM-DD" start-placeholder="开始日期" end-placeholder="结束日期" :disabled="saving" @change="dateFilter" /><el-button :disabled="saving || !dates" @click="dates = null; dateFilter()">清空日期</el-button></div>
     <div v-if="!props.handoffOnly && (mode === 'queue' || mode === 'treatment')" class="layout">
       <section class="panel list">

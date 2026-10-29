@@ -233,6 +233,12 @@ onUnmounted(() => { requestId += 1 })
       </div>
 
       <section class="card">
+        <h2>常见问题</h2>
+        <p class="muted">治疗前后常见疑问，关键词搜索自助解答。</p>
+        <button class="text-link" @click="router.push('/faqs')">查看常见问题 ›</button>
+      </section>
+
+      <section class="card">
         <h2>恢复日历</h2>
         <p class="muted">按日期查看随访安排、待填写反馈和医护回评。</p>
         <button class="text-link" @click="router.push('/recovery')">查看我的恢复日历 ›</button>
