@@ -324,6 +324,42 @@ async function precheckPhoto(file: File): Promise<string | null> {
   return null
 }
 
+// 新增-P2 行 99：拍摄环境光线实时提示。选图后立即分析亮度，过暗/过曝时
+// 给出非阻塞性提示（不拦上传，用户可自行决定重拍）；正常光线下不误报。
+const lightingTip = ref('')
+async function analyzeLighting(file: File): Promise<string> {
+  let bitmap: ImageBitmap
+  try {
+    bitmap = await createImageBitmap(file)
+  } catch {
+    return ''
+  }
+  try {
+    // 缩到 64x64 采样，性能足够且不受原图尺寸影响。
+    const size = 64
+    const canvas = document.createElement('canvas')
+    canvas.width = size
+    canvas.height = size
+    const ctx = canvas.getContext('2d', { willReadFrequently: true })
+    if (!ctx) return ''
+    ctx.drawImage(bitmap, 0, 0, size, size)
+    const data = ctx.getImageData(0, 0, size, size).data
+    let sum = 0
+    const n = size * size
+    for (let i = 0; i < n; i++) {
+      const r = data[i * 4], g = data[i * 4 + 1], b = data[i * 4 + 2]
+      // 相对亮度（Rec. 709）
+      sum += 0.2126 * r + 0.7152 * g + 0.0722 * b
+    }
+    const avg = sum / n
+    if (avg < 45) return '当前照片偏暗，可能是环境光线不足。建议到光线充足处重拍，以获得更准确的评估。'
+    if (avg > 210) return '当前照片过曝，可能是强光直射。建议避开强光重拍。'
+    return ''
+  } finally {
+    bitmap.close()
+  }
+}
+
 async function onFilePicked(event: Event) {
   const input = event.target as HTMLInputElement
   const file = input.files?.[0]
@@ -331,12 +367,15 @@ async function onFilePicked(event: Event) {
   const current = view.value
   if (!file || !current || !pendingAngle) return
   error.value = ''
+  lightingTip.value = ''
   const label = angles.find((a) => a.value === pendingAngle)?.label || pendingAngle
   const problem = await precheckPhoto(file)
   if (problem) {
     error.value = `${label}：${problem}`
     return
   }
+  // 光线提示：非阻塞，仅提醒用户可重拍。
+  lightingTip.value = await analyzeLighting(file)
   pendingUpload = { angle: pendingAngle, file, version: current.task.version, key: assessmentKey() }
   void upload()
 }
@@ -419,6 +458,7 @@ onUnmounted(() => {
     </div>
 
     <div v-if="error" class="error-box">{{ error }}</div>
+    <div v-if="lightingTip" class="lighting-tip" role="status">💡 {{ lightingTip }}</div>
 
     <section v-if="needsLogin" class="card">
       <p class="muted">请先登录，任务和照片归属于您的患者账号。</p>
@@ -593,4 +633,13 @@ onUnmounted(() => {
 .guide-fig figcaption small { display: block; color: var(--muted); }
 .guide-ok { color: var(--green); font-weight: 700; }
 .guide-bad { color: var(--danger); font-weight: 700; }
+.lighting-tip {
+  margin: 12px 0;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: #fff6e5;
+  color: #8a5a00;
+  font-size: 13px;
+  line-height: 1.6;
+}
 </style>
