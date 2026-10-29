@@ -62,10 +62,13 @@ func TestApiRequestMonitoring(t *testing.T) {
 	ctx := context.Background()
 	day := fixture.now
 
-	// 自清理：不受历史运行残留影响
+	// 自清理：不受历史运行残留影响；用 t.Cleanup 确保阈值恢复
 	if err := fixture.db.Exec("DELETE FROM monitoring_settings").Error; err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(func() {
+		_ = fixture.repo.SetSlowRequestThreshold(context.Background(), 2000, time.Now())
+	})
 	if err := fixture.db.Exec("DELETE FROM api_request_stats").Error; err != nil {
 		t.Fatal(err)
 	}
