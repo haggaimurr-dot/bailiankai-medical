@@ -27,6 +27,7 @@ type CasePair struct {
 type CaseContent struct {
 	Category string     `json:"category"`
 	Tags     []string   `json:"tags"`
+	Course   string     `json:"course,omitempty"`
 	Title    string     `json:"title"`
 	Summary  string     `json:"summary"`
 	Body     string     `json:"body"`
@@ -41,6 +42,7 @@ type CaseView struct {
 type CaseChange struct {
 	Category      string     `json:"category"`
 	Tags          []string   `json:"tags"`
+	Course        string     `json:"course"`
 	AppointmentID string     `json:"appointmentId"`
 	Version       int        `json:"version"`
 	Title         string     `json:"title"`
@@ -61,8 +63,8 @@ func (in *CaseChange) UnmarshalJSON(data []byte) error {
 }
 
 type CaseFilter struct {
-	ClinicID, Status, Category, Tag string
-	Page, PageSize                  int
+	ClinicID, Status, Category, Tag, Course string
+	Page, PageSize                          int
 }
 type CaseRepository interface {
 	Cases(context.Context, string, string, CaseFilter) ([]CaseView, int64, error)
@@ -118,6 +120,9 @@ func (s *MySQL) Cases(ctx context.Context, audience, patient string, f CaseFilte
 	if f.Tag != "" {
 		tag, _ := json.Marshal(f.Tag)
 		q = q.Where("JSON_CONTAINS(JSON_EXTRACT(content_json, '$.tags'), ?)", string(tag))
+	}
+	if f.Course != "" {
+		q = q.Where("JSON_UNQUOTE(JSON_EXTRACT(content_json, '$.course')) = ?", f.Course)
 	}
 	if f.Status == "published" {
 		q = q.Where("published_at IS NOT NULL")
@@ -224,7 +229,7 @@ func (s *MySQL) ChangeCase(ctx context.Context, id, action, patient string, in C
 			if consent.Action != "granted" || consent.Version != "photo-care-v2" {
 				return ErrPhotoConsent
 			}
-			content := CaseContent{Category: in.Category, Tags: in.Tags, Title: in.Title, Summary: in.Summary, Body: in.Body, Pairs: []CasePair{}}
+			content := CaseContent{Category: in.Category, Tags: in.Tags, Course: in.Course, Title: in.Title, Summary: in.Summary, Body: in.Body, Pairs: []CasePair{}}
 			seen := map[string]bool{}
 			for _, pair := range in.Pairs {
 				var before model.CarePhoto
@@ -374,7 +379,8 @@ func (s *MySQL) CaseImage(ctx context.Context, caseID, imageID, audience, patien
 // Metadata is part of the authorized snapshot, including subsequent edits.
 func NormalizeCaseMetadata(in *CaseChange) bool {
 	in.Category = strings.TrimSpace(in.Category)
-	if utf8.RuneCountInString(in.Category) > 40 || len(in.Tags) > 10 {
+	in.Course = strings.TrimSpace(in.Course)
+	if utf8.RuneCountInString(in.Category) > 40 || len(in.Tags) > 10 || utf8.RuneCountInString(in.Course) > 20 {
 		return false
 	}
 	tags := []string{}

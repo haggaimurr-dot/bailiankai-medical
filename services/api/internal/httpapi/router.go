@@ -282,7 +282,7 @@ func validQuery(c *gin.Context, keys ...string) bool {
 			fail(c, http.StatusBadRequest, "INVALID_QUERY", "查询参数无效")
 			return false
 		}
-		if key != "date" && key != "after" && key != "limit" && key != "q" && key != "category" && key != "tag" && !validID(values[0]) {
+		if key != "date" && key != "after" && key != "limit" && key != "q" && key != "category" && key != "tag" && key != "course" && !validID(values[0]) {
 			fail(c, http.StatusBadRequest, "INVALID_QUERY", "查询标识格式无效")
 			return false
 		}

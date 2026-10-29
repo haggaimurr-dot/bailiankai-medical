@@ -7,6 +7,7 @@ export type Clinic = components['schemas']['Clinic']
 export type Doctor = components['schemas']['Doctor']
 export type Slot = components['schemas']['Slot']
 export type KnowledgeArticle = components['schemas']['KnowledgePublicArticle']
+export type KnowledgeQuizQuestion = components['schemas']['KnowledgeQuizQuestion']
 export type KnowledgeCategory = components['schemas']['KnowledgeCategory']
 export type PageMeta = components['schemas']['PageMeta']
 

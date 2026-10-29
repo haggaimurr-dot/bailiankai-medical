@@ -90,6 +90,15 @@ func TestCaseMetadataValidationAndFilters(t *testing.T) {
 	if w.Code != 400 {
 		t.Fatal(w.Code, w.Body)
 	}
+	// Row 92: course filter accepts Chinese + spaces (not just validID chars).
+	w = serve(New(repo, ""), "GET", "/api/v1/cases?course="+url.QueryEscape("第 2 疗程"), "", "", "")
+	if w.Code != 200 || repo.filter.Course != "第 2 疗程" {
+		t.Fatal("course filter rejected:", w.Code, w.Body, repo.filter)
+	}
+	w = serve(New(repo, ""), "GET", "/api/v1/cases?course="+url.QueryEscape(strings.Repeat("字", 21)), "", "", "")
+	if w.Code != 400 {
+		t.Fatal("overlong course accepted:", w.Code)
+	}
 }
 
 func TestCandidateAppointmentQuery(t *testing.T) {

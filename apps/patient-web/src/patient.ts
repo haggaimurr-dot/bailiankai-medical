@@ -139,7 +139,7 @@ export const patientApi = {
   timeline: (page: number, patientId: string) => authenticated<TimelineEvent[]>('/me/records', { data: { page, pageSize: 20 } }, patientId),
   advice: async (kind: string, id: string, patientId: string) => (await authenticated<TimelineEvent>(`/me/records/${encodeURIComponent(kind)}/${encodeURIComponent(id)}/read`, {}, patientId)).data!,
   confirmAdviceRead: async (kind: string, id: string, adviceVersion: string, patientId: string) => (await authenticated<components['schemas']['AdviceReceipt']>(`/me/records/${encodeURIComponent(kind)}/${encodeURIComponent(id)}/read`, { method: 'POST', data: { adviceVersion } }, patientId)).data!,
-  cases: (page: number, patientId: string, filters: { category?: string; tag?: string } = {}) => authenticated<components['schemas']['CaseView'][]>('/me/cases', { data: { page, pageSize: 20, ...filters } }, patientId),
+  cases: (page: number, patientId: string, filters: { category?: string; tag?: string; course?: string } = {}) => authenticated<components['schemas']['CaseView'][]>('/me/cases', { data: { page, pageSize: 20, ...filters } }, patientId),
   caseDetail: async (id: string, patientId: string) => (await authenticated<components['schemas']['CaseView']>(`/me/cases/${encodeURIComponent(id)}`, {}, patientId)).data!,
   caseConsent: async (id: string, body: components['schemas']['CaseConsent'], patientId: string) => (await authenticated<components['schemas']['CaseView']>(`/me/cases/${encodeURIComponent(id)}/consent`, { method: 'POST', data: body }, patientId)).data!,
   casePhotoFile: (id: string, imageId: string, patientId: string) => downloadAuthenticated(`/me/cases/${encodeURIComponent(id)}/images/${encodeURIComponent(imageId)}/content`, patientId),

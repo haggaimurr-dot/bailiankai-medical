@@ -1586,6 +1586,9 @@ type CaseContent struct {
 	Summary  string     `json:"summary"`
 	Tags     []string   `json:"tags"`
 	Title    string     `json:"title"`
+
+	// Course 疗程，如：第 2 疗程；空字符串表示未标注
+	Course *string `json:"course,omitempty"`
 }
 
 // CaseCreate defines model for CaseCreate.
@@ -1599,6 +1602,9 @@ type CaseCreate struct {
 	Summary  string           `json:"summary"`
 	Tags     *[]string        `json:"tags,omitempty"`
 	Title    string           `json:"title"`
+
+	// Course 疗程，如：第 2 疗程
+	Course *string `json:"course,omitempty"`
 }
 
 // CaseEvent defines model for CaseEvent.
@@ -1655,6 +1661,9 @@ type CaseUpdate struct {
 	Tags     *[]string        `json:"tags,omitempty"`
 	Title    string           `json:"title"`
 	Version  int              `json:"version"`
+
+	// Course 疗程，如：第 2 疗程
+	Course *string `json:"course,omitempty"`
 }
 
 // CaseVersion defines model for CaseVersion.
@@ -2681,7 +2690,13 @@ type KnowledgeArticle struct {
 	SourceText *string `json:"sourceText,omitempty"`
 	Summary    string  `json:"summary"`
 	Title      string  `json:"title"`
-	Version    int     `json:"version"`
+
+	// VideoUrl 短视频科普地址（HTTPS）
+	VideoUrl *string `json:"videoUrl,omitempty"`
+
+	// Quiz 看完测一测自测题
+	Quiz    *[]KnowledgeQuizQuestion `json:"quiz,omitempty"`
+	Version int                      `json:"version"`
 }
 
 // KnowledgeArticleReviewStatus defines model for KnowledgeArticle.ReviewStatus.
@@ -2712,6 +2727,40 @@ type KnowledgeEvent struct {
 // KnowledgeEventKind defines model for KnowledgeEvent.Kind.
 type KnowledgeEventKind string
 
+// KnowledgeOpenArticleStat defines model for KnowledgeOpenArticleStat.
+type KnowledgeOpenArticleStat struct {
+	ArticleId string `json:"articleId"`
+	Title     string `json:"title"`
+
+	// Opens 打开次数
+	Opens int `json:"opens"`
+
+	// UniquePatients 去重患者数（未登录打开不计入）
+	UniquePatients int `json:"uniquePatients"`
+}
+
+// KnowledgeOpenStats defines model for KnowledgeOpenStats.
+type KnowledgeOpenStats struct {
+	Articles []KnowledgeOpenArticleStat `json:"articles"`
+	Total    int                        `json:"total"`
+
+	// UniquePatients 只统计已发布快照的打开；草稿不计
+	UniquePatients int `json:"uniquePatients"`
+}
+
+// KnowledgeQuizQuestion defines model for KnowledgeQuizQuestion.
+type KnowledgeQuizQuestion struct {
+	// AnswerIndex 正确答案在 options 中的下标
+	AnswerIndex int `json:"answerIndex"`
+
+	// Explanation 每题解析
+	Explanation *string  `json:"explanation,omitempty"`
+	Options     []string `json:"options"`
+
+	// Question 科普自测题；只做科普互动，不作诊断结论
+	Question string `json:"question"`
+}
+
 // KnowledgePublicArticle defines model for KnowledgePublicArticle.
 type KnowledgePublicArticle struct {
 	// Body 仅详情返回；纯文本，客户端须转义显示
@@ -2727,6 +2776,12 @@ type KnowledgePublicArticle struct {
 	SourceText *string `json:"sourceText,omitempty"`
 	Summary    string  `json:"summary"`
 	Title      string  `json:"title"`
+
+	// VideoUrl 短视频科普地址（HTTPS）；公开接口仅详情返回
+	VideoUrl *string `json:"videoUrl,omitempty"`
+
+	// Quiz 看完测一测自测题；公开接口仅详情返回
+	Quiz *[]KnowledgeQuizQuestion `json:"quiz,omitempty"`
 }
 
 // MessageConsent defines model for MessageConsent.

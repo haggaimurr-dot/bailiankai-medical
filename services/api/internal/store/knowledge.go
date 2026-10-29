@@ -18,19 +18,47 @@ type KnowledgeFilter struct {
 	ReviewStatus                                                      string
 }
 type KnowledgeChange struct {
-	ClinicID   string `json:"clinicId"`
-	CategoryID string `json:"categoryId"`
-	Name       string `json:"name"`
-	Title      string `json:"title"`
-	Summary    string `json:"summary"`
-	Body       string `json:"body"`
-	SourceText string `json:"sourceText"`
-	SortOrder  int    `json:"sortOrder"`
-	Active     bool   `json:"active"`
-	Version    int    `json:"version"`
-	Decision   string `json:"decision"`
-	Note       string `json:"note"`
+	ClinicID   string                        `json:"clinicId"`
+	CategoryID string                        `json:"categoryId"`
+	Name       string                        `json:"name"`
+	Title      string                        `json:"title"`
+	Summary    string                        `json:"summary"`
+	Body       string                        `json:"body"`
+	SourceText string                        `json:"sourceText"`
+	VideoURL   string                        `json:"videoUrl"`
+	Quiz       []model.KnowledgeQuizQuestion `json:"quiz"`
+	SortOrder  int                           `json:"sortOrder"`
+	Active     bool                          `json:"active"`
+	Version    int                           `json:"version"`
+	Decision   string                        `json:"decision"`
+	Note       string                        `json:"note"`
 }
+
+// encodeKnowledgeQuiz marshals the quiz for the quiz_json column; nil means
+// "no quiz attached".
+func encodeKnowledgeQuiz(quiz []model.KnowledgeQuizQuestion) (*string, error) {
+	if quiz == nil {
+		return nil, nil
+	}
+	raw, err := json.Marshal(quiz)
+	if err != nil {
+		return nil, err
+	}
+	encoded := string(raw)
+	return &encoded, nil
+}
+
+func decodeKnowledgeQuiz(raw *string) ([]model.KnowledgeQuizQuestion, error) {
+	if raw == nil || *raw == "" {
+		return nil, nil
+	}
+	var quiz []model.KnowledgeQuizQuestion
+	if err := json.Unmarshal([]byte(*raw), &quiz); err != nil {
+		return nil, err
+	}
+	return quiz, nil
+}
+
 type KnowledgeRepository interface {
 	KnowledgeCategories(context.Context, KnowledgeFilter) ([]model.KnowledgeCategory, error)
 	KnowledgeArticles(context.Context, KnowledgeFilter) (any, int64, error)
@@ -111,6 +139,7 @@ func (s *MySQL) KnowledgeArticles(ctx context.Context, f KnowledgeFilter) (any, 
 		}
 		item.Body = ""
 		item.SourceText = ""
+		item.Quiz = nil // 自测题仅详情接口返回，列表不透出答案
 		item.SortOrder = row.SortOrder
 		result = append(result, item)
 	}
@@ -191,7 +220,11 @@ func (s *MySQL) ChangeKnowledge(ctx context.Context, kind, id, action string, in
 		}
 		var row model.KnowledgeArticle
 		if action == "create" {
-			row = model.KnowledgeArticle{ID: randomID("knowledge-article-"), CategoryID: categoryID, Title: in.Title, Summary: in.Summary, Body: in.Body, SourceText: in.SourceText, SortOrder: in.SortOrder, Version: 1, ReviewStatus: "pending"}
+			quizJSON, err := encodeKnowledgeQuiz(in.Quiz)
+			if err != nil {
+				return err
+			}
+			row = model.KnowledgeArticle{ID: randomID("knowledge-article-"), CategoryID: categoryID, Title: in.Title, Summary: in.Summary, Body: in.Body, SourceText: in.SourceText, VideoURL: in.VideoURL, QuizJSON: quizJSON, SortOrder: in.SortOrder, Version: 1, ReviewStatus: "pending"}
 			if err := tx.Create(&row).Error; err != nil {
 				return err
 			}
@@ -206,6 +239,12 @@ func (s *MySQL) ChangeKnowledge(ctx context.Context, kind, id, action string, in
 			case "update":
 				row.Title, row.Summary, row.Body = in.Title, in.Summary, in.Body
 				row.SourceText = in.SourceText
+				row.VideoURL = in.VideoURL
+				quizJSON, err := encodeKnowledgeQuiz(in.Quiz)
+				if err != nil {
+					return err
+				}
+				row.QuizJSON = quizJSON
 				// Resubmission resets the status to pending, but keeps the last
 				// review's note, reviewer and time: the author revises against
 				// the rejection opinion, and the next reviewer still sees what
@@ -233,7 +272,11 @@ func (s *MySQL) ChangeKnowledge(ctx context.Context, kind, id, action string, in
 				if err := tx.First(&clinic, "id = ? AND active = ? AND published_json IS NOT NULL", category.ClinicID, true).Error; err != nil {
 					return ErrCareState
 				}
-				snapshot, err := json.Marshal(model.KnowledgePublicArticle{ID: row.ID, CategoryID: row.CategoryID, Title: row.Title, Summary: row.Summary, Body: row.Body, SourceText: row.SourceText, SortOrder: row.SortOrder, ReviewerName: row.ReviewerName, ReviewedAt: *row.ReviewedAt, PublishedAt: now})
+				quiz, err := decodeKnowledgeQuiz(row.QuizJSON)
+				if err != nil {
+					return err
+				}
+				snapshot, err := json.Marshal(model.KnowledgePublicArticle{ID: row.ID, CategoryID: row.CategoryID, Title: row.Title, Summary: row.Summary, Body: row.Body, SourceText: row.SourceText, VideoURL: row.VideoURL, Quiz: quiz, SortOrder: row.SortOrder, ReviewerName: row.ReviewerName, ReviewedAt: *row.ReviewedAt, PublishedAt: now})
 				if err != nil {
 					return err
 				}

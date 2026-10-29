@@ -5,17 +5,17 @@ import { patientApi, confirmDialog } from '../../services/patient';
 
 type Case = components['schemas']['CaseView'];
 interface ImagePair { beforeImageId: string; afterImageId: string; beforePath: string; afterPath: string; angle: string; beforeAt: string; afterAt: string; position: number; }
-interface Data { category: string; tag: string; activeCategory: string; activeTag: string; mine: boolean; loading: boolean; busy: boolean; error: string; rows: Case[]; selected: Case | null; pairs: ImagePair[]; page: number; total: number; imagesReady: boolean; }
+interface Data { category: string; tag: string; course: string; activeCategory: string; activeTag: string; activeCourse: string; mine: boolean; loading: boolean; busy: boolean; error: string; rows: Case[]; selected: Case | null; pairs: ImagePair[]; page: number; total: number; imagesReady: boolean; }
 interface Methods {
  generation: number; visible: boolean; patientId: string; timer?: ReturnType<typeof setTimeout>; files: string[]; loadedImages: string[];
  filterInput(e: WechatMiniprogram.Input): void; search(): Promise<void>; compare(e: WechatMiniprogram.SliderChange): void; load(): Promise<void>; more(): Promise<void>; select(e: WechatMiniprogram.TouchEvent): Promise<void>;
  detail(id: string): Promise<void>; close(): void; consent(e: WechatMiniprogram.TouchEvent): Promise<void>;
  imageFailed(): void; imageLoaded(e: WechatMiniprogram.TouchEvent): void; release(): void; download(id: string, imageId: string): Promise<string>;
 }
-function caseFilters(category: string, tag: string) { return { ...(category ? { category } : {}), ...(tag ? { tag } : {}) }; }
+function caseFilters(category: string, tag: string, course: string) { return { ...(category ? { category } : {}), ...(tag ? { tag } : {}), ...(course ? { course } : {}) }; }
 function removeFile(path: string) { wx.getFileSystemManager().unlink({ filePath: path, fail: () => {} }); }
 Page<Data, Methods>({
- data: { category: '', tag: '', activeCategory: '', activeTag: '', mine: false, loading: true, busy: false, error: '', rows: [], selected: null, pairs: [], page: 1, total: 0, imagesReady: false },
+ data: { category: '', tag: '', course: '', activeCategory: '', activeTag: '', activeCourse: '', mine: false, loading: true, busy: false, error: '', rows: [], selected: null, pairs: [], page: 1, total: 0, imagesReady: false },
  generation: 0, visible: false, patientId: '', files: [], loadedImages: [],
  onLoad(options) { this.setData({ mine: options.mine === '1' }); wx.setNavigationBarTitle({ title: this.data.mine ? '我的案例展示授权' : '案例库' }); },
  onShow() { this.visible = true; void this.load(); },
@@ -23,14 +23,14 @@ Page<Data, Methods>({
  onUnload() { this.visible = false; this.release(); },
  onPullDownRefresh() { void this.load().finally(() => wx.stopPullDownRefresh()); },
  release() { this.generation++; if (this.timer) clearTimeout(this.timer); this.files.forEach(removeFile); this.files = []; this.loadedImages = []; this.setData({ pairs: [], imagesReady: false }); },
- filterInput(e) { const field = e.currentTarget.dataset.field; if (field === 'category') this.setData({ category: e.detail.value }); if (field === 'tag') this.setData({ tag: e.detail.value }); },
- async search() { if (!this.data.busy) { this.setData({ activeCategory: this.data.category.trim(), activeTag: this.data.tag.trim() }); await this.load(); } },
+ filterInput(e) { const field = e.currentTarget.dataset.field; if (field === 'category') this.setData({ category: e.detail.value }); if (field === 'tag') this.setData({ tag: e.detail.value }); if (field === 'course') this.setData({ course: e.detail.value }); },
+ async search() { if (!this.data.busy) { this.setData({ activeCategory: this.data.category.trim(), activeTag: this.data.tag.trim(), activeCourse: this.data.course.trim() }); await this.load(); } },
  compare(e) { const index = Number(e.currentTarget.dataset.index); if (!this.data.imagesReady || !Number.isInteger(index) || !this.data.pairs[index]) return; const pairs = this.data.pairs.map((pair, i) => i === index ? { ...pair, position: Math.max(0, Math.min(100, Number(e.detail.value))) } : pair); this.setData({ pairs }); },
  async load() {
   this.release(); const generation = this.generation; this.setData({ loading: true, selected: null, rows: [], error: '', page: 1 });
   try {
    if (this.data.mine) this.patientId = (await patientApi.me()).id;
-   const result = this.data.mine ? await patientApi.cases(1, this.patientId, { ...caseFilters(this.data.activeCategory, this.data.activeTag) }) : await requestEnvelope<Case[]>('/cases', { data: { page: 1, pageSize: 20, ...caseFilters(this.data.activeCategory, this.data.activeTag) } });
+   const result = this.data.mine ? await patientApi.cases(1, this.patientId, { ...caseFilters(this.data.activeCategory, this.data.activeTag, this.data.activeCourse) }) : await requestEnvelope<Case[]>('/cases', { data: { page: 1, pageSize: 20, ...caseFilters(this.data.activeCategory, this.data.activeTag, this.data.activeCourse) } });
    if (generation === this.generation && this.visible) this.setData({ rows: result.data || [], total: result.meta?.total || 0 });
    if (generation === this.generation && this.visible && !this.data.mine) this.timer = setTimeout(() => void this.load(), 10000);
   } catch(e) { if (generation === this.generation) this.setData({ error: errorMessage(e) }); }
@@ -39,7 +39,7 @@ Page<Data, Methods>({
  async more() {
   if (this.data.loading || this.data.rows.length >= this.data.total) return;
   const generation = this.generation, page = this.data.page + 1; this.setData({ loading: true });
-  try { const result = this.data.mine ? await patientApi.cases(page, this.patientId, { ...caseFilters(this.data.activeCategory, this.data.activeTag) }) : await requestEnvelope<Case[]>('/cases', { data: { page, pageSize: 20, ...caseFilters(this.data.activeCategory, this.data.activeTag) } }); if (generation === this.generation) this.setData({ rows: [...this.data.rows, ...(result.data || [])], total: result.meta?.total || 0, page }); }
+  try { const result = this.data.mine ? await patientApi.cases(page, this.patientId, { ...caseFilters(this.data.activeCategory, this.data.activeTag, this.data.activeCourse) }) : await requestEnvelope<Case[]>('/cases', { data: { page, pageSize: 20, ...caseFilters(this.data.activeCategory, this.data.activeTag, this.data.activeCourse) } }); if (generation === this.generation) this.setData({ rows: [...this.data.rows, ...(result.data || [])], total: result.meta?.total || 0, page }); }
   catch(e) { if (generation === this.generation) this.setData({ error: errorMessage(e) }); }
   finally { if (generation === this.generation) this.setData({ loading: false }); }
  },

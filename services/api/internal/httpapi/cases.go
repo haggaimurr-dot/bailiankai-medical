@@ -83,16 +83,16 @@ func caseFailure(c *gin.Context, err error) {
 }
 func (a *API) caseList(audience string) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		keys := []string{"page", "pageSize", "clinicId", "category", "tag"}
+		keys := []string{"page", "pageSize", "clinicId", "category", "tag", "course"}
 		if audience == "admin" {
 			keys = append(keys, "status")
 		}
 		if !validQuery(c, keys...) {
 			return
 		}
-		f := store.CaseFilter{Page: 1, PageSize: 20, ClinicID: c.Query("clinicId"), Status: c.Query("status"), Category: strings.TrimSpace(c.Query("category")), Tag: strings.TrimSpace(c.Query("tag"))}
-		if !textLength(f.Category, 0, 40) || !textLength(f.Tag, 0, 30) {
-			fail(c, 400, "INVALID_QUERY", "分类或标签过长")
+		f := store.CaseFilter{Page: 1, PageSize: 20, ClinicID: c.Query("clinicId"), Status: c.Query("status"), Category: strings.TrimSpace(c.Query("category")), Tag: strings.TrimSpace(c.Query("tag")), Course: strings.TrimSpace(c.Query("course"))}
+		if !textLength(f.Category, 0, 40) || !textLength(f.Tag, 0, 30) || !textLength(f.Course, 0, 20) {
+			fail(c, 400, "INVALID_QUERY", "分类、标签或疗程过长")
 			return
 		}
 		if f.Status != "" && f.Status != "published" && f.Status != "unpublished" {
@@ -148,7 +148,7 @@ func (a *API) caseChange(action string) gin.HandlerFunc {
 		}
 		var optional []string
 		if action == "create" || action == "update" {
-			optional = []string{"category", "tags"}
+			optional = []string{"category", "tags", "course"}
 		}
 		var in store.CaseChange
 		if !decodeObjectLimit(c, &in, required, optional, 262144) {

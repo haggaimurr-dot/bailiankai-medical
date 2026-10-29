@@ -23,7 +23,9 @@ const page = ref(0)
 const total = ref(0)
 const categoryInput = ref('')
 const tagInput = ref('')
-const appliedFilters = ref<{ category?: string; tag?: string }>({})
+const courseInput = ref('')
+const COURSE_OPTIONS = ['第 1 疗程', '第 2 疗程', '第 3 疗程', '第 4 疗程', '第 5 疗程', '5 疗程以上']
+const appliedFilters = ref<{ category?: string; tag?: string; course?: string }>({})
 
 const detail = ref<CaseView | null>(null)
 const detailLoading = ref(false)
@@ -87,9 +89,17 @@ function applyFilters() {
   appliedFilters.value = {
     ...(categoryInput.value.trim() ? { category: categoryInput.value.trim() } : {}),
     ...(tagInput.value.trim() ? { tag: tagInput.value.trim() } : {}),
+    ...(courseInput.value ? { course: courseInput.value } : {}),
   }
   page.value = 0
   void load()
+}
+
+// 授权前展示效果预览：按公开案例库的呈现方式渲染本版本内容，图片仍走本人
+// 已下载的鉴权链接，不离开本人账号、不产生公开链接。
+const previewing = ref(false)
+function openPreview() {
+  previewing.value = true
 }
 
 function clearDetailImages() {
@@ -147,6 +157,7 @@ async function openDetail(item: CaseView) {
 
 function closeDetail() {
   detail.value = null
+  previewing.value = false
   clearDetailImages()
 }
 
@@ -204,8 +215,13 @@ onBeforeUnmount(clearDetailImages)
       <section class="card">
         <label class="field-label" for="case-category">分类</label>
         <input id="case-category" v-model="categoryInput" class="field" maxlength="40" placeholder="按分类筛选" @keyup.enter="applyFilters" />
-        <label class="field-label" for="case-tag">标签</label>
-        <input id="case-tag" v-model="tagInput" class="field" maxlength="30" placeholder="按标签筛选" @keyup.enter="applyFilters" />
+        <label class="field-label" for="case-tag">问题类型</label>
+        <input id="case-tag" v-model="tagInput" class="field" maxlength="30" placeholder="如：痘坑、痘印" @keyup.enter="applyFilters" />
+        <label class="field-label" for="case-course">疗程</label>
+        <select id="case-course" v-model="courseInput" class="field">
+          <option value="">全部疗程</option>
+          <option v-for="c in COURSE_OPTIONS" :key="c" :value="c">{{ c }}</option>
+        </select>
         <button class="primary" style="margin-top: 12px" @click="applyFilters">筛选案例</button>
       </section>
 
@@ -216,7 +232,7 @@ onBeforeUnmount(clearDetailImages)
         <van-empty v-if="!cases.length" description="暂未整理您的案例" />
         <section v-for="item in cases" :key="item.id" class="card case-card" @click="openDetail(item)">
           <strong>{{ item.content.title }}</strong>
-          <p class="muted">分类：{{ item.content.category || '未分类' }}</p>
+          <p class="muted">分类：{{ item.content.category || '未分类' }}<template v-if="item.content.course"> · {{ item.content.course }}</template></p>
           <div class="tag-row">
             <span v-for="tag in item.content.tags" :key="tag" class="chip">{{ tag }}</span>
           </div>
@@ -233,7 +249,7 @@ onBeforeUnmount(clearDetailImages)
       <div v-if="detailLoading" class="card"><van-loading size="24px">正在加载案例详情…</van-loading></div>
       <section class="card">
         <strong class="detail-title">{{ detail.content.title }}</strong>
-        <p class="muted">分类：{{ detail.content.category || '未分类' }}</p>
+        <p class="muted">分类：{{ detail.content.category || '未分类' }}<template v-if="detail.content.course"> · {{ detail.content.course }}</template></p>
         <div class="tag-row">
           <span v-for="tag in detail.content.tags" :key="tag" class="chip">{{ tag }}</span>
         </div>
@@ -274,6 +290,36 @@ onBeforeUnmount(clearDetailImages)
 
       <p class="muted">审核医生：{{ detail.reviewerName || '待审核' }} · {{ detail.publishedAt ? '已发布' : '未发布' }}</p>
 
+      <button class="ghost" @click="openPreview">预览上架效果</button>
+
+      <section v-if="previewing" class="card preview-card">
+        <h2>上架效果预览</h2>
+        <p class="muted preview-note">以下为他人在案例库中将看到的效果。预览仅显示在您本机，未授权前不会公开；图片不离开本人账号。</p>
+        <article class="preview-body">
+          <strong class="detail-title">{{ detail.content.title }}</strong>
+          <p class="muted">分类：{{ detail.content.category || '未分类' }}<template v-if="detail.content.course"> · {{ detail.content.course }}</template></p>
+          <div class="tag-row">
+            <span v-for="tag in detail.content.tags" :key="tag" class="chip">{{ tag }}</span>
+          </div>
+          <p v-if="detail.content.summary" class="preline">{{ detail.content.summary }}</p>
+          <p v-if="detail.content.body" class="preline">{{ detail.content.body }}</p>
+          <div v-for="(pair, index) in detail.content.pairs" :key="index" class="pair-grid">
+            <figure>
+              <img v-if="imageUrls[pair.beforeImageId]" :src="imageUrls[pair.beforeImageId]" :alt="`治疗前 ${ANGLE_LABELS[pair.angle] || pair.angle}`" />
+              <div v-else class="img-missing">治疗前图片未加载</div>
+              <figcaption class="muted">治疗前 · {{ ANGLE_LABELS[pair.angle] || pair.angle }}</figcaption>
+            </figure>
+            <figure>
+              <img v-if="imageUrls[pair.afterImageId]" :src="imageUrls[pair.afterImageId]" :alt="`治疗后 ${ANGLE_LABELS[pair.angle] || pair.angle}`" />
+              <div v-else class="img-missing">治疗后图片未加载</div>
+              <figcaption class="muted">治疗后 · {{ ANGLE_LABELS[pair.angle] || pair.angle }}</figcaption>
+            </figure>
+          </div>
+          <p class="muted">审核医生：{{ detail.reviewerName || '—' }}</p>
+        </article>
+        <button class="ghost" @click="previewing = false">关闭预览</button>
+      </section>
+
       <section class="card">
         <h2>案例展示独立授权</h2>
         <p class="preline muted">{{ detail.policyContent }}</p>
@@ -309,4 +355,7 @@ onBeforeUnmount(clearDetailImages)
 .compare .divider { position: absolute; top: 0; bottom: 0; width: 2px; background: #fff; box-shadow: 0 0 4px rgba(0, 0, 0, 0.5); transform: translateX(-1px); }
 .compare-range { width: 100%; margin-top: 8px; }
 .danger-text { color: var(--danger); }
+.preview-card { border: 2px dashed var(--brand); }
+.preview-note { font-size: 12px; }
+.preview-body { margin: 8px 0; }
 </style>

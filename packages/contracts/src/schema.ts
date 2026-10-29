@@ -3535,6 +3535,8 @@ export interface components {
             /** @description 案例分类，空字符串表示未分类 */
             category: string;
             tags: string[];
+            /** @description 疗程，如：第 2 疗程；空字符串表示未标注 */
+            course?: string;
         };
         CaseView: {
             id: string;
@@ -3566,6 +3568,8 @@ export interface components {
             /** @description 案例分类，空字符串表示未分类 */
             category?: string;
             tags?: string[];
+            /** @description 疗程，如：第 2 疗程 */
+            course?: string;
         };
         CaseUpdate: {
             version: number;
@@ -3576,6 +3580,8 @@ export interface components {
             /** @description 案例分类，空字符串表示未分类 */
             category?: string;
             tags?: string[];
+            /** @description 疗程，如：第 2 疗程 */
+            course?: string;
         };
         CaseReview: {
             version: number;
@@ -5275,6 +5281,15 @@ export interface components {
             active: boolean;
             version: number;
         };
+        KnowledgeQuizQuestion: {
+            /** @description 科普自测题；只做科普互动，不作诊断结论 */
+            question: string;
+            options: string[];
+            /** @description 正确答案在 options 中的下标 */
+            answerIndex: number;
+            /** @description 每题解析 */
+            explanation?: string;
+        };
         KnowledgePublicArticle: {
             id: string;
             categoryId: string;
@@ -5284,6 +5299,10 @@ export interface components {
             body?: string;
             /** @description 参考来源；公开接口仅详情返回 */
             sourceText?: string;
+            /** @description 短视频科普地址（HTTPS）；公开接口仅详情返回 */
+            videoUrl?: string;
+            /** @description 看完测一测自测题；公开接口仅详情返回 */
+            quiz?: components["schemas"]["KnowledgeQuizQuestion"][];
             sortOrder: number;
             reviewerName: string;
             /** Format: date-time */
@@ -5299,6 +5318,10 @@ export interface components {
             body: string;
             /** @description 参考来源；公开接口仅详情返回 */
             sourceText?: string;
+            /** @description 短视频科普地址（HTTPS） */
+            videoUrl?: string;
+            /** @description 看完测一测自测题 */
+            quiz?: components["schemas"]["KnowledgeQuizQuestion"][];
             sortOrder: number;
             version: number;
             /** @enum {string} */
@@ -5310,6 +5333,20 @@ export interface components {
             reviewedAt: string | null;
             /** Format: date-time */
             publishedAt: string | null;
+        };
+        KnowledgeOpenArticleStat: {
+            articleId: string;
+            title: string;
+            /** @description 打开次数 */
+            opens: number;
+            /** @description 去重患者数（未登录打开不计入） */
+            uniquePatients: number;
+        };
+        KnowledgeOpenStats: {
+            /** @description 只统计已发布快照的打开；草稿不计 */
+            total: number;
+            uniquePatients: number;
+            articles: components["schemas"]["KnowledgeOpenArticleStat"][];
         };
         KnowledgeEvent: {
             id: string;

@@ -2,7 +2,7 @@
 import { onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { showToast } from 'vant'
-import { API_BASE_URL, api, errorMessage, type KnowledgeArticle } from '../api'
+import { API_BASE_URL, api, errorMessage, type KnowledgeArticle, type KnowledgeQuizQuestion } from '../api'
 import { patientApi } from '../patient'
 import { useSessionStore } from '../stores/session'
 import { dateTime } from '../utils/appointment'
@@ -21,6 +21,27 @@ const favoriteError = ref('')
 const favoriteBusy = ref(false)
 
 // 阅读进度：窗口滚动位置 / 页面可滚动距离；内容一屏放得下时直接记 100%。
+// 自测：每题选中的选项下标；交卷后锁定并展示每题解析。
+const quizAnswers = ref<Record<number, number>>({})
+const quizSubmitted = ref(false)
+function quizQuestions(): KnowledgeQuizQuestion[] {
+  return article.value?.quiz || []
+}
+function quizScore(): number {
+  return quizQuestions().filter((q, i) => quizAnswers.value[i] === q.answerIndex).length
+}
+function submitQuiz() {
+  if (quizQuestions().some((_, i) => quizAnswers.value[i] === undefined)) {
+    showToast('还有题目没作答')
+    return
+  }
+  quizSubmitted.value = true
+}
+function resetQuiz() {
+  quizAnswers.value = {}
+  quizSubmitted.value = false
+}
+
 const readProgress = ref(0)
 function updateProgress() {
   const el = document.documentElement
@@ -78,6 +99,8 @@ async function load() {
   error.value = ''
   article.value = null
   readProgress.value = 0
+  quizAnswers.value = {}
+  quizSubmitted.value = false
   if (!id) {
     error.value = '文章入口信息不完整，请返回科普列表。'
     loading.value = false
@@ -154,6 +177,45 @@ onUnmounted(() => window.removeEventListener('scroll', updateProgress))
         <p class="muted">发布：{{ dateOnly(article.publishedAt) }}（北京时间）</p>
         <p class="muted read-progress-text">阅读进度 {{ readProgress }}%</p>
         <div class="body-text selectable">{{ article.body || '' }}</div>
+        <section v-if="article.videoUrl" class="video-block">
+          <h2 class="source-title">短视频科普</h2>
+          <video :src="article.videoUrl" controls preload="metadata" playsinline class="video-player" />
+        </section>
+        <section v-if="quizQuestions().length" class="quiz-block">
+          <h2 class="source-title">看完测一测</h2>
+          <p class="muted quiz-note">自测只做科普互动，帮助巩固刚学到的知识，不作任何诊断结论。</p>
+          <div v-for="(q, qi) in quizQuestions()" :key="qi" class="quiz-q">
+            <p class="quiz-question">{{ qi + 1 }}. {{ q.question }}</p>
+            <label
+              v-for="(opt, oi) in q.options"
+              :key="oi"
+              class="quiz-opt"
+              :class="{
+                picked: quizAnswers[qi] === oi && !quizSubmitted,
+                correct: quizSubmitted && oi === q.answerIndex,
+                wrong: quizSubmitted && quizAnswers[qi] === oi && oi !== q.answerIndex,
+              }"
+            >
+              <input
+                type="radio"
+                :name="`quiz-${qi}`"
+                :value="oi"
+                :disabled="quizSubmitted"
+                :checked="quizAnswers[qi] === oi"
+                @change="quizAnswers[qi] = oi"
+              />
+              <span>{{ opt }}</span>
+              <van-icon v-if="quizSubmitted && oi === q.answerIndex" name="passed" class="quiz-mark ok" />
+              <van-icon v-if="quizSubmitted && quizAnswers[qi] === oi && oi !== q.answerIndex" name="close" class="quiz-mark bad" />
+            </label>
+            <p v-if="quizSubmitted && q.explanation" class="quiz-explain muted">解析：{{ q.explanation }}</p>
+          </div>
+          <div v-if="quizSubmitted" class="quiz-result">
+            本次得分：{{ quizScore() }} / {{ quizQuestions().length }} ·
+            <button class="ghost" @click="resetQuiz">再测一次</button>
+          </div>
+          <button v-else class="primary" @click="submitQuiz">提交自测</button>
+        </section>
         <template v-if="article.sourceText">
           <h2 class="source-title">参考来源</h2>
           <p class="muted preline selectable">{{ article.sourceText }}</p>
@@ -196,5 +258,19 @@ onUnmounted(() => window.removeEventListener('scroll', updateProgress))
 .source-title { font-size: 15px; margin: 16px 0 6px; }
 .disclaimer { margin-top: 16px; }
 .related-item { border-top: 1px solid var(--line); padding: 10px 0; cursor: pointer; }
+.video-block { margin-top: 16px; }
+.video-player { width: 100%; border-radius: 10px; background: #000; max-height: 320px; }
+.quiz-block { margin-top: 16px; border-top: 1px solid var(--line); padding-top: 8px; }
+.quiz-note { font-size: 12px; }
+.quiz-q { margin: 14px 0; }
+.quiz-question { font-weight: 600; font-size: 14px; }
+.quiz-opt { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; margin: 6px 0; cursor: pointer; font-size: 14px; }
+.quiz-opt.picked { border-color: var(--brand); background: rgba(23, 99, 198, 0.06); }
+.quiz-opt.correct { border-color: #1a9e54; background: rgba(26, 158, 84, 0.08); }
+.quiz-opt.wrong { border-color: #d33; background: rgba(221, 51, 51, 0.06); }
+.quiz-mark.ok { color: #1a9e54; }
+.quiz-mark.bad { color: #d33; }
+.quiz-explain { font-size: 13px; margin: 6px 0 0; }
+.quiz-result { margin: 12px 0; font-size: 14px; }
 .related-item:first-of-type { border-top: 0; }
 </style>
