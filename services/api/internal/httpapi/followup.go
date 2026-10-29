@@ -33,6 +33,7 @@ func (a *API) registerFollowupRoutes(r *gin.Engine) {
 	admin.POST("/followup-staff/:staffId/return", a.requireManager, a.returnFollowupStaff)
 	admin.GET("/followup-staff/:staffId/events", a.requireManager, a.followupStaffEvents)
 	admin.GET("/followups", func(c *gin.Context) { a.followupQueue(c, true) })
+	admin.GET("/todos/stats", a.todoStats)
 	admin.GET("/handoff-receipts", a.handoffReceipts)
 	admin.POST("/handoff-receipts/:receiptId/confirm", a.confirmHandoffReceipt)
 	admin.GET("/handoff-receipts/:receiptId/followups", a.requireManager, a.handoffFollowups)
@@ -377,3 +378,26 @@ func (a *API) followupPhotoContent(c *gin.Context, admin bool) {
 }
 
 func clinicalPtr[T any](value T) *T { return &value }
+
+func (a *API) todoStats(c *gin.Context) {
+	c.Header("Cache-Control", "no-store")
+	stats, err := a.followup.TodoStats(c.Request.Context(), a.now())
+	if err != nil {
+		a.careError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"data": apitypes.TodoStats{
+		GeneratedAt: stats.GeneratedAt,
+		Followup: apitypes.TodoFollowupStats{
+			Total: int32(stats.Followup.Total), Completed: int32(stats.Followup.Completed),
+			Pending: int32(stats.Followup.Pending), Submitted: int32(stats.Followup.Submitted),
+			Alert: int32(stats.Followup.Alert), Overdue: int32(stats.Followup.Overdue),
+			CompletionRate: float32Ptr(stats.Followup.CompletionRate),
+		},
+		Handoffs: apitypes.TodoHandoffStats{
+			Total: int32(stats.Handoffs.Total), Confirmed: int32(stats.Handoffs.Confirmed),
+			Pending: int32(stats.Handoffs.Pending), Overdue: int32(stats.Handoffs.Overdue),
+			Todo: int32(stats.Handoffs.Todo),
+		},
+	}})
+}

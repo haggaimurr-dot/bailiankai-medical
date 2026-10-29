@@ -1935,6 +1935,26 @@ paths:
               schema: {$ref: '#/components/schemas/FollowupTaskList'}
         default:
           $ref: '#/components/responses/Error'
+  /api/v1/admin/todos/stats:
+    get:
+      operationId: getTodoStats
+      summary: 待办完成率统计
+      description: 随访任务完成率 = 已回评或已处理 ÷ 本人或授权院区范围内的全部随访任务；患者仅提交反馈不算完成。人员交接待办单独列示，不计入完成率分母。主管与医护可访问。
+      security: [{EmployeeBearer: []}]
+      responses:
+        '200':
+          description: 随访完成率与交接单独计数
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {$ref: '#/components/schemas/TodoStats'}
+        '401': {$ref: '#/components/responses/Error'}
+        '403': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+        '503': {$ref: '#/components/responses/Error'}
   /api/v1/admin/handoff-receipts:
     get:
       operationId: listHandoffReceipts
@@ -3531,6 +3551,33 @@ components:
         generatedAt: {type: string, format: date-time}
         rows: {type: array, items: {$ref: '#/components/schemas/ChannelFunnelRow'}}
         total: {$ref: '#/components/schemas/ChannelFunnelRow', description: 全部渠道合计，source 为 all}
+    TodoFollowupStats:
+      type: object
+      required: [total, completed, pending, submitted, alert, overdue]
+      properties:
+        total: {type: integer, minimum: 0, format: int32, description: 范围内全部随访任务}
+        completed: {type: integer, minimum: 0, format: int32, description: 已回评或已处理}
+        pending: {type: integer, minimum: 0, format: int32, description: 待患者反馈}
+        submitted: {type: integer, minimum: 0, format: int32, description: 已提交待回评}
+        alert: {type: integer, minimum: 0, format: int32, description: 异常待处理}
+        overdue: {type: integer, minimum: 0, format: int32, description: 待反馈且已过期的任务}
+        completionRate: {type: number, nullable: true, description: 完成率 = 已完成 ÷ 全部；分母为 0 时为 null}
+    TodoHandoffStats:
+      type: object
+      required: [total, confirmed, pending, overdue, todo]
+      properties:
+        total: {type: integer, minimum: 0, format: int32, description: 范围内全部交接回执}
+        confirmed: {type: integer, minimum: 0, format: int32, description: 已确认的交接}
+        pending: {type: integer, minimum: 0, format: int32, description: 待确认的交接}
+        overdue: {type: integer, minimum: 0, format: int32, description: 待确认且已超时的交接}
+        todo: {type: integer, minimum: 0, format: int32, description: 主管待办口径：需回复、需处理或超时未确认的交接}
+    TodoStats:
+      type: object
+      required: [generatedAt, followup, handoffs]
+      properties:
+        generatedAt: {type: string, format: date-time}
+        followup: {$ref: '#/components/schemas/TodoFollowupStats'}
+        handoffs: {$ref: '#/components/schemas/TodoHandoffStats', description: 交接待办单独列示，不计入随访完成率分母}
     OperationsAnalyticsReport:
       type: object
       required: [metricVersion, timezone, generatedAt, dateFrom, dateTo, groupBy, summary, rows, clinics, doctors]

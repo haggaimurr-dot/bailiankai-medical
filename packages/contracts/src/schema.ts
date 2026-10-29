@@ -2215,6 +2215,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/todos/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 待办完成率统计
+         * @description 随访任务完成率 = 已回评或已处理 ÷ 本人或授权院区范围内的全部随访任务；患者仅提交反馈不算完成。人员交接待办单独列示，不计入完成率分母。主管与医护可访问。
+         */
+        get: operations["getTodoStats"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/handoff-receipts": {
         parameters: {
             query?: never;
@@ -3944,6 +3964,74 @@ export interface components {
             rows: components["schemas"]["ChannelFunnelRow"][];
             /** @description 全部渠道合计，source 为 all */
             total: components["schemas"]["ChannelFunnelRow"];
+        };
+        TodoFollowupStats: {
+            /**
+             * Format: int32
+             * @description 范围内全部随访任务
+             */
+            total: number;
+            /**
+             * Format: int32
+             * @description 已回评或已处理
+             */
+            completed: number;
+            /**
+             * Format: int32
+             * @description 待患者反馈
+             */
+            pending: number;
+            /**
+             * Format: int32
+             * @description 已提交待回评
+             */
+            submitted: number;
+            /**
+             * Format: int32
+             * @description 异常待处理
+             */
+            alert: number;
+            /**
+             * Format: int32
+             * @description 待反馈且已过期的任务
+             */
+            overdue: number;
+            /** @description 完成率 = 已完成 ÷ 全部；分母为 0 时为 null */
+            completionRate?: number | null;
+        };
+        TodoHandoffStats: {
+            /**
+             * Format: int32
+             * @description 范围内全部交接回执
+             */
+            total: number;
+            /**
+             * Format: int32
+             * @description 已确认的交接
+             */
+            confirmed: number;
+            /**
+             * Format: int32
+             * @description 待确认的交接
+             */
+            pending: number;
+            /**
+             * Format: int32
+             * @description 待确认且已超时的交接
+             */
+            overdue: number;
+            /**
+             * Format: int32
+             * @description 主管待办口径：需回复、需处理或超时未确认的交接
+             */
+            todo: number;
+        };
+        TodoStats: {
+            /** Format: date-time */
+            generatedAt: string;
+            followup: components["schemas"]["TodoFollowupStats"];
+            /** @description 交接待办单独列示，不计入随访完成率分母 */
+            handoffs: components["schemas"]["TodoHandoffStats"];
         };
         OperationsAnalyticsReport: {
             /** @enum {string} */
@@ -12036,6 +12124,32 @@ export interface operations {
                 };
             };
             default: components["responses"]["Error"];
+        };
+    };
+    getTodoStats: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 随访完成率与交接单独计数 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["TodoStats"];
+                    };
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            503: components["responses"]["Error"];
         };
     };
     listHandoffReceipts: {

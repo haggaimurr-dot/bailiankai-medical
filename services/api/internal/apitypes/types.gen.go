@@ -3717,6 +3717,55 @@ type TimelineEvent struct {
 // TimelineEventKind defines model for TimelineEvent.Kind.
 type TimelineEventKind string
 
+// TodoFollowupStats defines model for TodoFollowupStats.
+type TodoFollowupStats struct {
+	// Alert 异常待处理
+	Alert int32 `json:"alert"`
+
+	// Completed 已回评或已处理
+	Completed int32 `json:"completed"`
+
+	// CompletionRate 完成率 = 已完成 ÷ 全部；分母为 0 时为 null
+	CompletionRate *float32 `json:"completionRate"`
+
+	// Overdue 待反馈且已过期的任务
+	Overdue int32 `json:"overdue"`
+
+	// Pending 待患者反馈
+	Pending int32 `json:"pending"`
+
+	// Submitted 已提交待回评
+	Submitted int32 `json:"submitted"`
+
+	// Total 范围内全部随访任务
+	Total int32 `json:"total"`
+}
+
+// TodoHandoffStats defines model for TodoHandoffStats.
+type TodoHandoffStats struct {
+	// Confirmed 已确认的交接
+	Confirmed int32 `json:"confirmed"`
+
+	// Overdue 待确认且已超时的交接
+	Overdue int32 `json:"overdue"`
+
+	// Pending 待确认的交接
+	Pending int32 `json:"pending"`
+
+	// Todo 主管待办口径：需回复、需处理或超时未确认的交接
+	Todo int32 `json:"todo"`
+
+	// Total 范围内全部交接回执
+	Total int32 `json:"total"`
+}
+
+// TodoStats defines model for TodoStats.
+type TodoStats struct {
+	Followup    TodoFollowupStats `json:"followup"`
+	GeneratedAt time.Time         `json:"generatedAt"`
+	Handoffs    TodoHandoffStats  `json:"handoffs"`
+}
+
 // Treatment defines model for Treatment.
 type Treatment struct {
 	AppointmentId string `json:"appointmentId"`

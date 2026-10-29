@@ -17,6 +17,8 @@ type ApptNotice = Awaited<ReturnType<typeof api.appointmentNotifications>>['data
 const apptNotices = ref<ApptNotice[]>([]), apptPage = ref(1), apptTotal = ref(0), apptUnreadTotal = ref(0)
 const apptError = ref('')
 const canReviewAppointments = computed(() => ['manager', 'customer_service'].includes(auth.employee?.role || ''))
+type TodoStats = Awaited<ReturnType<typeof api.todoStats>>
+const todoStats = ref<TodoStats | null>(null)
 const pending = ref<number | null>(null), overdue = ref<number | null>(null), supervisor = ref<number | null>(null)
 const submitted = ref<number | null>(null), alerts = ref<number | null>(null)
 const exportInProgress = ref<number | null>(null), exportReady = ref<number | null>(null), exportFailed = ref<number | null>(null)
@@ -90,13 +92,15 @@ async function load() {
   if (busy.value) return
   const request = ++generation
   busy.value = true; errors.value = []
-  const results = await Promise.allSettled([api.handoffReceipts('pending'), api.followups('submitted'), api.followups('alert'), loadNotifications(), loadApptNotifications(), ...(canExportJobs.value ? [api.recordExports(1)] : [])])
+  const results = await Promise.allSettled([api.handoffReceipts('pending'), api.followups('submitted'), api.followups('alert'), loadNotifications(), loadApptNotifications(), api.todoStats(), ...(canExportJobs.value ? [api.recordExports(1)] : [])])
   if (request !== generation) return
   pending.value = null; overdue.value = null; supervisor.value = null; submitted.value = null; alerts.value = null; loginAnomalies.value = null; backlogPending.value = null; backlogBreached.value = false; backlogOldest.value = null; qualificationList.value = []
-  exportInProgress.value = null; exportReady.value = null; exportFailed.value = null
-  const [handoffs, reviews, abnormal] = results
+  exportInProgress.value = null; exportReady.value = null; exportFailed.value = null; todoStats.value = null
+  const [handoffs, reviews, abnormal, , , stats] = results
   if (handoffs.status === 'fulfilled') { pending.value = handoffs.value.meta.total; overdue.value = handoffs.value.meta.overdueTotal; supervisor.value = handoffs.value.meta.todoTotal }
   else errors.value.push(`交接待办：${errorMessage(handoffs.reason)}`)
+  if (stats.status === 'fulfilled') todoStats.value = stats.value
+  else errors.value.push(`完成率统计：${errorMessage(stats.reason)}`)
   if (reviews.status === 'fulfilled') submitted.value = reviews.value.meta.total
   else errors.value.push(`随访回评：${errorMessage(reviews.reason)}`)
   if (abnormal.status === 'fulfilled') alerts.value = abnormal.value.meta.total
@@ -121,7 +125,7 @@ async function load() {
     } catch (cause) { errors.value.push(`资质到期：${errorMessage(cause)}`) }
   }
   if (canExportJobs.value) {
-    const exportsResult = results[5]
+    const exportsResult = results[6]
     if (exportsResult?.status === 'fulfilled') {
       const nowMs = Date.now()
       const jobs = exportsResult.value.data
@@ -167,6 +171,15 @@ onBeforeUnmount(() => { ++generation; ++notificationGeneration; ++apptGeneration
       <RouterLink v-for="card in cards" :key="card.title" :to="card.to" class="surface todo-card" :class="[`level-${card.level}`, { active: (card.count || 0) > 0 }]"><span>{{ card.title }}<i class="level-tag">{{ levelNames[card.level] }}</i></span><strong>{{ busy ? '…' : card.count ?? '—' }}<small>项</small></strong><p>{{ card.detail }}</p><b>进入处理 →</b></RouterLink>
     </div>
     <p class="scope-note">仅展示当前账号授权范围内的事项；各分类可能包含同一任务。读取失败显示“—”。</p>
+    <div v-if="todoStats" class="surface todo-stats" data-testid="todo-stats">
+      <div class="panel-heading"><div><h2>待办完成率统计</h2><p>随访完成率 = 已回评或已处理 ÷ 全部随访任务；患者仅提交反馈不算完成。交接待办单独列示，不计入完成率分母。</p></div></div>
+      <div class="todo-stats-grid">
+        <div><span>随访完成率</span><strong data-testid="todo-completion-rate">{{ todoStats.followup.completionRate === null || todoStats.followup.completionRate === undefined ? '—' : `${todoStats.followup.completionRate.toFixed(1)}%` }}</strong><p>{{ todoStats.followup.completed }} / {{ todoStats.followup.total }} 项已完成</p></div>
+        <div><span>待反馈</span><strong>{{ todoStats.followup.pending }}</strong><p>其中逾期 {{ todoStats.followup.overdue }} 项</p></div>
+        <div><span>已提交待回评</span><strong>{{ todoStats.followup.submitted }}</strong><p>异常待处理 {{ todoStats.followup.alert }} 项</p></div>
+        <div><span>交接待办（单独列示）</span><strong>{{ todoStats.handoffs.pending }}</strong><p>待确认；已确认 {{ todoStats.handoffs.confirmed }} 项，超时 {{ todoStats.handoffs.overdue }} 项，主管待办 {{ todoStats.handoffs.todo }} 项</p></div>
+      </div>
+    </div>
     <div class="surface shortcuts"><h2>常用工作区</h2><div><RouterLink to="/handoffs">人员交接与确认</RouterLink><RouterLink to="/followups">治疗与随访</RouterLink><RouterLink v-if="manager" to="/appointments">预约审批与到诊</RouterLink><RouterLink v-if="manager" to="/employees">员工账号管理</RouterLink></div></div>
     <section class="surface notification-panel" aria-labelledby="notification-title">
       <div class="panel-heading"><div><h2 id="notification-title">交接通知 <el-tag size="small" type="warning">{{ unreadTotal }} 条未读</el-tag></h2><p>任务交给接手人时发送站内通知；超过交接时限未确认时，自动升级提醒授权主管。</p></div><el-button @click="loadNotifications">刷新通知</el-button></div>

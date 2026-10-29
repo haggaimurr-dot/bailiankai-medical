@@ -242,6 +242,7 @@ export const api = {
   recordTreatment: (id: string, body: TreatmentCreate) => request<FollowupWorkspace>(`/admin/appointments/${encodeURIComponent(id)}/treatment`, adminRequest({ method: 'POST', body: JSON.stringify(body) })),
   correctTreatment: (id: string, body: TreatmentCorrection) => request<FollowupWorkspace>(`/admin/appointments/${encodeURIComponent(id)}/treatment/corrections`, adminRequest({ method: 'POST', body: JSON.stringify(body) })),
   followups: (status = '', page = 1, assigneeId = '', dates?: { dateFrom: string; dateTo: string }) => requestEnvelope<components['schemas']['FollowupTaskList']>(`/admin/followups${query({ status, assigneeId, ...dates, page, pageSize: 20 })}`, adminRequest()),
+  todoStats: () => request<components['schemas']['TodoStats']>('/admin/todos/stats', adminRequest()),
   followupStaff: () => request<FollowupStaff[]>('/admin/followup-staff', adminRequest()),
   followupStaffEvents: (id: string) => request<FollowupStaffEvent[]>(`/admin/followup-staff/${encodeURIComponent(id)}/events`, adminRequest()),
   handoffNotifications: (page = 1, pageSize = 20) => requestEnvelope<components['schemas']['HandoffNotificationPage']>(`/admin/handoff-notifications${query({ page, pageSize })}`, adminRequest()),

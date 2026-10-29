@@ -77,6 +77,7 @@ type FollowupRepository interface {
 	FollowupWorkspaceWithHistory(context.Context, string, string) (*model.Treatment, []model.TreatmentRevision, []model.FollowupTask, error)
 	FollowupWorkspace(context.Context, string, string) (*model.Treatment, []model.FollowupTask, error)
 	FollowupQueue(context.Context, FollowupFilter) ([]model.FollowupTask, int64, error)
+	TodoStats(context.Context, time.Time) (TodoStats, error)
 	FollowupTask(context.Context, string, string) (model.FollowupTask, error)
 	SubmitFollowup(context.Context, string, string, FollowupInput, time.Time) (model.FollowupTask, error)
 	ReviewFollowup(context.Context, string, FollowupReviewInput, time.Time) (model.FollowupTask, error)
