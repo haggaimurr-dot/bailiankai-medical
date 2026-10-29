@@ -103,6 +103,7 @@ export type AssessmentContent = components['schemas']['AssessmentContent']
 export const api = {
   assessmentCapabilities: () => request<components['schemas']['AssessmentCapabilities']>('/assessment-capabilities'),
   assessments: (status = '', clinicId = '', page = 1, q = '') => requestEnvelope<components['schemas']['AssessmentPage']>(`/admin/assessments${query({ status, clinicId, page, pageSize: 20, q })}`, adminRequest()),
+  assessmentReviewStats: () => request<components['schemas']['AssessmentReviewStats']>('/admin/assessments/review-stats', adminRequest()),
   assessment: (id: string) => request<AssessmentView>(`/admin/assessments/${encodeURIComponent(id)}`, adminRequest()),
   assessmentReviewers: (clinicId: string) => request<components['schemas']['AssessmentReviewer'][]>(`/admin/assessments/reviewers${query({ clinicId })}`, adminRequest()),
   assessmentEvents: (id: string) => request<components['schemas']['AssessmentEvent'][]>(`/admin/assessments/${encodeURIComponent(id)}/events`, adminRequest()),

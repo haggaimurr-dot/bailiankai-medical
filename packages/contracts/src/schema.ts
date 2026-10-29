@@ -3205,6 +3205,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/assessments/review-stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["AssessmentReviewStats"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/assessments/{assessmentId}/events": {
         parameters: {
             query?: never;
@@ -5530,6 +5546,15 @@ export interface components {
             id: string;
             displayName: string;
             clinicIds: string[];
+        };
+        AssessmentReviewStats: {
+            /** @description Review SLA in hours; awaiting_review tasks older than this are overdue */
+            reviewSlaHours: number;
+            awaitingReview: number;
+            overdue: number;
+            reviewedCount: number;
+            /** @description Mean hours from analysis completion to review; null when nothing reviewed */
+            avgReviewHours?: number | null;
         };
         AssessmentCapabilities: {
             qualityAvailable: boolean;
@@ -14988,6 +15013,77 @@ export interface operations {
                 content: {
                     "application/json": {
                         data: components["schemas"]["AssessmentReviewer"][];
+                    };
+                };
+            };
+            /** @description Invalid input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Consent or permission required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Version or idempotency conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Quality rejected */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Too many requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Service unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AssessmentReviewStats: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["AssessmentReviewStats"];
                     };
                 };
             };

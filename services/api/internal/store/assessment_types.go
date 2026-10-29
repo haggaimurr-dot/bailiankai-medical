@@ -10,6 +10,18 @@ import (
 )
 
 const AssessmentConsentVersion = "photo-ai-v1"
+
+// AssessmentReviewSLAHours 是复核时限：分析完成超过该小时未复核即算超时。
+// 队列标红与统计口径共用该常量（统计端以 SQL 计算，行标红端取统计接口返回的 reviewSlaHours）。
+const AssessmentReviewSLAHours = 24
+
+type AssessmentReviewStats struct {
+	ReviewSLAHours int      `json:"reviewSlaHours"`
+	AwaitingReview int64    `json:"awaitingReview"`
+	Overdue        int64    `json:"overdue"`
+	ReviewedCount  int64    `json:"reviewedCount"`
+	AvgReviewHours *float64 `json:"avgReviewHours"`
+}
 const AssessmentConsentContent = "AI照片辅助观察授权（试点草案）：您选择的正面、本人左侧和右侧照片仅用于本次AI辅助观察及医生复核，处理可能由配置的模型服务提供方完成。AI结果存在局限，医生复核后才向您展示，不作为诊断或治疗处方。您可撤回授权，撤回后停止后续分析和医护访问；已发送至服务提供方的数据不能立即追回。正式服务主体、提供方、保存期限和删除渠道须由院方确认。此授权独立于隐私说明、诊疗照片授权及案例展示授权。"
 
 var (

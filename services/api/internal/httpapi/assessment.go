@@ -40,6 +40,7 @@ func (a *API) registerAssessmentRoutes(r *gin.Engine) {
 	}
 	admin := r.Group("/api/v1/admin/assessments", a.authenticate, a.assessmentAvailable)
 	admin.GET("", a.listAssessments)
+	admin.GET("/review-stats", a.assessmentReviewStats)
 	admin.GET("/reviewers", a.assessmentReviewers)
 	admin.GET("/access-audit", a.requireManager, a.assessmentAccessAudit)
 	admin.GET("/:assessmentId", a.getAssessment)
@@ -71,6 +72,15 @@ func assessmentPatient(c *gin.Context) string {
 	}
 	return ""
 }
+func (a *API) assessmentReviewStats(c *gin.Context) {
+	stats, err := a.assessments.ReviewStats(c.Request.Context())
+	if err != nil {
+		a.assessmentError(c, err)
+		return
+	}
+	c.JSON(200, gin.H{"data": stats})
+}
+
 func (a *API) assessmentError(c *gin.Context, err error) {
 	switch {
 	case errors.Is(err, store.ErrAssessmentPrivacy):

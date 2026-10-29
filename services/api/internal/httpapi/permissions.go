@@ -12,7 +12,7 @@ func allowedEmployeeOperation(role, method, path string) bool {
 			return false
 		}
 		switch path {
-		case "/api/v1/admin/assessments", "/api/v1/admin/assessments/:assessmentId", "/api/v1/admin/assessments/:assessmentId/events", "/api/v1/admin/assessments/:assessmentId/photos/:photoId/content":
+		case "/api/v1/admin/assessments", "/api/v1/admin/assessments/:assessmentId", "/api/v1/admin/assessments/:assessmentId/events", "/api/v1/admin/assessments/:assessmentId/photos/:photoId/content", "/api/v1/admin/assessments/review-stats":
 			return method == "GET"
 		case "/api/v1/admin/assessments/reviewers", "/api/v1/admin/assessments/access-audit":
 			return role == "manager" && method == "GET"

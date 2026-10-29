@@ -1380,6 +1380,18 @@ type AssessmentReviewCreate struct {
 // AssessmentReviewCreateDecision defines model for AssessmentReviewCreate.Decision.
 type AssessmentReviewCreateDecision string
 
+// AssessmentReviewStats defines model for AssessmentReviewStats.
+type AssessmentReviewStats struct {
+	// AvgReviewHours Mean hours from analysis completion to review; null when nothing reviewed
+	AvgReviewHours *float32 `json:"avgReviewHours"`
+	AwaitingReview int      `json:"awaitingReview"`
+	Overdue        int      `json:"overdue"`
+
+	// ReviewSlaHours Review SLA in hours; awaiting_review tasks older than this are overdue
+	ReviewSlaHours int `json:"reviewSlaHours"`
+	ReviewedCount  int `json:"reviewedCount"`
+}
+
 // AssessmentReviewer defines model for AssessmentReviewer.
 type AssessmentReviewer struct {
 	ClinicIds   []string `json:"clinicIds"`

@@ -266,6 +266,33 @@ func (s *AssessmentService) List(ctx context.Context, patientID string, filter A
 	}
 	return out, err
 }
+// ReviewStats 返回与任务队列同一口径的复核时限统计：待复核、已超时、
+// 已复核数与平均复核时长（分析完成→复核完成）。口径与 List 共用 assessmentAccess，
+// 因此主管看全部授权院区、医生只看自己被指派的任务；超时以数据库时间计算，避免时区解析偏差。
+func (s *AssessmentService) ReviewStats(ctx context.Context) (AssessmentReviewStats, error) {
+	out := AssessmentReviewStats{ReviewSLAHours: AssessmentReviewSLAHours}
+	q, err := assessmentAccess(ctx, s.repo.db.WithContext(ctx), "")
+	if err != nil {
+		return out, err
+	}
+	var row struct {
+		AwaitingReview int64
+		Overdue        int64
+		ReviewedCount  int64
+		AvgReviewHours *float64
+	}
+	err = q.Select(`COUNT(CASE WHEN status = 'awaiting_review' THEN 1 END) AS awaiting_review,
+		COUNT(CASE WHEN status = 'awaiting_review' AND analysis_completed_at IS NOT NULL AND analysis_completed_at < DATE_SUB(NOW(), INTERVAL ? HOUR) THEN 1 END) AS overdue,
+		COUNT(CASE WHEN status IN ('completed', 'rejected') AND reviewed_at IS NOT NULL AND analysis_completed_at IS NOT NULL THEN 1 END) AS reviewed_count,
+		AVG(CASE WHEN status IN ('completed', 'rejected') AND reviewed_at IS NOT NULL AND analysis_completed_at IS NOT NULL THEN TIMESTAMPDIFF(SECOND, analysis_completed_at, reviewed_at) / 3600.0 END) AS avg_review_hours`,
+		AssessmentReviewSLAHours).Scan(&row).Error
+	if err != nil {
+		return out, err
+	}
+	out.AwaitingReview, out.Overdue, out.ReviewedCount, out.AvgReviewHours = row.AwaitingReview, row.Overdue, row.ReviewedCount, row.AvgReviewHours
+	return out, nil
+}
+
 func assessmentStatus(status string) bool {
 	switch status {
 	case "draft", "queued", "analyzing", "retry_wait", "failed", "awaiting_review", "completed", "rejected", "cancelled":

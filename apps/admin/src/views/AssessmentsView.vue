@@ -18,6 +18,16 @@ const id = computed(() => String(route.params.id || ''))
 const rows = ref<AssessmentTask[]>([]), selected = ref<AssessmentView | null>(null), total = ref(0), page = ref(1)
 const loading = ref(false), saving = ref(false), error = ref(''), success = ref(''), status = ref(''), clinicId = ref(''), query = ref('')
 const clinics = ref<components['schemas']['Clinic'][]>([]), reviewers = ref<components['schemas']['AssessmentReviewer'][]>([]), reviewer = ref('')
+const reviewStats = ref<components['schemas']['AssessmentReviewStats'] | null>(null)
+// 新增-P1–P2：复核时限统计与超时提醒。时限取统计接口返回的 reviewSlaHours（后端常量），
+// 未加载时按 24 小时计；超时按分析完成时间计算。
+const slaHours = computed(() => reviewStats.value?.reviewSlaHours ?? 24)
+function overdueHours(row: AssessmentTask): number | null {
+  if (row.status !== 'awaiting_review' || !row.analysisCompletedAt) return null
+  const hours = (Date.now() - Date.parse(row.analysisCompletedAt)) / 3600000
+  return hours > slaHours.value ? Math.floor(hours) : null
+}
+function overdueRowClass({ row }: { row: AssessmentTask }) { return overdueHours(row) !== null ? 'overdue-row' : '' }
 const events = ref<components['schemas']['AssessmentEvent'][]>([]), capabilities = ref<components['schemas']['AssessmentCapabilities'] | null>(null)
 const decision = ref<'approved'|'amended'|'rejected'>('approved'), note = ref(''), limitations = ref(''), preparation = ref(''), careAdvice = ref('')
 const policy = ref<components['schemas']['AssessmentConsentPolicyList'] | null>(null)
@@ -72,9 +82,10 @@ async function load(poll = false) {
   if (!poll) error.value = ''
   try {
     if (!id.value) {
-      const result = await api.assessments(status.value,clinicId.value,page.value,query.value.trim())
+      const [result, stats] = await Promise.all([api.assessments(status.value,clinicId.value,page.value,query.value.trim()), api.assessmentReviewStats().catch(() => null)])
       if (request !== generation || !alive) return
       rows.value = result.data; total.value = result.meta.total
+      if (stats) reviewStats.value = stats
     } else {
       const view = await api.assessment(id.value)
       if (request !== generation || !alive) return
@@ -213,7 +224,8 @@ onBeforeUnmount(() => { alive = false; generation++; if(timer) clearInterval(tim
   <div v-if="!id" class="surface panel">
     <p v-if="mode==='entry'">评估由患者从小程序“AI 辅助评估”入口独立创建并明确授权。工作人员可在下方队列分配复核医生。</p>
     <div class="toolbar"><el-select v-model="status" placeholder="全部状态" clearable aria-label="评估状态" @change="page=1;load()"><el-option v-for="(label,value) in labels" :key="value" :label="label" :value="value" /></el-select><el-select v-model="clinicId" clearable placeholder="全部授权院区" @change="page=1;load()"><el-option v-for="clinic in clinics" :key="clinic.id" :value="clinic.id" :label="clinic.name" /></el-select><el-input v-model="query" placeholder="完整任务编号" @keyup.enter="page=1;load()" /><el-button @click="page=1;load()">查询任务</el-button><span>共 {{total}} 项</span></div>
-    <el-table :data="rows"><el-table-column label="任务" min-width="250"><template #default="{row}"><strong>{{row.id}}</strong><p>{{row.clinicId}} · 患者 {{row.patientId}}</p></template></el-table-column><el-table-column label="状态"><template #default="{row}">{{labels[row.status as AssessmentTask['status']]}}</template></el-table-column><el-table-column label="更新时间" min-width="160"><template #default="{row}">{{time(row.updatedAt)}}</template></el-table-column><el-table-column label="操作" min-width="240"><template #default="{row}"><el-button link type="primary" @click="router.push(`/assessments/${row.id}/task`)">查看任务</el-button><el-button v-if="['awaiting_review','completed','rejected'].includes(row.status)" link type="primary" @click="router.push(`/assessments/${row.id}/review`)">{{auth.employee?.role==='doctor' ? '医生复核' : '查看复核资料'}}</el-button></template></el-table-column></el-table>
+    <div v-if="reviewStats" class="review-stats"><span>待复核 <strong>{{reviewStats.awaitingReview}}</strong> 项</span><span :class="{ overdue: reviewStats.overdue > 0 }">已超时 <strong>{{reviewStats.overdue}}</strong> 项（{{reviewStats.reviewSlaHours}} 小时未复核）</span><span>已复核 <strong>{{reviewStats.reviewedCount}}</strong> 项</span><span>平均复核时长 <strong>{{reviewStats.avgReviewHours == null ? '—' : reviewStats.avgReviewHours.toFixed(1)}}</strong> 小时</span></div>
+    <el-table :data="rows" :row-class-name="overdueRowClass"><el-table-column label="任务" min-width="250"><template #default="{row}"><strong>{{row.id}}</strong><p>{{row.clinicId}} · 患者 {{row.patientId}}</p></template></el-table-column><el-table-column label="状态"><template #default="{row}">{{labels[row.status as AssessmentTask['status']]}}<el-tag v-if="overdueHours(row) !== null" type="danger" size="small">超时 {{overdueHours(row)}} 小时</el-tag></template></el-table-column><el-table-column label="更新时间" min-width="160"><template #default="{row}">{{time(row.updatedAt)}}</template></el-table-column><el-table-column label="操作" min-width="240"><template #default="{row}"><el-button link type="primary" @click="router.push(`/assessments/${row.id}/task`)">查看任务</el-button><el-button v-if="['awaiting_review','completed','rejected'].includes(row.status)" link type="primary" @click="router.push(`/assessments/${row.id}/review`)">{{auth.employee?.role==='doctor' ? '医生复核' : '查看复核资料'}}</el-button></template></el-table-column></el-table>
     <el-pagination v-if="total>20" v-model:current-page="page" :total="total" :page-size="20" layout="prev,pager,next" @current-change="load()" />
   </div>
   <template v-else-if="selected">
@@ -249,5 +261,7 @@ onBeforeUnmount(() => { alive = false; generation++; if(timer) clearInterval(tim
 </section>
 </template>
 <style scoped>
-.page-heading,.toolbar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:20px}.page-heading{justify-content:space-between}.page-heading h1{margin:0}.panel{padding:24px;margin-top:20px}.panel p{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.8}.toolbar .el-select{width:200px}.toolbar .el-input{width:270px}.photo-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}.two-columns{display:grid;grid-template-columns:1fr 1fr;gap:20px}.review-compare{display:grid;grid-template-columns:280px minmax(0,1fr) minmax(0,1.15fr);gap:20px}.review-compare>.panel{margin-top:20px}.review-photos{position:sticky;top:20px;align-self:start}.review-photo+.review-photo{margin-top:18px}.review-history{border-top:1px solid #edf1f6;padding-top:14px;margin-top:14px}.review-history:first-of-type{border-top:0;padding-top:0;margin-top:0}.review-diff{margin-top:8px}.diff-row{display:flex;flex-direction:column;gap:4px}.diff-old{background:#fff5f5;border-left:3px solid #e8a13a;padding:6px 10px}.diff-new{background:#f0f7f4;border-left:3px solid #36897d;padding:6px 10px}.diff-add{background:#f0f7f4;border-left:3px solid #36897d;padding:6px 10px}.diff-del{background:#fff5f5;border-left:3px solid #c25e5e;padding:6px 10px}.feedback{margin:18px 0}.observation-edit{border:1px solid #e5ebf3;border-radius:10px;padding:18px;margin:18px 0}.observation-edit .el-select{width:100%}@media(max-width:1000px){.two-columns,.photo-grid,.review-compare{grid-template-columns:1fr}.review-photos{position:static}}
+.page-heading,.toolbar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:20px}.page-heading{justify-content:space-between}.page-heading h1{margin:0}.panel{padding:24px;margin-top:20px}.panel p{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.8}.toolbar .el-select{width:200px}.toolbar .el-input{width:270px}.photo-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}.two-columns{display:grid;grid-template-columns:1fr 1fr;gap:20px}.review-compare{display:grid;grid-template-columns:280px minmax(0,1fr) minmax(0,1.15fr);gap:20px}.review-compare>.panel{margin-top:20px}.review-photos{position:sticky;top:20px;align-self:start}.review-photo+.review-photo{margin-top:18px}.review-history{border-top:1px solid #edf1f6;padding-top:14px;margin-top:14px}.review-history:first-of-type{border-top:0;padding-top:0;margin-top:0}.review-diff{margin-top:8px}.diff-row{display:flex;flex-direction:column;gap:4px}.diff-old{background:#fff5f5;border-left:3px solid #e8a13a;padding:6px 10px}.diff-new{background:#f0f7f4;border-left:3px solid #36897d;padding:6px 10px}.diff-add{background:#f0f7f4;border-left:3px solid #36897d;padding:6px 10px}.diff-del{background:#fff5f5;border-left:3px solid #c25e5e;padding:6px 10px}.feedback{margin:18px 0}.observation-edit{border:1px solid #e5ebf3;border-radius:10px;padding:18px;margin:18px 0}.observation-edit .el-select{width:100%}
+.review-stats{display:flex;flex-wrap:wrap;gap:18px;margin-bottom:16px;padding:12px 16px;border:1px solid #e5ebf3;border-radius:10px;background:#f7fafc;font-size:13px;color:#4a5568}.review-stats .overdue{color:#c25e5e}.review-stats strong{color:#1a202c}
+:deep(.overdue-row){background:#fff5f5}@media(max-width:1000px){.two-columns,.photo-grid,.review-compare{grid-template-columns:1fr}.review-photos{position:static}}
 </style>
