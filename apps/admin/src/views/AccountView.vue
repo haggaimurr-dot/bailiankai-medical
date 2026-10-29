@@ -4,6 +4,28 @@ import { ElMessage } from 'element-plus'
 import { api, errorMessage } from '../api'
 import { auth, clearAuth } from '../auth'
 const currentPassword = ref(''), password = ref(''), confirmation = ref(''), saving = ref(false), error = ref('')
+// 行 115：双因素验证
+const tfaEnabled = ref(false), tfaSecret = ref(''), tfaUrl = ref(''), tfaCode = ref(''), tfaBusy = ref(false), tfaError = ref(''), tfaStep = ref<'idle' | 'setup'>('idle')
+async function loadTfaStatus() { try { const r: any = await api.tfaStatus(); tfaEnabled.value = !!r.data?.enabled } catch {} }
+async function startTfaSetup() {
+  tfaBusy.value = true; tfaError.value = ''
+  try { const r: any = await api.tfaSetup(); tfaSecret.value = r.data.secret; tfaUrl.value = r.data.otpauthUrl; tfaStep.value = 'setup' }
+  catch (e) { tfaError.value = errorMessage(e) }
+  finally { tfaBusy.value = false }
+}
+async function confirmTfa() {
+  tfaBusy.value = true; tfaError.value = ''
+  try { await api.tfaEnable(tfaCode.value.trim()); tfaEnabled.value = true; tfaStep.value = 'idle'; tfaCode.value = ''; ElMessage.success('双因素验证已开启，下次登录需输入验证码') }
+  catch (e) { tfaError.value = errorMessage(e) }
+  finally { tfaBusy.value = false }
+}
+async function disableTfa() {
+  tfaBusy.value = true; tfaError.value = ''
+  try { await api.tfaDisable(tfaCode.value.trim()); tfaEnabled.value = false; tfaCode.value = ''; ElMessage.success('双因素验证已关闭') }
+  catch (e) { tfaError.value = errorMessage(e) }
+  finally { tfaBusy.value = false }
+}
+loadTfaStatus()
 async function save() {
   if (saving.value) return
   error.value = ''
@@ -25,5 +47,23 @@ async function save() {
       <el-button type="primary" native-type="submit" :loading="saving">保存新密码</el-button>
     </el-form>
   </section>
+  <section class="account-panel"><h1>双因素验证</h1>
+    <p>开启后，登录时除密码外还需输入验证器 App（Google Authenticator / 微软 Authenticator 等）的 6 位验证码。</p>
+    <el-alert v-if="tfaError" :title="tfaError" type="error" :closable="false" />
+    <div v-if="!tfaEnabled && tfaStep === 'idle'"><el-button type="primary" :loading="tfaBusy" @click="startTfaSetup">开启双因素验证</el-button></div>
+    <div v-if="!tfaEnabled && tfaStep === 'setup'">
+      <p>用验证器 App 扫描下方密钥（或手动输入）：</p>
+      <p class="tfa-secret">{{ tfaSecret }}</p>
+      <el-input v-model="tfaCode" maxlength="6" placeholder="输入 6 位验证码" style="max-width: 200px" />
+      <div style="margin-top: 12px"><el-button type="primary" :loading="tfaBusy" :disabled="tfaCode.trim().length !== 6" @click="confirmTfa">验证并开启</el-button>
+      <el-button :disabled="tfaBusy" @click="tfaStep = 'idle'">取消</el-button></div>
+    </div>
+    <div v-if="tfaEnabled">
+      <el-tag type="success">已开启</el-tag>
+      <p>关闭需输入当前验证码：</p>
+      <el-input v-model="tfaCode" maxlength="6" placeholder="输入 6 位验证码" style="max-width: 200px" />
+      <div style="margin-top: 12px"><el-button type="danger" plain :loading="tfaBusy" :disabled="tfaCode.trim().length !== 6" @click="disableTfa">关闭双因素验证</el-button></div>
+    </div>
+  </section>
 </template>
-<style scoped>.account-panel{max-width:560px;padding:28px;background:white;border:1px solid #e3eaf2;border-radius:12px}.account-panel h1{font-size:24px;color:#304761}.account-panel p{margin:14px 0;color:#66788b;font-size:13px}.account-panel .el-alert{margin-bottom:16px}</style>
+<style scoped>.account-panel{max-width:560px;padding:28px;background:white;border:1px solid #e3eaf2;border-radius:12px}.account-panel h1{font-size:24px;color:#304761}.account-panel p{margin:14px 0;color:#66788b;font-size:13px}.account-panel .el-alert{margin-bottom:16px}.tfa-secret{font-family:monospace;background:#f5f7fa;padding:8px 12px;border-radius:6px;word-break:break-all}</style>

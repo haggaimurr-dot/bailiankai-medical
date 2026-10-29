@@ -63,6 +63,13 @@ func (a *API) loginEmployee(c *gin.Context) {
 		a.unavailable(c, err)
 		return
 	}
+	// 行 115：若该账号开启了双因素验证，先撤销刚创建的会话，返回待验证状态
+	if enabled, err := a.repo.(*store.MySQL).Employee2FAEnabled(c.Request.Context(), account.ID); err == nil && enabled {
+		_ = a.repo.(*store.MySQL).RevokeEmployeeSession(c.Request.Context(), token)
+		c.Header("Cache-Control", "no-store")
+		c.JSON(200, gin.H{"data": gin.H{"requires2FA": true, "employeeId": account.ID}})
+		return
+	}
 	c.Header("Cache-Control", "no-store")
 	c.JSON(200, gin.H{"data": gin.H{"employee": employeeDTO(account), "token": token}})
 }

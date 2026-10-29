@@ -323,6 +323,7 @@ onUnmounted(() => generation++)
       </section>
 
       <section class="card" style="cursor: pointer" @click="router.push('/messages')">消息与复诊提醒 ›</section>
+      <section class="card" style="cursor: pointer" @click="router.push('/settings/notifications')">提醒偏好设置 ›</section>
       <section class="card" style="cursor: pointer" @click="router.push({ path: '/cases', query: { mine: '1' } })">我的案例 · 展示授权与撤回 ›</section>
 
       <button class="ghost" :disabled="busy" @click="logout">退出当前设备</button>

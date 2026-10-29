@@ -193,6 +193,7 @@ onMounted(() => load())
     <p class="lede">问诊、复诊、方案、治疗与随访记录统一按时间倒序显示，医嘱可在此确认阅读。</p>
     <button class="ghost" @click="router.push('/recovery')">恢复日历 · 查看随访与回评</button>
     <button class="ghost" @click="shareDialog = true; loadShareLinks()">分享档案 · 生成临时链接</button>
+    <button class="ghost" @click="router.push('/records/export')">导出 PDF</button>
 
     <div v-if="loading" class="card"><van-loading size="24px">正在整理治疗档案…</van-loading></div>
 
