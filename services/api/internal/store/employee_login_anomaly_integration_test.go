@@ -17,9 +17,16 @@ func TestEmployeeLoginAnomalyAlert(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Use incrementing timestamps so ORDER BY created_at DESC is deterministic.
+	// (All attempts with the same created_at would tie-break by random ID.)
+	now := f.now
+	tick := func() time.Time {
+		now = now.Add(time.Second)
+		return now
+	}
 	fail := func() {
 		t.Helper()
-		if _, _, err := f.repo.LoginEmployee(store.WithLoginClientIP(ctx, "203.0.113.9"), account.Username, "wrong-password", f.now); !errors.Is(err, store.ErrInvalidCredentials) {
+		if _, _, err := f.repo.LoginEmployee(store.WithLoginClientIP(ctx, "203.0.113.9"), account.Username, "wrong-password", tick()); !errors.Is(err, store.ErrInvalidCredentials) {
 			t.Fatalf("expected invalid credentials, got %v", err)
 		}
 	}
@@ -58,7 +65,7 @@ func TestEmployeeLoginAnomalyAlert(t *testing.T) {
 		t.Fatalf("anomaly count after 7 failures: %d %v", count, err)
 	}
 	// A success resets the run: five more failures fire a second event.
-	if _, _, err := f.repo.LoginEmployee(store.WithLoginClientIP(ctx, "203.0.113.9"), account.Username, "LoginAnomalyTest123!", f.now); err != nil {
+	if _, _, err := f.repo.LoginEmployee(store.WithLoginClientIP(ctx, "203.0.113.9"), account.Username, "LoginAnomalyTest123!", tick()); err != nil {
 		t.Fatal(err)
 	}
 	for i := 0; i < 5; i++ {
