@@ -125,6 +125,7 @@ func newRouter(a *API) *gin.Engine {
 	a.registerScheduleRoutes(r)
 	a.registerScheduleTemplateRoutes(r)
 	a.registerArrivalGuidanceRoutes(r)
+	a.registerAssessmentQualityRoutes(r)
 	a.registerDirectoryRoutes(r)
 	a.registerKnowledgeRoutes(r)
 	a.registerFollowupToolsRoutes(r)

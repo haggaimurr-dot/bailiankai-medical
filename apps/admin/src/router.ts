@@ -30,6 +30,7 @@ export const router = createRouter({
     { path: '/assessments/:id/task', component: AssessmentsView, meta: { title: '评估任务', assessmentMode: 'task' } },
     { path: '/assessments/:id/result', component: AssessmentsView, meta: { title: '评估结果', assessmentMode: 'result' } },
     { path: '/assessments/:id/review', component: AssessmentsView, meta: { title: '医生复核', assessmentMode: 'review' } },
+    { path: '/assessments/quality', component: () => import('./views/AssessmentQualityView.vue'), meta: { title: '模型效果抽检' } },
     { path: '/support', component: SupportView, meta: { title: '客服工作台' } },
     { path: '/', redirect: '/appointments' },
     { path: '/account', component: AccountView, meta: { title: '个人修改密码' } },

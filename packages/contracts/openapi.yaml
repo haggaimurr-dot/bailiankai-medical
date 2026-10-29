@@ -1244,6 +1244,72 @@ paths:
         '401': {$ref: '#/components/responses/Error'}
         '403': {$ref: '#/components/responses/Error'}
         '404': {$ref: '#/components/responses/Error'}
+  /api/v1/admin/assessments/quality-sample:
+    post:
+      operationId: sampleQualityAssessments
+      description: 主管抽检已复核发布的评估（随机 N 条），用于人工评分。
+      security: [{EmployeeBearer: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [count]
+              properties:
+                clinicId: {type: string}
+                count: {type: integer, minimum: 1, maximum: 50}
+      responses:
+        '200':
+          description: 抽检结果
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: {$ref: '#/components/schemas/QualitySampleItem'}
+  /api/v1/admin/assessments/{assessmentId}/quality-score:
+    post:
+      operationId: saveQualityScore
+      description: 主管保存人工评分（1–5 分）。
+      security: [{EmployeeBearer: []}]
+      parameters:
+        - {name: assessmentId, in: path, required: true, schema: {type: string}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/QualityScoreInput'}
+      responses:
+        '200':
+          description: 已保存的评分
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {$ref: '#/components/schemas/QualityScore'}
+  /api/v1/admin/assessments/quality-report:
+    get:
+      operationId: qualityReport
+      description: 按模型版本汇总评分；传 modelVersion 下钻到单条明细。
+      security: [{EmployeeBearer: []}]
+      parameters:
+        - {name: modelVersion, in: query, required: false, schema: {type: string}}
+      responses:
+        '200':
+          description: 评分报表
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {$ref: '#/components/schemas/QualityReport'}
   /api/v1/admin/arrival-guidance:
     get:
       operationId: getArrivalGuidance
@@ -4843,6 +4909,60 @@ components:
       properties:
         name: {type: string, minLength: 1, maxLength: 100}
         pattern: {$ref: '#/components/schemas/ScheduleTemplatePattern'}
+    QualitySampleItem:
+      type: object
+      required: [assessmentId, patientId, clinicId, reviewedAt, hasScore]
+      properties:
+        assessmentId: {type: string}
+        patientId: {type: string}
+        clinicId: {type: string}
+        reviewedAt: {type: string, format: date-time}
+        modelVersion: {type: string}
+        hasScore: {type: boolean}
+    QualityScoreInput:
+      type: object
+      required: [score]
+      properties:
+        score: {type: integer, minimum: 1, maximum: 5}
+        comment: {type: string, maxLength: 1000}
+        modelVersion: {type: string, maxLength: 200}
+    QualityScore:
+      type: object
+      required: [id, assessmentId, score, createdAt]
+      properties:
+        id: {type: string}
+        assessmentId: {type: string}
+        score: {type: integer}
+        comment: {type: string}
+        modelVersion: {type: string}
+        createdAt: {type: string, format: date-time}
+    QualityReport:
+      type: object
+      required: [summary]
+      properties:
+        summary:
+          type: array
+          items:
+            type: object
+            required: [modelVersion, count, avgScore]
+            properties:
+              modelVersion: {type: string}
+              count: {type: integer}
+              avgScore: {type: number}
+              minScore: {type: integer}
+              maxScore: {type: integer}
+        items:
+          type: array
+          items:
+            type: object
+            required: [scoreId, assessmentId, score, createdAt]
+            properties:
+              scoreId: {type: string}
+              assessmentId: {type: string}
+              score: {type: integer}
+              comment: {type: string}
+              scorer: {type: string}
+              createdAt: {type: string, format: date-time}
     ArrivalGuidanceSetting:
       type: object
       required: [clinicId, content, enabled, updatedAt]

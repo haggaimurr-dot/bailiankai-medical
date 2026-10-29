@@ -20,6 +20,10 @@ func allowedEmployeeOperation(role, method, path string) bool {
 			return role == "manager" && method == "POST"
 		case "/api/v1/admin/assessments/:assessmentId/reviews":
 			return role == "doctor" && method == "POST"
+		case "/api/v1/admin/assessments/quality-sample", "/api/v1/admin/assessments/quality-report":
+			return role == "manager" && (method == "POST" || method == "GET")
+		case "/api/v1/admin/assessments/:assessmentId/quality-score":
+			return role == "manager" && method == "POST"
 		default:
 			return false
 		}

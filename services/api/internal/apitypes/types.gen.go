@@ -596,10 +596,13 @@ const (
 
 // Defines values for PatientMessageKind.
 const (
-	PatientMessageKindAppointmentStatus PatientMessageKind = "appointment_status"
-	PatientMessageKindPrivacyPolicy     PatientMessageKind = "privacy_policy"
-	PatientMessageKindReminder          PatientMessageKind = "reminder"
-	PatientMessageKindSupportReply      PatientMessageKind = "support_reply"
+	PatientMessageKindAppointmentStatus    PatientMessageKind = "appointment_status"
+	PatientMessageKindArrivalGuidance      PatientMessageKind = "arrival_guidance"
+	PatientMessageKindAssessmentPublished  PatientMessageKind = "assessment_published"
+	PatientMessageKindPrivacyPolicy        PatientMessageKind = "privacy_policy"
+	PatientMessageKindReminder             PatientMessageKind = "reminder"
+	PatientMessageKindSupportReply         PatientMessageKind = "support_reply"
+	PatientMessageKindSuspensionReschedule PatientMessageKind = "suspension_reschedule"
 )
 
 // Defines values for PhotoAngle.
@@ -3391,6 +3394,52 @@ type PrivacyPolicy struct {
 // PrivacyPolicyStatus defines model for PrivacyPolicy.Status.
 type PrivacyPolicyStatus string
 
+// QualityReport defines model for QualityReport.
+type QualityReport struct {
+	Items *[]struct {
+		AssessmentId string    `json:"assessmentId"`
+		Comment      *string   `json:"comment,omitempty"`
+		CreatedAt    time.Time `json:"createdAt"`
+		Score        int       `json:"score"`
+		ScoreId      string    `json:"scoreId"`
+		Scorer       *string   `json:"scorer,omitempty"`
+	} `json:"items,omitempty"`
+	Summary []struct {
+		AvgScore     float32 `json:"avgScore"`
+		Count        int     `json:"count"`
+		MaxScore     *int    `json:"maxScore,omitempty"`
+		MinScore     *int    `json:"minScore,omitempty"`
+		ModelVersion string  `json:"modelVersion"`
+	} `json:"summary"`
+}
+
+// QualitySampleItem defines model for QualitySampleItem.
+type QualitySampleItem struct {
+	AssessmentId string    `json:"assessmentId"`
+	ClinicId     string    `json:"clinicId"`
+	HasScore     bool      `json:"hasScore"`
+	ModelVersion *string   `json:"modelVersion,omitempty"`
+	PatientId    string    `json:"patientId"`
+	ReviewedAt   time.Time `json:"reviewedAt"`
+}
+
+// QualityScore defines model for QualityScore.
+type QualityScore struct {
+	AssessmentId string    `json:"assessmentId"`
+	Comment      *string   `json:"comment,omitempty"`
+	CreatedAt    time.Time `json:"createdAt"`
+	Id           string    `json:"id"`
+	ModelVersion *string   `json:"modelVersion,omitempty"`
+	Score        int       `json:"score"`
+}
+
+// QualityScoreInput defines model for QualityScoreInput.
+type QualityScoreInput struct {
+	Comment      *string `json:"comment,omitempty"`
+	ModelVersion *string `json:"modelVersion,omitempty"`
+	Score        int     `json:"score"`
+}
+
 // RecordExportEvent defines model for RecordExportEvent.
 type RecordExportEvent struct {
 	Action RecordExportEventAction `json:"action"`
@@ -4180,6 +4229,17 @@ type ListAssessmentAccessAuditParams struct {
 	PageSize *int `form:"pageSize,omitempty" json:"pageSize,omitempty"`
 }
 
+// QualityReportParams defines parameters for QualityReport.
+type QualityReportParams struct {
+	ModelVersion *string `form:"modelVersion,omitempty" json:"modelVersion,omitempty"`
+}
+
+// SampleQualityAssessmentsJSONBody defines parameters for SampleQualityAssessments.
+type SampleQualityAssessmentsJSONBody struct {
+	ClinicId *string `json:"clinicId,omitempty"`
+	Count    int     `json:"count"`
+}
+
 // AssessmentReviewersParams defines parameters for AssessmentReviewers.
 type AssessmentReviewersParams struct {
 	ClinicId string `form:"clinicId" json:"clinicId"`
@@ -4742,8 +4802,14 @@ type ResolveArrivalScanJSONRequestBody = CheckInScan
 // CreateAssessmentConsentPolicyJSONRequestBody defines body for CreateAssessmentConsentPolicy for application/json ContentType.
 type CreateAssessmentConsentPolicyJSONRequestBody = AssessmentConsentPolicyInput
 
+// SampleQualityAssessmentsJSONRequestBody defines body for SampleQualityAssessments for application/json ContentType.
+type SampleQualityAssessmentsJSONRequestBody SampleQualityAssessmentsJSONBody
+
 // AssignAssessmentJSONRequestBody defines body for AssignAssessment for application/json ContentType.
 type AssignAssessmentJSONRequestBody = AssessmentAssignment
+
+// SaveQualityScoreJSONRequestBody defines body for SaveQualityScore for application/json ContentType.
+type SaveQualityScoreJSONRequestBody = QualityScoreInput
 
 // ReviewAssessmentJSONRequestBody defines body for ReviewAssessment for application/json ContentType.
 type ReviewAssessmentJSONRequestBody = AssessmentReviewCreate

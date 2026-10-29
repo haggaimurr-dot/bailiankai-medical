@@ -1581,6 +1581,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/assessments/quality-sample": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description 主管抽检已复核发布的评估（随机 N 条），用于人工评分。 */
+        post: operations["sampleQualityAssessments"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/assessments/{assessmentId}/quality-score": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description 主管保存人工评分（1–5 分）。 */
+        post: operations["saveQualityScore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/assessments/quality-report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description 按模型版本汇总评分；传 modelVersion 下钻到单条明细。 */
+        get: operations["qualityReport"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/arrival-guidance": {
         parameters: {
             query?: never;
@@ -5010,6 +5061,47 @@ export interface components {
         ScheduleTemplateInput: {
             name: string;
             pattern: components["schemas"]["ScheduleTemplatePattern"];
+        };
+        QualitySampleItem: {
+            assessmentId: string;
+            patientId: string;
+            clinicId: string;
+            /** Format: date-time */
+            reviewedAt: string;
+            modelVersion?: string;
+            hasScore: boolean;
+        };
+        QualityScoreInput: {
+            score: number;
+            comment?: string;
+            modelVersion?: string;
+        };
+        QualityScore: {
+            id: string;
+            assessmentId: string;
+            score: number;
+            comment?: string;
+            modelVersion?: string;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        QualityReport: {
+            summary: {
+                modelVersion: string;
+                count: number;
+                avgScore: number;
+                minScore?: number;
+                maxScore?: number;
+            }[];
+            items?: {
+                scoreId: string;
+                assessmentId: string;
+                score: number;
+                comment?: string;
+                scorer?: string;
+                /** Format: date-time */
+                createdAt: string;
+            }[];
         };
         ArrivalGuidanceSetting: {
             clinicId: string;
@@ -11418,6 +11510,87 @@ export interface operations {
             401: components["responses"]["Error"];
             403: components["responses"]["Error"];
             404: components["responses"]["Error"];
+        };
+    };
+    sampleQualityAssessments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    clinicId?: string;
+                    count: number;
+                };
+            };
+        };
+        responses: {
+            /** @description 抽检结果 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["QualitySampleItem"][];
+                    };
+                };
+            };
+        };
+    };
+    saveQualityScore: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                assessmentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["QualityScoreInput"];
+            };
+        };
+        responses: {
+            /** @description 已保存的评分 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["QualityScore"];
+                    };
+                };
+            };
+        };
+    };
+    qualityReport: {
+        parameters: {
+            query?: {
+                modelVersion?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 评分报表 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["QualityReport"];
+                    };
+                };
+            };
         };
     };
     getArrivalGuidance: {
