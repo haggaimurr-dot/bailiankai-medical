@@ -11,6 +11,36 @@ import { countdownLabel } from '../utils/date'
 
 type TimelineEvent = components['schemas']['AppointmentTimelineEvent'] & { label: string; timeLabel: string }
 
+function toICSDate(iso: string): string {
+  const d = new Date(iso)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getUTCFullYear()}${pad(d.getUTCMonth() + 1)}${pad(d.getUTCDate())}T${pad(d.getUTCHours())}${pad(d.getUTCMinutes())}${pad(d.getUTCSeconds())}Z`
+}
+function addToCalendar() {
+  const a = appointment.value
+  if (!a) return
+  const ics = [
+    'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Bailiankai//Appointment//CN',
+    'BEGIN:VEVENT',
+    `UID:${a.id}@bailiankai`,
+    `DTSTAMP:${toICSDate(new Date().toISOString())}`,
+    `DTSTART:${toICSDate(a.startsAt)}`,
+    `DTEND:${toICSDate(a.endsAt)}`,
+    `SUMMARY:百莲凯预约 - ${a.doctorName}`,
+    `LOCATION:${a.clinicName}`,
+    `DESCRIPTION:医生：${a.doctorName}\\n院区：${a.clinicName}\\n时间：${a.timeLabel}`,
+    'END:VEVENT', 'END:VCALENDAR',
+  ].join('\r\n')
+  const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `bailiankai-${a.id}.ics`
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  setTimeout(() => URL.revokeObjectURL(url), 5000)
+}
 const route = useRoute()
 const router = useRouter()
 const sessionStore = useSessionStore()
@@ -364,6 +394,19 @@ onUnmounted(() => {
           <div class="detail-row"><span class="detail-label">医生</span><span class="detail-value">{{ appointment.doctorName }}</span></div>
           <div class="detail-row"><span class="detail-label">时间</span><span class="detail-value">{{ appointment.timeLabel }} <span class="muted">北京时间</span></span></div>
           <div class="detail-row"><span class="detail-label">院区</span><span class="detail-value">{{ appointment.clinicName }}</span></div>
+          <div class="row" style="margin-top: 12px">
+            <button class="ghost grow" @click="addToCalendar">加入手机日历</button>
+          </div>
+        </section>
+
+        <section v-if="['pending', 'confirmed'].includes(appointment.status)" class="card">
+          <h2>到院前注意事项</h2>
+          <ul class="checklist">
+            <li>请携带有效身份证件，提前 15 分钟到院</li>
+            <li>面部治疗请素颜到院，避免浓妆</li>
+            <li>如有过敏史或正在服药，请提前告知医生</li>
+            <li>治疗后注意防晒，遵医嘱护理</li>
+          </ul>
         </section>
 
         <section v-if="['pending', 'confirmed', 'completed'].includes(appointment.status)" class="card">
