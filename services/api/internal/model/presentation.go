@@ -19,17 +19,30 @@ type ClinicLocation struct {
 	Longitude float64 `json:"longitude"`
 }
 
+type EnvironmentImage struct {
+	ImageURL string `json:"imageUrl"`
+	Caption  string `json:"caption"`
+}
+
+type FeaturedReview struct {
+	DisplayName string `json:"displayName"`
+	Content     string `json:"content"`
+	Rating      int    `json:"rating,omitempty"`
+}
+
 type ClinicPresentation struct {
-	IsDemo       bool            `json:"isDemo"`
-	BrandName    string          `json:"brandName"`
-	Tagline      string          `json:"tagline"`
-	Introduction string          `json:"introduction"`
-	LogoURL      string          `json:"logoUrl"`
-	Hours        string          `json:"hours"`
-	Transport    string          `json:"transport"`
-	ArrivalGuide string          `json:"arrivalGuide"`
-	Location     *ClinicLocation `json:"location,omitempty"`
-	Credentials  []Credential    `json:"credentials"`
+	IsDemo            bool               `json:"isDemo"`
+	BrandName         string             `json:"brandName"`
+	Tagline           string             `json:"tagline"`
+	Introduction      string             `json:"introduction"`
+	LogoURL           string             `json:"logoUrl"`
+	Hours             string             `json:"hours"`
+	Transport         string             `json:"transport"`
+	ArrivalGuide      string             `json:"arrivalGuide"`
+	Location          *ClinicLocation    `json:"location,omitempty"`
+	Credentials       []Credential       `json:"credentials"`
+	EnvironmentImages []EnvironmentImage `json:"environmentImages,omitempty"`
+	FeaturedReviews   []FeaturedReview   `json:"featuredReviews,omitempty"`
 }
 
 type DoctorPresentation struct {

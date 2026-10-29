@@ -4232,6 +4232,17 @@ export interface components {
             arrivalGuide: string;
             location?: components["schemas"]["ClinicLocation"];
             credentials: components["schemas"]["Credential"][];
+            environmentImages?: components["schemas"]["EnvironmentImage"][];
+            featuredReviews?: components["schemas"]["FeaturedReview"][];
+        };
+        EnvironmentImage: {
+            imageUrl: string;
+            caption: string;
+        };
+        FeaturedReview: {
+            displayName: string;
+            content: string;
+            rating?: number;
         };
         DoctorPresentation: {
             isDemo: boolean;

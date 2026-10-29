@@ -46,6 +46,25 @@ func clinicPresentationDTO(p *model.ClinicPresentation) *apitypes.ClinicPresenta
 	if p.Location != nil {
 		result.Location = &apitypes.ClinicLocation{Latitude: p.Location.Latitude, Longitude: p.Location.Longitude}
 	}
+	if len(p.EnvironmentImages) > 0 {
+		rows := make([]apitypes.EnvironmentImage, 0, len(p.EnvironmentImages))
+		for _, row := range p.EnvironmentImages {
+			rows = append(rows, apitypes.EnvironmentImage{ImageUrl: row.ImageURL, Caption: row.Caption})
+		}
+		result.EnvironmentImages = &rows
+	}
+	if len(p.FeaturedReviews) > 0 {
+		rows := make([]apitypes.FeaturedReview, 0, len(p.FeaturedReviews))
+		for _, row := range p.FeaturedReviews {
+			rating := row.Rating
+			review := apitypes.FeaturedReview{DisplayName: row.DisplayName, Content: row.Content}
+			if rating != 0 {
+				review.Rating = &rating
+			}
+			rows = append(rows, review)
+		}
+		result.FeaturedReviews = &rows
+	}
 	return result
 }
 

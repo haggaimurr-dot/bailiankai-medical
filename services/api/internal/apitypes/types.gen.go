@@ -1700,12 +1700,14 @@ type ClinicLocation struct {
 
 // ClinicPresentation defines model for ClinicPresentation.
 type ClinicPresentation struct {
-	ArrivalGuide string       `json:"arrivalGuide"`
-	BrandName    string       `json:"brandName"`
-	Credentials  []Credential `json:"credentials"`
-	Hours        string       `json:"hours"`
-	Introduction string       `json:"introduction"`
-	IsDemo       bool         `json:"isDemo"`
+	ArrivalGuide      string              `json:"arrivalGuide"`
+	BrandName         string              `json:"brandName"`
+	Credentials       []Credential        `json:"credentials"`
+	EnvironmentImages *[]EnvironmentImage `json:"environmentImages,omitempty"`
+	FeaturedReviews   *[]FeaturedReview   `json:"featuredReviews,omitempty"`
+	Hours             string              `json:"hours"`
+	Introduction      string              `json:"introduction"`
+	IsDemo            bool                `json:"isDemo"`
 
 	// Location GCJ-02 coordinates verified by the clinic; omit if unknown
 	Location  *ClinicLocation `json:"location,omitempty"`
@@ -2145,6 +2147,19 @@ type EmployeeStatus struct {
 
 // EntityId defines model for EntityId.
 type EntityId = string
+
+// EnvironmentImage defines model for EnvironmentImage.
+type EnvironmentImage struct {
+	Caption  string `json:"caption"`
+	ImageUrl string `json:"imageUrl"`
+}
+
+// FeaturedReview defines model for FeaturedReview.
+type FeaturedReview struct {
+	Content     string `json:"content"`
+	DisplayName string `json:"displayName"`
+	Rating      *int   `json:"rating,omitempty"`
+}
 
 // FollowupAssignment defines model for FollowupAssignment.
 type FollowupAssignment struct {

@@ -169,6 +169,22 @@ onUnmounted(() => { requestId += 1 })
         <h2>关于{{ presentation.brandName }}</h2>
         <p class="muted">{{ presentation.introduction }}</p>
       </section>
+      <section v-if="presentation?.environmentImages?.length" class="card">
+        <h2>门店实景</h2>
+        <van-swipe class="env-swipe" :autoplay="4000" indicator-color="#0f766e" lazy-render>
+          <van-swipe-item v-for="(image, index) in presentation.environmentImages" :key="index">
+            <img class="env-image" :src="image.imageUrl" :alt="image.caption || '门店实景'" />
+            <p v-if="image.caption" class="env-caption">{{ image.caption }}</p>
+          </van-swipe-item>
+        </van-swipe>
+      </section>
+      <section v-if="presentation?.featuredReviews?.length" class="card">
+        <h2>患者评价精选</h2>
+        <div v-for="(review, index) in presentation.featuredReviews" :key="index" class="review-row">
+          <div class="review-head"><span class="review-name">{{ review.displayName || '匿名患者' }}</span><span v-if="review.rating" class="review-stars">{{ '★'.repeat(review.rating) }}</span></div>
+          <p class="muted">{{ review.content }}</p>
+        </div>
+      </section>
 
       <button class="ghost profile-entry" @click="router.push('/profile')">我的资料 · 登录与手机号授权</button>
 
@@ -342,6 +358,15 @@ onUnmounted(() => { requestId += 1 })
 .doctor-summary { line-height: 1.6; margin: 10px 0; }
 .focus-list { display: flex; flex-wrap: wrap; gap: 6px; }
 .doctor-action { margin-top: 10px; }
+.env-swipe { border-radius: 12px; overflow: hidden; }
+.env-image { width: 100%; height: 200px; object-fit: cover; display: block; }
+.env-caption { font-size: 13px; color: var(--muted); margin: 8px 0 0; text-align: center; }
+.review-row { padding: 10px 0; border-top: 1px solid var(--bg); }
+.review-row:first-of-type { border-top: 0; padding-top: 2px; }
+.review-head { display: flex; justify-content: space-between; align-items: center; }
+.review-name { font-weight: 600; font-size: 14px; }
+.review-stars { color: #d97706; letter-spacing: 1px; }
+.review-row p { margin: 6px 0 0; line-height: 1.7; }
 button.ghost.small { padding: 7px 12px; font-size: 13px; }
 .article-card { cursor: pointer; }
 .prep-row { display: flex; gap: 12px; padding: 8px 0; }

@@ -51,7 +51,7 @@ async function failure(cause: unknown, setError: (message: string) => void) {
 }
 const editorOpen = ref(false), editorKind = ref<Kind>('doctors'), editing = ref<Row | null>(null), editorError = ref(''), staleEditor = ref(false)
 const doctorForm = ref<DoctorInput>({ clinicId: '', name: '', title: '', summary: '', focus: [], initials: '', avatarUrl: '', serviceIntroduction: '', presentation: { isDemo: false, credentials: [] } })
-const clinicForm = ref<ClinicInput>({ name: '', address: '', phone: '', presentation: { isDemo: false, brandName: '', tagline: '', introduction: '', logoUrl: '', hours: '', transport: '', arrivalGuide: '', credentials: [] } })
+const clinicForm = ref<ClinicInput>({ name: '', address: '', phone: '', presentation: { isDemo: false, brandName: '', tagline: '', introduction: '', logoUrl: '', hours: '', transport: '', arrivalGuide: '', credentials: [], environmentImages: [], featuredReviews: [] } })
 const focusText = ref(''), latitude = ref<number | undefined>(), longitude = ref<number | undefined>()
 function edit(row?: Row) {
   editorKind.value = row ? rowKind(row) : kind.value; editing.value = row ? JSON.parse(JSON.stringify(row)) : null
@@ -63,6 +63,10 @@ function edit(row?: Row) {
   } else {
     const clinic = row as ClinicAdmin | undefined
     clinicForm.value = { name: clinic?.name || '', address: clinic?.address || '', phone: clinic?.phone || '', presentation: JSON.parse(JSON.stringify(clinic?.presentation || { isDemo: false, brandName: clinic?.name || '', tagline: '', introduction: '', logoUrl: '', hours: '', transport: '', arrivalGuide: '', credentials: [] })) }
+    if (clinicForm.value.presentation) {
+      clinicForm.value.presentation.environmentImages = clinicForm.value.presentation.environmentImages || []
+      clinicForm.value.presentation.featuredReviews = clinicForm.value.presentation.featuredReviews || []
+    }
     latitude.value = clinicForm.value.presentation?.location?.latitude; longitude.value = clinicForm.value.presentation?.location?.longitude
   }
   editorOpen.value = true
@@ -92,6 +96,10 @@ function validate(body: ClinicInput | DoctorInput) {
     if ((latitude.value == null) !== (longitude.value == null)) return '经纬度须同时填写或同时留空。'
     if (latitude.value != null && (!Number.isFinite(latitude.value) || latitude.value < -90 || latitude.value > 90)) return '纬度须在 -90 至 90 之间。'
     if (longitude.value != null && (!Number.isFinite(longitude.value) || longitude.value < -180 || longitude.value > 180)) return '经度须在 -180 至 180 之间。'
+    const environmentImages = body.presentation?.environmentImages || []
+    if (environmentImages.length > 10 || environmentImages.some(row => !row.imageUrl || !https(row.imageUrl) || [...row.caption].length > 200)) return '环境图最多 10 张，每张须填写有效 HTTPS 图片地址，说明最多 200 字。'
+    const featuredReviews = body.presentation?.featuredReviews || []
+    if (featuredReviews.length > 10 || featuredReviews.some(row => !row.content.trim() || [...row.content].length > 1000 || [...row.displayName].length > 50 || (row.rating != null && (row.rating < 0 || row.rating > 5)))) return '精选评价最多 10 条，每条须填写内容（最多 1000 字），署名最多 50 字，评分 0–5 分。'
   }
   const credentials = body.presentation?.credentials || []
   if (credentials.length > 20 || credentials.some(row => !row.name.trim() || !https(row.imageUrl))) return '每项资质须填写名称，附件地址须为有效 HTTPS 地址。'
@@ -233,6 +241,23 @@ onMounted(load)
           <el-form-item label="院区名称"><el-input v-model="clinicForm.name" maxlength="120" /></el-form-item><el-form-item label="院区地址"><el-input v-model="clinicForm.address" maxlength="255" /></el-form-item><el-form-item label="联系电话"><el-input v-model="clinicForm.phone" maxlength="32" /></el-form-item>
           <template v-if="clinicForm.presentation">
             <el-form-item label="品牌名称"><el-input v-model="clinicForm.presentation.brandName" maxlength="120" /></el-form-item><el-form-item label="品牌标语"><el-input v-model="clinicForm.presentation.tagline" maxlength="120" /></el-form-item><el-form-item label="院区介绍"><el-input v-model="clinicForm.presentation.introduction" type="textarea" :rows="4" maxlength="5000" show-word-limit /></el-form-item><el-form-item label="标志图片地址"><el-input v-model="clinicForm.presentation.logoUrl" placeholder="https://" maxlength="2048" /></el-form-item><el-form-item label="营业时间"><el-input v-model="clinicForm.presentation.hours" maxlength="120" /></el-form-item><el-form-item label="交通说明"><el-input v-model="clinicForm.presentation.transport" type="textarea" maxlength="2000" /></el-form-item><el-form-item label="到院指引"><el-input v-model="clinicForm.presentation.arrivalGuide" type="textarea" maxlength="2000" /></el-form-item><div class="coordinates"><el-form-item label="纬度（GCJ-02，可留空）"><el-input-number v-model="latitude" :min="-90" :max="90" :controls="false" /></el-form-item><el-form-item label="经度（GCJ-02，可留空）"><el-input-number v-model="longitude" :min="-180" :max="180" :controls="false" /></el-form-item></div><el-form-item label="演示资料"><el-switch v-model="clinicForm.presentation.isDemo" /></el-form-item><CredentialEditor v-model="clinicForm.presentation.credentials" :disabled="busy || staleEditor" />
+            <section class="credentials"><h3>门店实景轮播</h3><p>最多 10 张，填写公开的 HTTPS 环境图片地址与说明；发布后在患者端首页轮播展示。留空则首页不显示轮播区。图片须为院方实景素材，不得用演示图冒充。</p>
+              <div v-for="(row, index) in clinicForm.presentation.environmentImages" :key="index" class="credential-row">
+                <el-form-item :label="`图片地址 ${index + 1}`"><el-input v-model="row.imageUrl" :disabled="busy || staleEditor" maxlength="2048" placeholder="https://" /></el-form-item>
+                <el-form-item :label="`图片说明 ${index + 1}`"><el-input v-model="row.caption" :disabled="busy || staleEditor" maxlength="200" /></el-form-item>
+                <el-button :disabled="busy || staleEditor" type="danger" plain @click="clinicForm.presentation.environmentImages?.splice(index, 1)">移除图片 {{ index + 1 }}</el-button>
+              </div>
+              <el-button :disabled="busy || staleEditor || (clinicForm.presentation.environmentImages?.length || 0) >= 10" @click="clinicForm.presentation.environmentImages?.push({ imageUrl: '', caption: '' })">添加环境图</el-button>
+            </section>
+            <section class="credentials"><h3>患者评价精选</h3><p>最多 10 条，发布后在患者端首页展示；清空后首页不显示评价区。只选用经患者同意公开的评价原文。</p>
+              <div v-for="(row, index) in clinicForm.presentation.featuredReviews" :key="index" class="credential-row">
+                <el-form-item :label="`署名 ${index + 1}`"><el-input v-model="row.displayName" :disabled="busy || staleEditor" maxlength="50" /></el-form-item>
+                <el-form-item :label="`评价内容 ${index + 1}`"><el-input v-model="row.content" :disabled="busy || staleEditor" type="textarea" :rows="3" maxlength="1000" show-word-limit /></el-form-item>
+                <el-form-item :label="`评分 ${index + 1}`"><el-input-number v-model="row.rating" :disabled="busy || staleEditor" :min="0" :max="5" /></el-form-item>
+                <el-button :disabled="busy || staleEditor" type="danger" plain @click="clinicForm.presentation.featuredReviews?.splice(index, 1)">移除评价 {{ index + 1 }}</el-button>
+              </div>
+              <el-button :disabled="busy || staleEditor || (clinicForm.presentation.featuredReviews?.length || 0) >= 10" @click="clinicForm.presentation.featuredReviews?.push({ displayName: '', content: '', rating: 5 })">添加精选评价</el-button>
+            </section>
           </template>
         </template>
       </el-form>
