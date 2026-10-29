@@ -5694,7 +5694,7 @@ export interface components {
         PatientMessage: {
             id: string;
             /** @enum {string} */
-            kind: "appointment_status" | "reminder" | "support_reply" | "privacy_policy";
+            kind: "appointment_status" | "reminder" | "support_reply" | "privacy_policy" | "suspension_reschedule" | "arrival_guidance" | "assessment_published";
             title: string;
             body: string;
             appointmentId: string;

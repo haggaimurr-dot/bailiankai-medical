@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"example.com/bailiankai/api/internal/apitypes"
 	"example.com/bailiankai/api/internal/store"
@@ -215,6 +216,15 @@ func (a *API) changeAssessment(c *gin.Context) {
 	if err != nil {
 		a.assessmentError(c, err)
 		return
+	}
+	// 新增-P2 行 100：复核发布后（status=completed）给患者发站内消息，点击直达结果页。
+	// best-effort，失败不影响发布本身。
+	if action == "review" && body.Decision == "publish" && view.Task.Status == "completed" && view.PublishedReview != nil {
+		if notifier, ok := a.repo.(interface {
+			NotifyAssessmentPublished(assessmentID string, now time.Time)
+		}); ok {
+			go notifier.NotifyAssessmentPublished(c.Param("assessmentId"), a.careNow())
+		}
 	}
 	code := 200
 	if action == "submit" || action == "retry" || action == "quality-check" {

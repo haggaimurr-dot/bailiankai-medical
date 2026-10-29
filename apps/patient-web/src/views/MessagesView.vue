@@ -110,6 +110,9 @@ async function openMessage(message: PatientMessage) {
   }
   if (message.ticketId) {
     void router.push({ path: '/support', query: { ticket: message.ticketId } })
+  } else if (message.kind === 'assessment_published' && message.appointmentId) {
+    // 约定：assessment_published 消息的 appointmentId 字段承载 assessmentId，点击直达结果页。
+    void router.push({ path: `/assessments/${message.appointmentId}` })
   } else if (message.appointmentId) {
     void router.push({ name: 'appointment-detail', params: { id: message.appointmentId } })
   } else if (message.kind === 'privacy_policy') {
