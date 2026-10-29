@@ -494,7 +494,7 @@ func (s *MySQL) DispatchReminder(ctx context.Context, id string, sender MessageS
 				latestDue = child.DueAt
 			}
 		}
-		if !t.Enabled || !latestDue.After(now) {
+		if !t.Enabled || (!row.Urgent && !latestDue.After(now)) {
 			row.Status = "cancelled"
 			row.LastCode = "expired_or_disabled"
 			if err := unmergeChildren(tx, row.ID, now); err != nil {
