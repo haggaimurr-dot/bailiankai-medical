@@ -137,7 +137,7 @@ func TestEmployeeAccessValidation(t *testing.T) {
 func TestEmployeePageAccessByRole(t *testing.T) {
 	expected := map[string][]string{
 		"operations":       {"/overview", "/doctors", "/account"},
-		"customer_service": {"/support", "/arrivals", "/appointments", "/doctors", "/account"},
+		"customer_service": {"/support", "/arrivals", "/appointments", "/waitlist", "/doctors", "/account"},
 		"nurse":            {"/workbench", "/handoffs", "/appointments", "/patients", "/care", "/followups", "/doctors", "/account"},
 		"doctor":           {"/assessments", "/knowledge", "/arrivals", "/workbench", "/handoffs", "/appointments", "/patients", "/care", "/followups", "/cases", "/doctors", "/account"},
 		"clinician":        {"/knowledge", "/arrivals", "/workbench", "/handoffs", "/appointments", "/patients", "/care", "/followups", "/cases", "/doctors", "/account"},
