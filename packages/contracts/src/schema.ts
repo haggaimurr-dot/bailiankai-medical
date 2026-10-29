@@ -982,6 +982,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/analytics/funnel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 按入站渠道统计预约转化漏斗
+         * @description 创建日期区间内的预约按入站渠道分组，漏斗为预约→已确认→已到诊→已治疗；每一步是前一步的子集，数字恒自洽。仅主管与运营可访问，院区限定在员工授权范围内。
+         */
+        get: operations["getChannelFunnel"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/appointments/{appointmentId}/arrival": {
         parameters: {
             query?: never;
@@ -3880,6 +3900,51 @@ export interface components {
             name: string;
             clinicId: components["schemas"]["EntityId"];
         };
+        ChannelFunnelRow: {
+            /** @description 入站渠道类（direct/home/cases/doctors/knowledge/share/未记录/all） */
+            source: string;
+            /** @description 渠道中文名 */
+            sourceLabel: string;
+            /**
+             * Format: int32
+             * @description 该渠道在创建日期区间内的预约数
+             */
+            created: number;
+            /**
+             * Format: int32
+             * @description 已确认数（含已到诊与已治疗）
+             */
+            confirmed: number;
+            /**
+             * Format: int32
+             * @description 已到诊数
+             */
+            arrived: number;
+            /**
+             * Format: int32
+             * @description 已到诊且有治疗记录数
+             */
+            treated: number;
+            /** @description 确认率 = 已确认 / 预约；分母为 0 时为 null */
+            confirmRate?: number | null;
+            /** @description 到诊率 = 已到诊 / 已确认；分母为 0 时为 null */
+            arrivalRate?: number | null;
+            /** @description 治疗率 = 已治疗 / 已到诊；分母为 0 时为 null */
+            treatmentRate?: number | null;
+        };
+        ChannelFunnelReport: {
+            /** Format: date */
+            dateFrom: string;
+            /** Format: date */
+            dateTo: string;
+            /** @description 限定院区；为空表示全部授权院区 */
+            clinicId: string;
+            /** Format: date-time */
+            generatedAt: string;
+            rows: components["schemas"]["ChannelFunnelRow"][];
+            /** @description 全部渠道合计，source 为 all */
+            total: components["schemas"]["ChannelFunnelRow"];
+        };
         OperationsAnalyticsReport: {
             /** @enum {string} */
             metricVersion: "v1";
@@ -4088,6 +4153,8 @@ export interface components {
             contactName: string;
             contactPhone: string;
             note: string;
+            /** @description 患者端记录的站内入站渠道（direct/home/cases/doctors/knowledge/share）；历史预约为空 */
+            source?: string;
             status: components["schemas"]["AppointmentStatus"];
             rejectionReason: string;
             /**
@@ -4166,6 +4233,11 @@ export interface components {
             note: string;
             /** @description 仅对开放且已满的正容量时段登记候补，不占名额 */
             waitlist?: boolean;
+            /**
+             * @description 患者端记录的站内入站渠道；不在枚举内时按 direct 处理，不影响预约本身
+             * @enum {string}
+             */
+            source?: "direct" | "home" | "cases" | "doctors" | "knowledge" | "share";
         };
         AppointmentReschedule: {
             slotId: components["schemas"]["EntityId"];
@@ -9625,6 +9697,39 @@ export interface operations {
                 content: {
                     "application/json": {
                         data: components["schemas"]["OperationsAnalyticsReport"];
+                    };
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    getChannelFunnel: {
+        parameters: {
+            query: {
+                /** @description 北京时间起始日期（含，按预约创建日期归组） */
+                dateFrom: string;
+                /** @description 北京时间结束日期（含），最多366天 */
+                dateTo: string;
+                clinicId?: components["schemas"]["EntityId"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 各渠道漏斗行与全部渠道合计 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["ChannelFunnelReport"];
                     };
                 };
             };

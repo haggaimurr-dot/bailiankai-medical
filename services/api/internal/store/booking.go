@@ -39,6 +39,23 @@ type AppointmentInput struct {
 	ContactName  string `json:"contactName"`
 	ContactPhone string `json:"contactPhone"`
 	Note         string `json:"note"`
+	// Source is the patient-web entry channel recorded at booking time: the
+	// in-site page the patient came from (home/cases/doctors/knowledge), a
+	// share link marker (share), or direct. Only the path class is stored,
+	// never an external referrer or sharer identity.
+	Source string `json:"source,omitempty"`
+}
+
+// validAppointmentSource coerces an entry-channel value to the allowlist.
+// Unknown or empty values become direct so a telemetry field can never fail
+// a booking.
+func validAppointmentSource(source string) string {
+	switch strings.TrimSpace(source) {
+	case "home", "cases", "doctors", "knowledge", "share":
+		return strings.TrimSpace(source)
+	default:
+		return "direct"
+	}
 }
 type AppointmentFilter struct {
 	ClinicID        string
@@ -94,9 +111,14 @@ func NormalizeAppointmentInput(in AppointmentInput) AppointmentInput {
 	in.ContactName = strings.TrimSpace(in.ContactName)
 	in.ContactPhone = strings.TrimSpace(in.ContactPhone)
 	in.Note = strings.TrimSpace(in.Note)
+	in.Source = validAppointmentSource(in.Source)
 	return in
 }
 func requestHash(in AppointmentInput) string {
+	// The entry channel is telemetry, not booking identity: two submissions
+	// of the same booking from different entry pages must still replay as
+	// one appointment, so the source is excluded from the idempotency hash.
+	in.Source = ""
 	b, _ := json.Marshal(NormalizeAppointmentInput(in))
 	sum := sha256.Sum256(b)
 	return hex.EncodeToString(sum[:])
@@ -267,7 +289,7 @@ func (s *MySQL) CreateAppointment(ctx context.Context, patientID, key string, in
 		if slot.StartsAt.Before(deadline) {
 			deadline = slot.StartsAt
 		}
-		appointment = model.Appointment{ID: randomID("appointment-"), PatientID: patientID, SlotID: slot.ID, ContactName: in.ContactName, ContactPhone: in.ContactPhone, Note: in.Note, Status: "pending", RejectionReason: "", ConfirmationDeadline: deadline, RequestKey: key, RequestHash: hash, CreatedAt: now, UpdatedAt: now, Version: 1}
+		appointment = model.Appointment{ID: randomID("appointment-"), PatientID: patientID, SlotID: slot.ID, ContactName: in.ContactName, ContactPhone: in.ContactPhone, Note: in.Note, Source: in.Source, Status: "pending", RejectionReason: "", ConfirmationDeadline: deadline, RequestKey: key, RequestHash: hash, CreatedAt: now, UpdatedAt: now, Version: 1}
 		if in.Waitlist {
 			appointment.Status = "waiting"
 			appointment.ConfirmationDeadline = slot.StartsAt

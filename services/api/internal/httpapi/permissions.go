@@ -73,7 +73,7 @@ func allowedEmployeeOperation(role, method, path string) bool {
 		return true
 	}
 	if role == "operations" {
-		return method == "GET" && (path == "/api/v1/admin/overview" || path == "/api/v1/admin/analytics" || path == "/api/v1/admin/appointments/cancellation-stats")
+		return method == "GET" && (path == "/api/v1/admin/overview" || path == "/api/v1/admin/analytics" || path == "/api/v1/admin/analytics/funnel" || path == "/api/v1/admin/appointments/cancellation-stats")
 	}
 	if role == "customer_service" {
 		return (method == "GET" && (path == "/api/v1/admin/appointments" || path == "/api/v1/admin/appointments/:appointmentId" || path == "/api/v1/admin/patients" || path == "/api/v1/admin/waitlist" || path == "/api/v1/admin/appointments/cancellation-stats")) || (method == "POST" && (path == "/api/v1/admin/appointments/:appointmentId/review" || path == "/api/v1/admin/appointments/:appointmentId/arrival" || path == "/api/v1/admin/appointments/remind"))

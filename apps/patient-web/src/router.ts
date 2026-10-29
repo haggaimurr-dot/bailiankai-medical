@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
+import { recordEntrySource } from './entrySource'
 
 const routes: RouteRecordRaw[] = [
   { path: '/', name: 'home', component: () => import('./views/HomeView.vue'), meta: { tab: 'home', title: '百莲凯医疗美容' } },
@@ -31,4 +32,5 @@ export const router = createRouter({ history: createWebHistory(), routes, scroll
 
 router.afterEach((to) => {
   document.title = `${String(to.meta.title || '百莲凯')} · 百莲凯患者端`
+  recordEntrySource(to)
 })

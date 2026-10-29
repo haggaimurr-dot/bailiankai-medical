@@ -5,10 +5,13 @@ import { shanghaiDate } from '../dates'
 import AppIcon from '../components/AppIcon.vue'
 
 type AnalyticsReport = Awaited<ReturnType<typeof api.analytics>>
+type FunnelReport = Awaited<ReturnType<typeof api.analyticsFunnel>>
 type Filters = Parameters<typeof api.analytics>[0]
 const today = shanghaiDate()
 const filters = reactive({ dateFrom: `${today.slice(0, 7)}-01`, dateTo: today, clinicId: '', doctorId: '', groupBy: 'doctor' as Filters['groupBy'] })
 const report = ref<AnalyticsReport | null>(null)
+const funnel = ref<FunnelReport | null>(null)
+const funnelError = ref('')
 const clinics = ref<AnalyticsReport['clinics']>([]), doctors = ref<AnalyticsReport['doctors']>([])
 const lastQuery = ref<Filters | null>(null), resultQuery = ref<Filters | null>(null)
 const loading = ref(false), error = ref(''), optionsLoaded = ref(false)
@@ -97,7 +100,7 @@ function query(): Filters {
 function clinicChanged() {
   if (filters.doctorId && !eligibleDoctors.value.some(doctor => doctor.id === filters.doctorId)) filters.doctorId = ''
 }
-function rate(value: number | null): string { return value === null ? '—' : `${value.toFixed(1)}%` }
+function rate(value: number | null | undefined): string { return value === null || value === undefined ? '—' : `${value.toFixed(1)}%` }
 function scopeLabel(values: Filters): string {
   const clinic = values.clinicId ? clinics.value.find(item => item.id === values.clinicId)?.name || values.clinicId : '全部授权院区'
   const doctor = values.doctorId ? doctors.value.find(item => item.id === values.doctorId)?.name || values.doctorId : '全部授权医生'
@@ -111,9 +114,15 @@ async function load(values: Filters = query()) {
   const currentRequest = ++requestId
   const snapshot = { ...values }
   lastQuery.value = snapshot
-  loading.value = true; error.value = ''; report.value = null; resultQuery.value = null
+  loading.value = true; error.value = ''; funnelError.value = ''; report.value = null; funnel.value = null; resultQuery.value = null
   try {
     const result = await api.analytics(snapshot)
+    // The funnel shares the date range and clinic filter but never blocks the
+    // main report: a funnel failure only empties the funnel section.
+    api.analyticsFunnel({ dateFrom: snapshot.dateFrom, dateTo: snapshot.dateTo, clinicId: snapshot.clinicId }).then(
+      (value) => { if (currentRequest === requestId) funnel.value = value },
+      () => { if (currentRequest === requestId) funnelError.value = '渠道漏斗暂时无法加载' },
+    )
     if (currentRequest !== requestId) return
     clinics.value = result.clinics; doctors.value = result.doctors; optionsLoaded.value = true
     if (filters.clinicId && !clinics.value.some(clinic => clinic.id === filters.clinicId)) filters.clinicId = ''
@@ -182,6 +191,23 @@ onBeforeUnmount(() => { ++requestId })
           </table>
         </div>
         <div class="table-footer"><span>比率以同范围合计计算；分母为 0 时显示“—”，表示不适用。</span><span>仅汇总，不展示患者信息</span></div>
+      </div>
+
+      <div class="surface analytics-details">
+        <div class="panel-heading"><div><h2>渠道来源与转化漏斗</h2><p>按预约创建日期归组：预约 → 已确认 → 已到诊 → 已治疗，每一步是前一步的子集，数字恒自洽。来源只记站内页面与分享标记，不采外部隐私数据。</p></div><span class="count-chip">按创建日期</span></div>
+        <div v-if="funnelError" class="analytics-state analytics-empty"><h2>渠道漏斗暂时无法加载</h2><p>{{ funnelError }}</p></div>
+        <div v-else-if="!funnel" class="analytics-state analytics-empty"><h2>正在加载渠道漏斗</h2></div>
+        <div v-else-if="funnel.rows.length === 0" class="analytics-state analytics-empty"><AppIcon name="layers" /><h2>该范围暂无渠道数据</h2><p>有新预约创建后，漏斗会按入站渠道出现。</p></div>
+        <div v-else class="analytics-table-wrap" tabindex="0" aria-label="渠道转化漏斗，可横向滚动">
+          <table class="analytics-table">
+            <thead><tr><th scope="col">渠道</th><th scope="col">预约</th><th scope="col">已确认</th><th scope="col">确认率</th><th scope="col">已到诊</th><th scope="col">到诊率</th><th scope="col">已治疗</th><th scope="col">治疗率</th></tr></thead>
+            <tbody>
+              <tr v-for="row in funnel.rows" :key="row.source" :data-testid="`funnel-row-${row.source}`"><th scope="row">{{ row.sourceLabel }}</th><td>{{ row.created }}</td><td>{{ row.confirmed }}</td><td>{{ rate(row.confirmRate) }}</td><td>{{ row.arrived }}</td><td>{{ rate(row.arrivalRate) }}</td><td>{{ row.treated }}</td><td>{{ rate(row.treatmentRate) }}</td></tr>
+              <tr data-testid="funnel-row-total"><th scope="row">全部渠道</th><td>{{ funnel.total.created }}</td><td>{{ funnel.total.confirmed }}</td><td>{{ rate(funnel.total.confirmRate) }}</td><td>{{ funnel.total.arrived }}</td><td>{{ rate(funnel.total.arrivalRate) }}</td><td>{{ funnel.total.treated }}</td><td>{{ rate(funnel.total.treatmentRate) }}</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="table-footer"><span>确认率 = 已确认 ÷ 预约；到诊率 = 已到诊 ÷ 已确认；治疗率 = 已治疗 ÷ 已到诊。历史预约来源为空时归入“未记录”。</span><span>仅汇总，不展示患者信息</span></div>
       </div>
     </template>
 

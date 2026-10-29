@@ -416,6 +416,31 @@ paths:
         '403': {$ref: '#/components/responses/Error'}
         '404': {$ref: '#/components/responses/Error'}
         '503': {$ref: '#/components/responses/Error'}
+  /api/v1/admin/analytics/funnel:
+    get:
+      operationId: getChannelFunnel
+      summary: 按入站渠道统计预约转化漏斗
+      description: 创建日期区间内的预约按入站渠道分组，漏斗为预约→已确认→已到诊→已治疗；每一步是前一步的子集，数字恒自洽。仅主管与运营可访问，院区限定在员工授权范围内。
+      security: [{EmployeeBearer: []}]
+      parameters:
+        - {name: dateFrom, in: query, required: true, schema: {type: string, format: date}, description: 北京时间起始日期（含，按预约创建日期归组）}
+        - {name: dateTo, in: query, required: true, schema: {type: string, format: date}, description: 北京时间结束日期（含），最多366天}
+        - {name: clinicId, in: query, schema: {$ref: '#/components/schemas/EntityId'}}
+      responses:
+        '200':
+          description: 各渠道漏斗行与全部渠道合计
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {$ref: '#/components/schemas/ChannelFunnelReport'}
+        '400': {$ref: '#/components/responses/Error'}
+        '401': {$ref: '#/components/responses/Error'}
+        '403': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+        '503': {$ref: '#/components/responses/Error'}
   /api/v1/admin/appointments/{appointmentId}/arrival:
     post:
       operationId: registerAppointmentArrival
@@ -3483,6 +3508,29 @@ components:
         id: {$ref: '#/components/schemas/EntityId'}
         name: {type: string}
         clinicId: {$ref: '#/components/schemas/EntityId'}
+    ChannelFunnelRow:
+      type: object
+      required: [source, sourceLabel, created, confirmed, arrived, treated]
+      properties:
+        source: {type: string, description: 入站渠道类（direct/home/cases/doctors/knowledge/share/未记录/all）}
+        sourceLabel: {type: string, description: 渠道中文名}
+        created: {type: integer, minimum: 0, format: int32, description: 该渠道在创建日期区间内的预约数}
+        confirmed: {type: integer, minimum: 0, format: int32, description: 已确认数（含已到诊与已治疗）}
+        arrived: {type: integer, minimum: 0, format: int32, description: 已到诊数}
+        treated: {type: integer, minimum: 0, format: int32, description: 已到诊且有治疗记录数}
+        confirmRate: {type: number, nullable: true, description: 确认率 = 已确认 / 预约；分母为 0 时为 null}
+        arrivalRate: {type: number, nullable: true, description: 到诊率 = 已到诊 / 已确认；分母为 0 时为 null}
+        treatmentRate: {type: number, nullable: true, description: 治疗率 = 已治疗 / 已到诊；分母为 0 时为 null}
+    ChannelFunnelReport:
+      type: object
+      required: [dateFrom, dateTo, clinicId, generatedAt, rows, total]
+      properties:
+        dateFrom: {type: string, format: date}
+        dateTo: {type: string, format: date}
+        clinicId: {type: string, description: 限定院区；为空表示全部授权院区}
+        generatedAt: {type: string, format: date-time}
+        rows: {type: array, items: {$ref: '#/components/schemas/ChannelFunnelRow'}}
+        total: {$ref: '#/components/schemas/ChannelFunnelRow', description: 全部渠道合计，source 为 all}
     OperationsAnalyticsReport:
       type: object
       required: [metricVersion, timezone, generatedAt, dateFrom, dateTo, groupBy, summary, rows, clinics, doctors]
@@ -3712,6 +3760,7 @@ components:
         contactName: {type: string, minLength: 1, maxLength: 40}
         contactPhone: {type: string, pattern: '^1[3-9][0-9]{9}$'}
         note: {type: string, maxLength: 300}
+        source: {type: string, description: 患者端记录的站内入站渠道（direct/home/cases/doctors/knowledge/share）；历史预约为空}
         status: {$ref: '#/components/schemas/AppointmentStatus'}
         rejectionReason: {type: string, maxLength: 200}
         cancelReason: {type: string, enum: [schedule_conflict, personal, found_elsewhere, price, changed_mind, other], description: 患者取消原因；未取消或未填时不出现}
@@ -3775,6 +3824,7 @@ components:
         contactPhone: {type: string, pattern: '^1[3-9][0-9]{9}$'}
         note: {type: string, maxLength: 300, default: ''}
         waitlist: {type: boolean, description: 仅对开放且已满的正容量时段登记候补，不占名额}
+        source: {type: string, enum: [direct, home, cases, doctors, knowledge, share], description: 患者端记录的站内入站渠道；不在枚举内时按 direct 处理，不影响预约本身}
     AppointmentReschedule:
       type: object
       additionalProperties: false

@@ -32,6 +32,7 @@ type Appointment struct {
 	ContactName          string
 	ContactPhone         string
 	Note                 string
+	Source               string
 	Status               string
 	RejectionReason      string
 	CancelReason         string

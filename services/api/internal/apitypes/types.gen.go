@@ -40,6 +40,16 @@ const (
 	AppointmentCancelCancelReasonScheduleConflict AppointmentCancelCancelReason = "schedule_conflict"
 )
 
+// Defines values for AppointmentCreateSource.
+const (
+	AppointmentCreateSourceCases     AppointmentCreateSource = "cases"
+	AppointmentCreateSourceDirect    AppointmentCreateSource = "direct"
+	AppointmentCreateSourceDoctors   AppointmentCreateSource = "doctors"
+	AppointmentCreateSourceHome      AppointmentCreateSource = "home"
+	AppointmentCreateSourceKnowledge AppointmentCreateSource = "knowledge"
+	AppointmentCreateSourceShare     AppointmentCreateSource = "share"
+)
+
 // Defines values for AppointmentNotificationKind.
 const (
 	PendingEscalated AppointmentNotificationKind = "pending_escalated"
@@ -266,8 +276,8 @@ const (
 
 // Defines values for DirectoryRevisionKind.
 const (
-	Clinics DirectoryRevisionKind = "clinics"
-	Doctors DirectoryRevisionKind = "doctors"
+	DirectoryRevisionKindClinics DirectoryRevisionKind = "clinics"
+	DirectoryRevisionKindDoctors DirectoryRevisionKind = "doctors"
 )
 
 // Defines values for DoctorQualificationReviewStatus.
@@ -958,8 +968,11 @@ type Appointment struct {
 
 	// SlotStatus 当前时段开放状态
 	SlotStatus *AppointmentSlotStatus `json:"slotStatus,omitempty"`
-	StartsAt   time.Time              `json:"startsAt"`
-	Status     AppointmentStatus      `json:"status"`
+
+	// Source 患者端记录的站内入站渠道（direct/home/cases/doctors/knowledge/share）；历史预约为空
+	Source   *string           `json:"source,omitempty"`
+	StartsAt time.Time         `json:"startsAt"`
+	Status   AppointmentStatus `json:"status"`
 
 	// SuspensionReason 当前停诊原因
 	SuspensionReason *string   `json:"suspensionReason,omitempty"`
@@ -1000,9 +1013,15 @@ type AppointmentCreate struct {
 	Note         *string  `json:"note,omitempty"`
 	SlotId       EntityId `json:"slotId"`
 
+	// Source 患者端记录的站内入站渠道；不在枚举内时按 direct 处理，不影响预约本身
+	Source *AppointmentCreateSource `json:"source,omitempty"`
+
 	// Waitlist 仅对开放且已满的正容量时段登记候补，不占名额
 	Waitlist *bool `json:"waitlist,omitempty"`
 }
+
+// AppointmentCreateSource 患者端记录的站内入站渠道；不在枚举内时按 direct 处理，不影响预约本身
+type AppointmentCreateSource string
 
 // AppointmentNotification defines model for AppointmentNotification.
 type AppointmentNotification struct {
@@ -1665,6 +1684,47 @@ type CaseView struct {
 
 // CaseViewReviewStatus defines model for CaseView.ReviewStatus.
 type CaseViewReviewStatus string
+
+// ChannelFunnelReport defines model for ChannelFunnelReport.
+type ChannelFunnelReport struct {
+	// ClinicId 限定院区；为空表示全部授权院区
+	ClinicId    string             `json:"clinicId"`
+	DateFrom    openapi_types.Date `json:"dateFrom"`
+	DateTo      openapi_types.Date `json:"dateTo"`
+	GeneratedAt time.Time          `json:"generatedAt"`
+	Rows        []ChannelFunnelRow `json:"rows"`
+	Total       ChannelFunnelRow   `json:"total"`
+}
+
+// ChannelFunnelRow defines model for ChannelFunnelRow.
+type ChannelFunnelRow struct {
+	// ArrivalRate 到诊率 = 已到诊 / 已确认；分母为 0 时为 null
+	ArrivalRate *float32 `json:"arrivalRate"`
+
+	// Arrived 已到诊数
+	Arrived int32 `json:"arrived"`
+
+	// ConfirmRate 确认率 = 已确认 / 预约；分母为 0 时为 null
+	ConfirmRate *float32 `json:"confirmRate"`
+
+	// Confirmed 已确认数（含已到诊与已治疗）
+	Confirmed int32 `json:"confirmed"`
+
+	// Created 该渠道在创建日期区间内的预约数
+	Created int32 `json:"created"`
+
+	// Source 入站渠道类（direct/home/cases/doctors/knowledge/share/未记录/all）
+	Source string `json:"source"`
+
+	// SourceLabel 渠道中文名
+	SourceLabel string `json:"sourceLabel"`
+
+	// Treated 已到诊且有治疗记录数
+	Treated int32 `json:"treated"`
+
+	// TreatmentRate 治疗率 = 已治疗 / 已到诊；分母为 0 时为 null
+	TreatmentRate *float32 `json:"treatmentRate"`
+}
 
 // CheckInCodeResult defines model for CheckInCodeResult.
 type CheckInCodeResult struct {
@@ -3827,6 +3887,16 @@ type GetOperationsAnalyticsParams struct {
 
 // GetOperationsAnalyticsParamsGroupBy defines parameters for GetOperationsAnalytics.
 type GetOperationsAnalyticsParamsGroupBy string
+
+// GetChannelFunnelParams defines parameters for GetChannelFunnel.
+type GetChannelFunnelParams struct {
+	// DateFrom 北京时间起始日期（含，按预约创建日期归组）
+	DateFrom openapi_types.Date `form:"dateFrom" json:"dateFrom"`
+
+	// DateTo 北京时间结束日期（含），最多366天
+	DateTo   openapi_types.Date `form:"dateTo" json:"dateTo"`
+	ClinicId *EntityId          `form:"clinicId,omitempty" json:"clinicId,omitempty"`
+}
 
 // ListAppointmentNotificationsParams defines parameters for ListAppointmentNotifications.
 type ListAppointmentNotificationsParams struct {

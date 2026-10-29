@@ -7,6 +7,7 @@ import {
   clearSubmission, isSessionExpired, loadSubmission, patientApi, saveSubmission,
   type Appointment, type AppointmentCreate, type Submission,
 } from '../patient'
+import { entrySource } from '../entrySource'
 import { useSessionStore } from '../stores/session'
 import { dateTime } from '../utils/appointment'
 import { clinicTime } from '../utils/date'
@@ -149,7 +150,7 @@ function complete(appointment: Appointment, requestKey: string) {
 async function sendDraft(current: Submission) {
   if (!current.body) return
   try {
-    const appointment = await patientApi.create(current.body, current.key, current.patientId)
+    const appointment = await patientApi.create({ ...current.body, source: entrySource() as AppointmentCreate['source'] }, current.key, current.patientId)
     complete(appointment, current.key)
   } catch (cause) {
     if (isSessionExpired(cause)) {

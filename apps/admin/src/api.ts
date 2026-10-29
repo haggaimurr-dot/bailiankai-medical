@@ -220,6 +220,7 @@ export const api = {
   employees: () => request<Employee[]>('/admin/employees', adminRequest()),
   overview: () => request<components['schemas']['OperationsOverview']>('/admin/overview', adminRequest()),
   analytics: (filters: { dateFrom: string; dateTo: string; clinicId?: string; doctorId?: string; groupBy: 'doctor' | 'clinic' | 'day' }) => request<components['schemas']['OperationsAnalyticsReport']>('/admin/analytics' + query(filters), adminRequest()),
+  analyticsFunnel: (filters: { dateFrom: string; dateTo: string; clinicId?: string }) => request<components['schemas']['ChannelFunnelReport']>('/admin/analytics/funnel' + query(filters), adminRequest()),
   resolveArrivalScan: (token: string) => request<Appointment>('/admin/arrival-scans/resolve', adminRequest({ method: 'POST', body: JSON.stringify({token}) })),
   confirmArrivalScan: (token: string) => request<Appointment>('/admin/arrival-scans/confirm', adminRequest({ method: 'POST', body: JSON.stringify({token}) })),
   suspensionReschedule: (id: string, body: components['schemas']['SuspensionReschedule']) => request<Appointment>(`/admin/appointments/${encodeURIComponent(id)}/suspension-reschedule`, adminRequest({method:'POST',body:JSON.stringify(body)})),

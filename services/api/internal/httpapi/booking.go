@@ -206,7 +206,7 @@ func appointmentDTO(row model.Appointment, now time.Time, admin bool) apitypes.A
 		v := apitypes.AppointmentCancelReason(row.CancelReason)
 		cancelReason = &v
 	}
-	return apitypes.Appointment{Id: row.ID, PatientId: row.PatientID, SlotId: row.SlotID, ClinicId: row.ClinicID, ClinicName: row.ClinicName, DoctorId: row.DoctorID, DoctorName: row.DoctorName, StartsAt: row.StartsAt.In(database.Shanghai), EndsAt: row.EndsAt.In(database.Shanghai), ContactName: row.ContactName, ContactPhone: row.ContactPhone, Note: row.Note, Status: apitypes.AppointmentStatus(row.Status), RejectionReason: row.RejectionReason, CancelReason: cancelReason, CancelReasonDetail: &row.CancelReasonDetail, CancelledAt: cancelledAt, ConfirmationDeadline: row.ConfirmationDeadline.In(database.Shanghai), CreatedAt: row.CreatedAt.In(database.Shanghai), UpdatedAt: row.UpdatedAt.In(database.Shanghai), Version: int32(row.Version), ArrivedAt: row.ArrivedAt, CanRegisterArrival: &canRegister, CanReschedule: &canReschedule, CanCancel: row.ArrivedAt == nil && !row.TreatmentRecorded && !admin && active && future && (row.Status != "pending" || pendingValid), SlotStatus: func() *apitypes.AppointmentSlotStatus {
+	return apitypes.Appointment{Id: row.ID, PatientId: row.PatientID, SlotId: row.SlotID, ClinicId: row.ClinicID, ClinicName: row.ClinicName, DoctorId: row.DoctorID, DoctorName: row.DoctorName, StartsAt: row.StartsAt.In(database.Shanghai), EndsAt: row.EndsAt.In(database.Shanghai), ContactName: row.ContactName, ContactPhone: row.ContactPhone, Note: row.Note, Source: &row.Source, Status: apitypes.AppointmentStatus(row.Status), RejectionReason: row.RejectionReason, CancelReason: cancelReason, CancelReasonDetail: &row.CancelReasonDetail, CancelledAt: cancelledAt, ConfirmationDeadline: row.ConfirmationDeadline.In(database.Shanghai), CreatedAt: row.CreatedAt.In(database.Shanghai), UpdatedAt: row.UpdatedAt.In(database.Shanghai), Version: int32(row.Version), ArrivedAt: row.ArrivedAt, CanRegisterArrival: &canRegister, CanReschedule: &canReschedule, CanCancel: row.ArrivedAt == nil && !row.TreatmentRecorded && !admin && active && future && (row.Status != "pending" || pendingValid), SlotStatus: func() *apitypes.AppointmentSlotStatus {
 		value := apitypes.AppointmentSlotStatus(row.SlotStatus)
 		return &value
 	}(), SuspensionReason: &row.SuspensionReason, CanReview: admin && pendingValid && future}
@@ -250,7 +250,7 @@ func (a *API) createAppointment(c *gin.Context) {
 		return
 	}
 	var body apitypes.CreateAppointmentJSONRequestBody
-	if !decodeObject(c, &body, []string{"slotId", "contactName", "contactPhone"}, []string{"note", "waitlist"}) {
+	if !decodeObject(c, &body, []string{"slotId", "contactName", "contactPhone"}, []string{"note", "waitlist", "source"}) {
 		return
 	}
 	input := store.AppointmentInput{SlotID: body.SlotId, ContactName: body.ContactName, ContactPhone: body.ContactPhone}
@@ -259,6 +259,9 @@ func (a *API) createAppointment(c *gin.Context) {
 	}
 	if body.Waitlist != nil {
 		input.Waitlist = *body.Waitlist
+	}
+	if body.Source != nil {
+		input.Source = string(*body.Source)
 	}
 	input = store.NormalizeAppointmentInput(input)
 	if input.SlotID == "" || !validID(input.SlotID) || utf8.RuneCountInString(input.ContactName) < 1 || utf8.RuneCountInString(input.ContactName) > 40 || !phonePattern.MatchString(input.ContactPhone) || utf8.RuneCountInString(input.Note) > 300 {

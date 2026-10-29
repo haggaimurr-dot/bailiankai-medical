@@ -109,6 +109,7 @@ func newRouter(a *API) *gin.Engine {
 	r.POST("/api/v1/admin/employees/:employeeId/access", a.authenticate, a.requireManager, a.setEmployeeAccess)
 	r.GET("/api/v1/admin/overview", a.authenticate, a.overview)
 	r.GET("/api/v1/admin/analytics", a.authenticate, a.analytics)
+	r.GET("/api/v1/admin/analytics/funnel", a.authenticate, a.analyticsFunnel)
 	r.DELETE("/api/v1/admin/session", a.authenticate, a.logoutEmployee)
 	r.GET("/api/v1/admin/employees", a.authenticate, a.requireManager, a.listEmployees)
 	r.GET("/api/v1/admin/employees/:employeeId/events", a.authenticate, a.requireManager, a.employeeEvents)
