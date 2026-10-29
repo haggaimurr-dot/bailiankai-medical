@@ -1510,6 +1510,112 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/schedule-templates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description 主管按院区列出排班模板。 */
+        get: operations["listScheduleTemplates"];
+        put?: never;
+        /** @description 主管新建排班模板；pattern 为每周排班模式（条目：医生、星期几、开始时间、时长、容量）。 */
+        post: operations["createScheduleTemplate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/schedule-templates/{templateId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description 主管查看单个排班模板。 */
+        get: operations["getScheduleTemplate"];
+        /** @description 主管更新排班模板的名称或每周排班模式。 */
+        put: operations["updateScheduleTemplate"];
+        post?: never;
+        /** @description 主管删除排班模板；不影响已生成的排班。 */
+        delete: operations["deleteScheduleTemplate"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/schedule-templates/{templateId}/apply-preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description 主管把排班模板套用到日期范围前预检；按模板每周模式展开为时段网格，节假日当天自动跳过（冲突原因 holiday），只列出可新建与冲突时段，不落库。 */
+        post: operations["previewScheduleTemplateApply"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/schedule-templates/{templateId}/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description 主管确认把排班模板套用到日期范围；只创建无冲突时段，节假日与已有排班时段跳过并列出，不修改已有时段。 */
+        post: operations["applyScheduleTemplate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/holidays": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description 主管查看节假日列表；排班批量生成与模板套用时节假日当天自动跳过。 */
+        get: operations["listHolidays"];
+        put?: never;
+        /** @description 主管新增节假日；当天排班生成自动跳过，已有排班不受影响。 */
+        post: operations["createHoliday"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/holidays/{date}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** @description 主管删除节假日。 */
+        delete: operations["deleteHoliday"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/slots/suspend": {
         parameters: {
             query?: never;
@@ -2845,6 +2951,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/knowledge/articles/{resourceId}/open": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description 文章打开打点（fire-and-forget）；登录时可携带患者 token 以统计去重患者数 */
+        post: operations["recordKnowledgeOpen"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/knowledge/categories": {
         parameters: {
             query?: never;
@@ -2885,6 +3008,23 @@ export interface paths {
             cookie?: never;
         };
         get: operations["getKnowledgeCategoryHistory"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/knowledge/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description 科普文章阅读数据统计；只统计已发布快照，草稿不计；可下钻到单篇 */
+        get: operations["getKnowledgeStats"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3568,7 +3708,7 @@ export interface components {
             /** @description 案例分类，空字符串表示未分类 */
             category?: string;
             tags?: string[];
-            /** @description 疗程，如：第 2 疗程 */
+            /** @description 疗程，如：第 2 疗程；空字符串表示未标注 */
             course?: string;
         };
         CaseUpdate: {
@@ -3580,7 +3720,7 @@ export interface components {
             /** @description 案例分类，空字符串表示未分类 */
             category?: string;
             tags?: string[];
-            /** @description 疗程，如：第 2 疗程 */
+            /** @description 疗程，如：第 2 疗程；空字符串表示未标注 */
             course?: string;
         };
         CaseReview: {
@@ -4821,6 +4961,91 @@ export interface components {
             created: components["schemas"]["Slot"][];
             skipped: components["schemas"]["SlotConflict"][];
         };
+        ScheduleTemplateEntry: {
+            doctorId: string;
+            /**
+             * Format: int32
+             * @description 1=周一 … 7=周日
+             */
+            weekday: number;
+            startTimes: string[];
+            /**
+             * Format: int32
+             * @default 30
+             */
+            durationMinutes: number;
+            /** Format: int32 */
+            capacity: number;
+        };
+        ScheduleTemplatePattern: {
+            entries: components["schemas"]["ScheduleTemplateEntry"][];
+        };
+        ScheduleTemplateRecord: {
+            id: string;
+            clinicId: string;
+            name: string;
+            pattern: components["schemas"]["ScheduleTemplatePattern"];
+            createdBy: string;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        ScheduleTemplateInput: {
+            name: string;
+            pattern: components["schemas"]["ScheduleTemplatePattern"];
+        };
+        Holiday: {
+            /** Format: date */
+            holidayDate: string;
+            name: string;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        HolidayInput: {
+            /** Format: date */
+            date: string;
+            name: string;
+        };
+        TemplateApplyInput: {
+            /** Format: date */
+            startDate: string;
+            /** Format: date */
+            endDate: string;
+        };
+        TemplateDraft: {
+            doctorId: string;
+            /** Format: date */
+            date: string;
+            /** Format: date-time */
+            startsAt: string;
+            /** Format: date-time */
+            endsAt: string;
+            /** Format: int32 */
+            capacity: number;
+        };
+        TemplateConflict: {
+            doctorId: string;
+            /** Format: date */
+            date: string;
+            /** Format: date-time */
+            startsAt: string;
+            /** Format: date-time */
+            endsAt: string;
+            /** @enum {string} */
+            reason: "overlap" | "past" | "holiday";
+            existingSlotId?: string | null;
+            /** Format: int32 */
+            existingCapacity?: number | null;
+            /** Format: int32 */
+            existingReserved?: number | null;
+        };
+        TemplateApplyPreview: {
+            toCreate: components["schemas"]["TemplateDraft"][];
+            conflicts: components["schemas"]["TemplateConflict"][];
+        };
+        TemplateApplyResult: {
+            created: components["schemas"]["Slot"][];
+            skipped: components["schemas"]["TemplateConflict"][];
+        };
         SlotUpdate: {
             /** Format: int32 */
             capacity: number;
@@ -5281,8 +5506,8 @@ export interface components {
             active: boolean;
             version: number;
         };
+        /** @description 科普自测题；只做科普互动，不作诊断结论 */
         KnowledgeQuizQuestion: {
-            /** @description 科普自测题；只做科普互动，不作诊断结论 */
             question: string;
             options: string[];
             /** @description 正确答案在 options 中的下标 */
@@ -5342,8 +5567,8 @@ export interface components {
             /** @description 去重患者数（未登录打开不计入） */
             uniquePatients: number;
         };
+        /** @description 只统计已发布快照的打开；草稿不计 */
         KnowledgeOpenStats: {
-            /** @description 只统计已发布快照的打开；草稿不计 */
             total: number;
             uniquePatients: number;
             articles: components["schemas"]["KnowledgeOpenArticleStat"][];
@@ -7496,6 +7721,7 @@ export interface operations {
                 clinicId?: string;
                 category?: string;
                 tag?: string;
+                course?: string;
             };
             header?: never;
             path?: never;
@@ -7734,6 +7960,7 @@ export interface operations {
                 clinicId?: string;
                 category?: string;
                 tag?: string;
+                course?: string;
             };
             header?: never;
             path?: never;
@@ -7973,6 +8200,7 @@ export interface operations {
                 status?: string;
                 category?: string;
                 tag?: string;
+                course?: string;
             };
             header?: never;
             path?: never;
@@ -10956,6 +11184,290 @@ export interface operations {
             503: components["responses"]["Error"];
         };
     };
+    listScheduleTemplates: {
+        parameters: {
+            query: {
+                clinicId: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 模板列表 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["ScheduleTemplateRecord"][];
+                    };
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+        };
+    };
+    createScheduleTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScheduleTemplateInput"];
+            };
+        };
+        responses: {
+            /** @description 模板已创建 */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["ScheduleTemplateRecord"];
+                    };
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+        };
+    };
+    getScheduleTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                templateId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 模板详情 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["ScheduleTemplateRecord"];
+                    };
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    updateScheduleTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                templateId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScheduleTemplateInput"];
+            };
+        };
+        responses: {
+            /** @description 模板已更新 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["ScheduleTemplateRecord"];
+                    };
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    deleteScheduleTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                templateId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 模板已删除 */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    previewScheduleTemplateApply: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                templateId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TemplateApplyInput"];
+            };
+        };
+        responses: {
+            /** @description 预检结果 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["TemplateApplyPreview"];
+                    };
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    applyScheduleTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                templateId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TemplateApplyInput"];
+            };
+        };
+        responses: {
+            /** @description 套用完成（部分时段可能因冲突或节假日跳过） */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["TemplateApplyResult"];
+                    };
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    listHolidays: {
+        parameters: {
+            query: {
+                from: string;
+                to: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 节假日列表 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["Holiday"][];
+                    };
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+        };
+    };
+    createHoliday: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HolidayInput"];
+            };
+        };
+        responses: {
+            /** @description 节假日已设置 */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["Holiday"];
+                    };
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+        };
+    };
+    deleteHoliday: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                date: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 节假日已删除 */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+        };
+    };
     suspendSlots: {
         parameters: {
             query?: never;
@@ -13434,6 +13946,34 @@ export interface operations {
             503: components["responses"]["Error"];
         };
     };
+    recordKnowledgeOpen: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                resourceId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    clinicId?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description 已记录 */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
     listAdminKnowledgeCategories: {
         parameters: {
             query?: {
@@ -13568,6 +14108,35 @@ export interface operations {
             503: components["responses"]["Error"];
         };
     };
+    getKnowledgeStats: {
+        parameters: {
+            query?: {
+                clinicId?: string;
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["KnowledgeOpenStats"];
+                    };
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
     listAdminKnowledgeArticles: {
         parameters: {
             query?: {
@@ -13626,6 +14195,10 @@ export interface operations {
                     body: string;
                     /** @description 参考来源纯文本；审核通过及发布前必填 */
                     sourceText?: string;
+                    /** @description 短视频科普地址，须为 HTTPS */
+                    videoUrl?: string;
+                    /** @description 看完测一测自测题 */
+                    quiz?: components["schemas"]["KnowledgeQuizQuestion"][];
                     sortOrder: number;
                 };
             };
@@ -13698,6 +14271,10 @@ export interface operations {
                     body: string;
                     /** @description 参考来源纯文本；审核通过及发布前必填 */
                     sourceText?: string;
+                    /** @description 短视频科普地址，须为 HTTPS */
+                    videoUrl?: string;
+                    /** @description 看完测一测自测题 */
+                    quiz?: components["schemas"]["KnowledgeQuizQuestion"][];
                 };
             };
         };

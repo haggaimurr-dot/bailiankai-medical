@@ -206,23 +206,31 @@ func (s *MySQL) RescheduleAffectedPatient(ctx context.Context, id, key string, i
 
 // Rest-day rules apply to new open slots; existing schedules require explicit suspension.
 func scheduleHolidayCheck(tx *gorm.DB, row model.Slot) error {
-	var setting ScheduleSetting
-	err := tx.First(&setting, "clinic_id = ?", row.ClinicID).Error
-	if err == gorm.ErrRecordNotFound {
-		return nil
-	}
-	if err != nil {
-		return err
-	}
 	if row.Status == "open" {
-		for _, h := range setting.Holidays {
-			day, err := time.ParseInLocation("2006-01-02", h.Date, database.Shanghai)
-			if err != nil {
-				return ErrScheduleInput
+		var setting ScheduleSetting
+		err := tx.First(&setting, "clinic_id = ?", row.ClinicID).Error
+		if err != nil && err != gorm.ErrRecordNotFound {
+			return err
+		}
+		if err == nil {
+			for _, h := range setting.Holidays {
+				day, err := time.ParseInLocation("2006-01-02", h.Date, database.Shanghai)
+				if err != nil {
+					return ErrScheduleInput
+				}
+				if h.Kind == "rest" && row.StartsAt.Before(day.AddDate(0, 0, 1)) && row.EndsAt.After(day) {
+					return ErrScheduleInput
+				}
 			}
-			if h.Kind == "rest" && row.StartsAt.Before(day.AddDate(0, 0, 1)) && row.EndsAt.After(day) {
-				return ErrScheduleInput
-			}
+		}
+		// 节假日表（全局）：节假日当天不允许新建开放时段。
+		var count int64
+		dayStart := time.Date(row.StartsAt.In(database.Shanghai).Year(), row.StartsAt.In(database.Shanghai).Month(), row.StartsAt.In(database.Shanghai).Day(), 0, 0, 0, 0, database.Shanghai)
+		if err := tx.Model(&model.Holiday{}).Where("holiday_date = ?", dayStart.Format("2006-01-02")).Count(&count).Error; err != nil {
+			return err
+		}
+		if count > 0 {
+			return ErrScheduleInput
 		}
 	}
 	return nil

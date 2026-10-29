@@ -24,6 +24,22 @@ type ScheduleRepository interface {
 	CreateBatchSlots(context.Context, SlotBatchGrid, time.Time) ([]model.Slot, []SlotConflict, error)
 	SuspendSlots(context.Context, []SlotReference, string, time.Time) ([]model.Slot, error)
 }
+
+// ScheduleTemplateRepository covers schedule templates and holidays.
+// MySQL implements it; the httpapi fakeRepository used by the contract test
+// does not need to.
+type ScheduleTemplateRepository interface {
+	CreateScheduleTemplate(context.Context, model.ScheduleTemplate) (model.ScheduleTemplate, error)
+	ListScheduleTemplates(context.Context, string) ([]model.ScheduleTemplate, error)
+	GetScheduleTemplate(context.Context, string) (model.ScheduleTemplate, error)
+	UpdateScheduleTemplate(context.Context, string, string, string) (model.ScheduleTemplate, error)
+	DeleteScheduleTemplate(context.Context, string) error
+	PreviewTemplateApply(ctx context.Context, clinicID, templateID, startDate, endDate string, now time.Time) ([]TemplateDraft, []TemplateConflict, error)
+	ApplyScheduleTemplate(ctx context.Context, clinicID, templateID, startDate, endDate string, now time.Time) ([]model.Slot, []TemplateConflict, error)
+	SetHoliday(context.Context, time.Time, string) error
+	RemoveHoliday(context.Context, time.Time) error
+	ListHolidays(context.Context, time.Time, time.Time) ([]model.Holiday, error)
+}
 type SlotReference struct {
 	ID      string `json:"id"`
 	Version int    `json:"version"`
@@ -256,21 +272,28 @@ func batchRestHolidays(tx *gorm.DB, clinicID string) (map[string]bool, error) {
 	days := map[string]bool{}
 	var setting ScheduleSetting
 	err := tx.First(&setting, "clinic_id = ?", clinicID).Error
-	if err == gorm.ErrRecordNotFound {
-		return days, nil
-	}
-	if err != nil {
+	if err != nil && err != gorm.ErrRecordNotFound {
 		return nil, err
 	}
-	for _, h := range setting.Holidays {
-		if h.Kind != "rest" {
-			continue
+	if err == nil {
+		for _, h := range setting.Holidays {
+			if h.Kind != "rest" {
+				continue
+			}
+			day, err := time.ParseInLocation("2006-01-02", h.Date, database.Shanghai)
+			if err != nil {
+				return nil, ErrScheduleInput
+			}
+			days[day.Format("2006-01-02")] = true
 		}
-		day, err := time.ParseInLocation("2006-01-02", h.Date, database.Shanghai)
-		if err != nil {
-			return nil, ErrScheduleInput
-		}
-		days[day.Format("2006-01-02")] = true
+	}
+	// 节假日表（全局）：节假日当天自动停诊，批量生成与模板套用均跳过。
+	var dates []time.Time
+	if err := tx.Model(&model.Holiday{}).Pluck("holiday_date", &dates).Error; err != nil {
+		return nil, err
+	}
+	for _, d := range dates {
+		days[d.In(database.Shanghai).Format("2006-01-02")] = true
 	}
 	return days, nil
 }
@@ -304,24 +327,33 @@ func (s *MySQL) PreviewBatchSlots(ctx context.Context, grid SlotBatchGrid, now t
 	if err != nil {
 		return nil, nil, err
 	}
+	return s.previewSlotDrafts(ctx, grid.ClinicID, grid.DoctorID, drafts, now)
+}
+
+// previewSlotDrafts classifies an explicit draft list for one doctor. It backs
+// both batch generation and schedule-template apply so the two stay consistent.
+func (s *MySQL) previewSlotDrafts(ctx context.Context, clinicID, doctorID string, drafts []SlotDraft, now time.Time) ([]SlotDraft, []SlotConflict, error) {
+	toCreate := make([]SlotDraft, 0, len(drafts))
+	conflicts := make([]SlotConflict, 0)
+	if len(drafts) == 0 {
+		return toCreate, conflicts, nil
+	}
 	var doctor model.Doctor
-	if err := clinicScope(ctx, s.db.WithContext(ctx), "clinic_id").Where("id = ? AND clinic_id = ? AND active = TRUE AND published_json IS NOT NULL", grid.DoctorID, grid.ClinicID).First(&doctor).Error; err != nil {
+	if err := clinicScope(ctx, s.db.WithContext(ctx), "clinic_id").Where("id = ? AND clinic_id = ? AND active = TRUE AND published_json IS NOT NULL", doctorID, clinicID).First(&doctor).Error; err != nil {
 		return nil, nil, followupDBError(err)
 	}
 	var clinic model.Clinic
-	if err := s.db.WithContext(ctx).Where("id = ? AND active = TRUE AND published_json IS NOT NULL", grid.ClinicID).First(&clinic).Error; err != nil {
+	if err := s.db.WithContext(ctx).Where("id = ? AND active = TRUE AND published_json IS NOT NULL", clinicID).First(&clinic).Error; err != nil {
 		return nil, nil, followupDBError(err)
 	}
 	var existing []model.Slot
-	if err := s.db.WithContext(ctx).Where("doctor_id = ? AND starts_at < ? AND ends_at > ?", grid.DoctorID, drafts[len(drafts)-1].EndsAt, drafts[0].StartsAt).Find(&existing).Error; err != nil {
+	if err := s.db.WithContext(ctx).Where("doctor_id = ? AND starts_at < ? AND ends_at > ?", doctorID, drafts[len(drafts)-1].EndsAt, drafts[0].StartsAt).Find(&existing).Error; err != nil {
 		return nil, nil, err
 	}
-	holidays, err := batchRestHolidays(s.db.WithContext(ctx), grid.ClinicID)
+	holidays, err := batchRestHolidays(s.db.WithContext(ctx), clinicID)
 	if err != nil {
 		return nil, nil, err
 	}
-	toCreate := make([]SlotDraft, 0, len(drafts))
-	conflicts := make([]SlotConflict, 0)
 	for _, draft := range drafts {
 		accepted, conflict := classifySlotDraft(draft, existing, toCreate, holidays, now)
 		if conflict != nil {
@@ -333,24 +365,42 @@ func (s *MySQL) PreviewBatchSlots(ctx context.Context, grid SlotBatchGrid, now t
 	return toCreate, conflicts, nil
 }
 
+// slotDraftFull is a batch draft with its own capacity. Template entries may
+// vary capacity per weekday; the plain batch grid uses one capacity for all.
+type slotDraftFull struct {
+	SlotDraft
+	Capacity int
+}
+
 func (s *MySQL) CreateBatchSlots(ctx context.Context, grid SlotBatchGrid, now time.Time) ([]model.Slot, []SlotConflict, error) {
 	drafts, err := expandSlotBatchGrid(grid)
 	if err != nil {
 		return nil, nil, err
 	}
+	full := make([]slotDraftFull, 0, len(drafts))
+	for _, d := range drafts {
+		full = append(full, slotDraftFull{SlotDraft: d, Capacity: grid.Capacity})
+	}
+	return s.createSlotDrafts(ctx, grid.ClinicID, grid.DoctorID, full, now)
+}
+
+// createSlotDrafts creates the non-conflicting drafts for one doctor inside a
+// transaction, re-checking overlaps with a locking read. It backs both batch
+// generation and schedule-template apply.
+func (s *MySQL) createSlotDrafts(ctx context.Context, clinicID, doctorID string, drafts []slotDraftFull, now time.Time) ([]model.Slot, []SlotConflict, error) {
 	created := make([]model.Slot, 0, len(drafts))
 	skipped := make([]SlotConflict, 0)
 	started := time.Now()
-	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var doctor model.Doctor
-		if err := clinicScope(ctx, tx.Clauses(clause.Locking{Strength: "UPDATE"}), "clinic_id").Where("id = ? AND clinic_id = ? AND active = TRUE AND published_json IS NOT NULL", grid.DoctorID, grid.ClinicID).First(&doctor).Error; err != nil {
+		if err := clinicScope(ctx, tx.Clauses(clause.Locking{Strength: "UPDATE"}), "clinic_id").Where("id = ? AND clinic_id = ? AND active = TRUE AND published_json IS NOT NULL", doctorID, clinicID).First(&doctor).Error; err != nil {
 			return followupDBError(err)
 		}
 		var clinic model.Clinic
-		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id = ? AND active = TRUE AND published_json IS NOT NULL", grid.ClinicID).First(&clinic).Error; err != nil {
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id = ? AND active = TRUE AND published_json IS NOT NULL", clinicID).First(&clinic).Error; err != nil {
 			return followupDBError(err)
 		}
-		holidays, err := batchRestHolidays(tx, grid.ClinicID)
+		holidays, err := batchRestHolidays(tx, clinicID)
 		if err != nil {
 			return err
 		}
@@ -358,15 +408,15 @@ func (s *MySQL) CreateBatchSlots(ctx context.Context, grid SlotBatchGrid, now ti
 		for _, draft := range drafts {
 			// A locking read observes any creation committed while waiting for the doctor lock.
 			var overlapping []model.Slot
-			if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("doctor_id = ? AND starts_at < ? AND ends_at > ?", grid.DoctorID, draft.EndsAt, draft.StartsAt).Find(&overlapping).Error; err != nil {
+			if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("doctor_id = ? AND starts_at < ? AND ends_at > ?", doctorID, draft.EndsAt, draft.StartsAt).Find(&overlapping).Error; err != nil {
 				return err
 			}
-			acceptedDraft, conflict := classifySlotDraft(draft, overlapping, accepted, holidays, now.Add(time.Since(started)))
+			acceptedDraft, conflict := classifySlotDraft(draft.SlotDraft, overlapping, accepted, holidays, now.Add(time.Since(started)))
 			if conflict != nil {
 				skipped = append(skipped, *conflict)
 				continue
 			}
-			row := model.Slot{ClinicID: grid.ClinicID, DoctorID: grid.DoctorID, StartsAt: acceptedDraft.StartsAt, EndsAt: acceptedDraft.EndsAt, Capacity: grid.Capacity, Status: "open", ID: randomID("slot-"), Reserved: 0, Version: 1}
+			row := model.Slot{ClinicID: clinicID, DoctorID: doctorID, StartsAt: acceptedDraft.StartsAt, EndsAt: acceptedDraft.EndsAt, Capacity: draft.Capacity, Status: "open", ID: randomID("slot-"), Reserved: 0, Version: 1}
 			if err := scheduleHolidayCheck(tx, row); err != nil {
 				if errors.Is(err, ErrScheduleInput) {
 					skipped = append(skipped, SlotConflict{Date: draft.Date, StartsAt: draft.StartsAt, EndsAt: draft.EndsAt, Reason: SlotConflictHoliday})

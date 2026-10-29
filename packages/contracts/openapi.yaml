@@ -1086,6 +1086,221 @@ paths:
         '403': {$ref: '#/components/responses/Error'}
         '404': {$ref: '#/components/responses/Error'}
         '503': {$ref: '#/components/responses/Error'}
+  /api/v1/admin/schedule-templates:
+    get:
+      operationId: listScheduleTemplates
+      description: 主管按院区列出排班模板。
+      security: [{EmployeeBearer: []}]
+      parameters:
+        - {name: clinicId, in: query, required: true, schema: {type: string, minLength: 1, maxLength: 64, pattern: '^[A-Za-z0-9_-]+$'}}
+      responses:
+        '200':
+          description: 模板列表
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [data]
+                properties:
+                  data: {type: array, items: {$ref: '#/components/schemas/ScheduleTemplateRecord'}}
+        '400': {$ref: '#/components/responses/Error'}
+        '401': {$ref: '#/components/responses/Error'}
+        '403': {$ref: '#/components/responses/Error'}
+    post:
+      operationId: createScheduleTemplate
+      description: 主管新建排班模板；pattern 为每周排班模式（条目：医生、星期几、开始时间、时长、容量）。
+      security: [{EmployeeBearer: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ScheduleTemplateInput'}
+      responses:
+        '201':
+          description: 模板已创建
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [data]
+                properties:
+                  data: {$ref: '#/components/schemas/ScheduleTemplateRecord'}
+        '400': {$ref: '#/components/responses/Error'}
+        '401': {$ref: '#/components/responses/Error'}
+        '403': {$ref: '#/components/responses/Error'}
+  /api/v1/admin/schedule-templates/{templateId}:
+    get:
+      operationId: getScheduleTemplate
+      description: 主管查看单个排班模板。
+      security: [{EmployeeBearer: []}]
+      parameters:
+        - {name: templateId, in: path, required: true, schema: {type: string}}
+      responses:
+        '200':
+          description: 模板详情
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [data]
+                properties:
+                  data: {$ref: '#/components/schemas/ScheduleTemplateRecord'}
+        '400': {$ref: '#/components/responses/Error'}
+        '401': {$ref: '#/components/responses/Error'}
+        '403': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+    put:
+      operationId: updateScheduleTemplate
+      description: 主管更新排班模板的名称或每周排班模式。
+      security: [{EmployeeBearer: []}]
+      parameters:
+        - {name: templateId, in: path, required: true, schema: {type: string}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ScheduleTemplateInput'}
+      responses:
+        '200':
+          description: 模板已更新
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [data]
+                properties:
+                  data: {$ref: '#/components/schemas/ScheduleTemplateRecord'}
+        '400': {$ref: '#/components/responses/Error'}
+        '401': {$ref: '#/components/responses/Error'}
+        '403': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+    delete:
+      operationId: deleteScheduleTemplate
+      description: 主管删除排班模板；不影响已生成的排班。
+      security: [{EmployeeBearer: []}]
+      parameters:
+        - {name: templateId, in: path, required: true, schema: {type: string}}
+      responses:
+        '204': {description: 模板已删除}
+        '400': {$ref: '#/components/responses/Error'}
+        '401': {$ref: '#/components/responses/Error'}
+        '403': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+  /api/v1/admin/schedule-templates/{templateId}/apply-preview:
+    post:
+      operationId: previewScheduleTemplateApply
+      description: 主管把排班模板套用到日期范围前预检；按模板每周模式展开为时段网格，节假日当天自动跳过（冲突原因 holiday），只列出可新建与冲突时段，不落库。
+      security: [{EmployeeBearer: []}]
+      parameters:
+        - {name: templateId, in: path, required: true, schema: {type: string}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/TemplateApplyInput'}
+      responses:
+        '200':
+          description: 预检结果
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [data]
+                properties:
+                  data: {$ref: '#/components/schemas/TemplateApplyPreview'}
+        '400': {$ref: '#/components/responses/Error'}
+        '401': {$ref: '#/components/responses/Error'}
+        '403': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+  /api/v1/admin/schedule-templates/{templateId}/apply:
+    post:
+      operationId: applyScheduleTemplate
+      description: 主管确认把排班模板套用到日期范围；只创建无冲突时段，节假日与已有排班时段跳过并列出，不修改已有时段。
+      security: [{EmployeeBearer: []}]
+      parameters:
+        - {name: templateId, in: path, required: true, schema: {type: string}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/TemplateApplyInput'}
+      responses:
+        '201':
+          description: 套用完成（部分时段可能因冲突或节假日跳过）
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [data]
+                properties:
+                  data: {$ref: '#/components/schemas/TemplateApplyResult'}
+        '400': {$ref: '#/components/responses/Error'}
+        '401': {$ref: '#/components/responses/Error'}
+        '403': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+  /api/v1/admin/holidays:
+    get:
+      operationId: listHolidays
+      description: 主管查看节假日列表；排班批量生成与模板套用时节假日当天自动跳过。
+      security: [{EmployeeBearer: []}]
+      parameters:
+        - {name: from, in: query, required: true, schema: {type: string, format: date, pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'}}
+        - {name: to, in: query, required: true, schema: {type: string, format: date, pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'}}
+      responses:
+        '200':
+          description: 节假日列表
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [data]
+                properties:
+                  data: {type: array, items: {$ref: '#/components/schemas/Holiday'}}
+        '400': {$ref: '#/components/responses/Error'}
+        '401': {$ref: '#/components/responses/Error'}
+        '403': {$ref: '#/components/responses/Error'}
+    post:
+      operationId: createHoliday
+      description: 主管新增节假日；当天排班生成自动跳过，已有排班不受影响。
+      security: [{EmployeeBearer: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/HolidayInput'}
+      responses:
+        '201':
+          description: 节假日已设置
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [data]
+                properties:
+                  data: {$ref: '#/components/schemas/Holiday'}
+        '400': {$ref: '#/components/responses/Error'}
+        '401': {$ref: '#/components/responses/Error'}
+        '403': {$ref: '#/components/responses/Error'}
+  /api/v1/admin/holidays/{date}:
+    delete:
+      operationId: deleteHoliday
+      description: 主管删除节假日。
+      security: [{EmployeeBearer: []}]
+      parameters:
+        - {name: date, in: path, required: true, schema: {type: string, format: date, pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'}}
+      responses:
+        '204': {description: 节假日已删除}
+        '400': {$ref: '#/components/responses/Error'}
+        '401': {$ref: '#/components/responses/Error'}
+        '403': {$ref: '#/components/responses/Error'}
   /api/v1/admin/slots/suspend:
     post:
       operationId: suspendSlots
@@ -4547,6 +4762,115 @@ components:
         skipped:
           type: array
           items: {$ref: '#/components/schemas/SlotConflict'}
+    ScheduleTemplateEntry:
+      type: object
+      additionalProperties: false
+      required: [doctorId, weekday, startTimes, capacity]
+      properties:
+        doctorId: {type: string, minLength: 1, maxLength: 64, pattern: '^[A-Za-z0-9_-]+$'}
+        weekday: {type: integer, minimum: 1, maximum: 7, format: int32, description: '1=周一 … 7=周日'}
+        startTimes:
+          type: array
+          minItems: 1
+          maxItems: 24
+          items: {type: string, pattern: '^[0-9]{2}:[0-9]{2}$'}
+        durationMinutes: {type: integer, minimum: 15, maximum: 120, format: int32, default: 30}
+        capacity: {type: integer, minimum: 1, maximum: 100, format: int32}
+    ScheduleTemplatePattern:
+      type: object
+      additionalProperties: false
+      required: [entries]
+      properties:
+        entries:
+          type: array
+          minItems: 1
+          maxItems: 50
+          items: {$ref: '#/components/schemas/ScheduleTemplateEntry'}
+    ScheduleTemplateRecord:
+      type: object
+      additionalProperties: false
+      required: [id, clinicId, name, pattern, createdBy, createdAt]
+      properties:
+        id: {type: string}
+        clinicId: {type: string}
+        name: {type: string}
+        pattern: {$ref: '#/components/schemas/ScheduleTemplatePattern'}
+        createdBy: {type: string}
+        createdAt: {type: string, format: date-time}
+    ScheduleTemplateInput:
+      type: object
+      additionalProperties: false
+      required: [name, pattern]
+      properties:
+        name: {type: string, minLength: 1, maxLength: 100}
+        pattern: {$ref: '#/components/schemas/ScheduleTemplatePattern'}
+    Holiday:
+      type: object
+      additionalProperties: false
+      required: [holidayDate, name, createdAt]
+      properties:
+        holidayDate: {type: string, format: date}
+        name: {type: string}
+        createdAt: {type: string, format: date-time}
+    HolidayInput:
+      type: object
+      additionalProperties: false
+      required: [date, name]
+      properties:
+        date: {type: string, format: date, pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'}
+        name: {type: string, minLength: 1, maxLength: 100}
+    TemplateApplyInput:
+      type: object
+      additionalProperties: false
+      required: [startDate, endDate]
+      properties:
+        startDate: {type: string, format: date, pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'}
+        endDate: {type: string, format: date, pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'}
+    TemplateDraft:
+      type: object
+      additionalProperties: false
+      required: [doctorId, date, startsAt, endsAt, capacity]
+      properties:
+        doctorId: {type: string}
+        date: {type: string, format: date}
+        startsAt: {type: string, format: date-time}
+        endsAt: {type: string, format: date-time}
+        capacity: {type: integer, format: int32}
+    TemplateConflict:
+      type: object
+      additionalProperties: false
+      required: [doctorId, date, startsAt, endsAt, reason]
+      properties:
+        doctorId: {type: string}
+        date: {type: string, format: date}
+        startsAt: {type: string, format: date-time}
+        endsAt: {type: string, format: date-time}
+        reason: {type: string, enum: [overlap, past, holiday]}
+        existingSlotId: {type: string, nullable: true}
+        existingCapacity: {type: integer, nullable: true, format: int32}
+        existingReserved: {type: integer, nullable: true, format: int32}
+    TemplateApplyPreview:
+      type: object
+      additionalProperties: false
+      required: [toCreate, conflicts]
+      properties:
+        toCreate:
+          type: array
+          items: {$ref: '#/components/schemas/TemplateDraft'}
+        conflicts:
+          type: array
+          items: {$ref: '#/components/schemas/TemplateConflict'}
+    TemplateApplyResult:
+      type: object
+      additionalProperties: false
+      required: [created, skipped]
+      properties:
+        created:
+          type: array
+          items: {$ref: '#/components/schemas/Slot'}
+        skipped:
+          type: array
+          items: {$ref: '#/components/schemas/TemplateConflict'}
     SlotUpdate:
       type: object
       additionalProperties: false

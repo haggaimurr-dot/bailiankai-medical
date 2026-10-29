@@ -7,6 +7,7 @@ import AppIcon from '../components/AppIcon.vue'
 import ScheduleActions from '../components/ScheduleActions.vue'
 import SchedulePatients from '../components/SchedulePatients.vue'
 import ScheduleRules from '../components/ScheduleRules.vue'
+import ScheduleTemplates from '../components/ScheduleTemplates.vue'
 import { displayDate, shanghaiDate, slotTime } from '../dates'
 import { useScheduleStore } from '../stores/schedule'
 
@@ -236,6 +237,7 @@ onMounted(() => { if (store.initialized) void store.refresh() })
   </section>
 
   <div class="bottom-note"><span class="note-icon">i</span><p>待确认与已确认预约均占用名额。关闭时段后，小程序会显示“已关闭”；已占用名额继续保留。</p></div>
+  <ScheduleTemplates v-if="canEditSchedule" />
   <SchedulePatients v-if="canEditSchedule" />
   <ScheduleRules v-if="canEditSchedule" />
 

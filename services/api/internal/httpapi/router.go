@@ -123,6 +123,7 @@ func newRouter(a *API) *gin.Engine {
 	a.registerBookingRoutes(r)
 	a.registerWaitlistRoutes(r)
 	a.registerScheduleRoutes(r)
+	a.registerScheduleTemplateRoutes(r)
 	a.registerDirectoryRoutes(r)
 	a.registerKnowledgeRoutes(r)
 	a.registerFollowupToolsRoutes(r)

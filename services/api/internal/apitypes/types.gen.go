@@ -681,9 +681,9 @@ const (
 
 // Defines values for SlotConflictReason.
 const (
-	Holiday SlotConflictReason = "holiday"
-	Overlap SlotConflictReason = "overlap"
-	Past    SlotConflictReason = "past"
+	SlotConflictReasonHoliday SlotConflictReason = "holiday"
+	SlotConflictReasonOverlap SlotConflictReason = "overlap"
+	SlotConflictReasonPast    SlotConflictReason = "past"
 )
 
 // Defines values for SlotCreateStatus.
@@ -733,6 +733,13 @@ const (
 	SupportTicketStatusOpen           SupportTicketStatus = "open"
 	SupportTicketStatusResolved       SupportTicketStatus = "resolved"
 	SupportTicketStatusWaitingPatient SupportTicketStatus = "waiting_patient"
+)
+
+// Defines values for TemplateConflictReason.
+const (
+	TemplateConflictReasonHoliday TemplateConflictReason = "holiday"
+	TemplateConflictReasonOverlap TemplateConflictReason = "overlap"
+	TemplateConflictReasonPast    TemplateConflictReason = "past"
 )
 
 // Defines values for TimelineEventKind.
@@ -1581,14 +1588,14 @@ type CaseContent struct {
 	Body string `json:"body"`
 
 	// Category 案例分类，空字符串表示未分类
-	Category string     `json:"category"`
-	Pairs    []CasePair `json:"pairs"`
-	Summary  string     `json:"summary"`
-	Tags     []string   `json:"tags"`
-	Title    string     `json:"title"`
+	Category string `json:"category"`
 
 	// Course 疗程，如：第 2 疗程；空字符串表示未标注
-	Course *string `json:"course,omitempty"`
+	Course  *string    `json:"course,omitempty"`
+	Pairs   []CasePair `json:"pairs"`
+	Summary string     `json:"summary"`
+	Tags    []string   `json:"tags"`
+	Title   string     `json:"title"`
 }
 
 // CaseCreate defines model for CaseCreate.
@@ -1597,14 +1604,14 @@ type CaseCreate struct {
 	Body          string `json:"body"`
 
 	// Category 案例分类，空字符串表示未分类
-	Category *string          `json:"category,omitempty"`
-	Pairs    []CaseSourcePair `json:"pairs"`
-	Summary  string           `json:"summary"`
-	Tags     *[]string        `json:"tags,omitempty"`
-	Title    string           `json:"title"`
+	Category *string `json:"category,omitempty"`
 
-	// Course 疗程，如：第 2 疗程
-	Course *string `json:"course,omitempty"`
+	// Course 疗程，如：第 2 疗程；空字符串表示未标注
+	Course  *string          `json:"course,omitempty"`
+	Pairs   []CaseSourcePair `json:"pairs"`
+	Summary string           `json:"summary"`
+	Tags    *[]string        `json:"tags,omitempty"`
+	Title   string           `json:"title"`
 }
 
 // CaseEvent defines model for CaseEvent.
@@ -1655,15 +1662,15 @@ type CaseUpdate struct {
 	Body string `json:"body"`
 
 	// Category 案例分类，空字符串表示未分类
-	Category *string          `json:"category,omitempty"`
-	Pairs    []CaseSourcePair `json:"pairs"`
-	Summary  string           `json:"summary"`
-	Tags     *[]string        `json:"tags,omitempty"`
-	Title    string           `json:"title"`
-	Version  int              `json:"version"`
+	Category *string `json:"category,omitempty"`
 
-	// Course 疗程，如：第 2 疗程
-	Course *string `json:"course,omitempty"`
+	// Course 疗程，如：第 2 疗程；空字符串表示未标注
+	Course  *string          `json:"course,omitempty"`
+	Pairs   []CaseSourcePair `json:"pairs"`
+	Summary string           `json:"summary"`
+	Tags    *[]string        `json:"tags,omitempty"`
+	Title   string           `json:"title"`
+	Version int              `json:"version"`
 }
 
 // CaseVersion defines model for CaseVersion.
@@ -2663,6 +2670,19 @@ type Health struct {
 // HealthStatus defines model for Health.Status.
 type HealthStatus string
 
+// Holiday defines model for Holiday.
+type Holiday struct {
+	CreatedAt   time.Time          `json:"createdAt"`
+	HolidayDate openapi_types.Date `json:"holidayDate"`
+	Name        string             `json:"name"`
+}
+
+// HolidayInput defines model for HolidayInput.
+type HolidayInput struct {
+	Date openapi_types.Date `json:"date"`
+	Name string             `json:"name"`
+}
+
 // HolidayRule defines model for HolidayRule.
 type HolidayRule struct {
 	Date openapi_types.Date `json:"date"`
@@ -2675,10 +2695,13 @@ type HolidayRuleKind string
 
 // KnowledgeArticle defines model for KnowledgeArticle.
 type KnowledgeArticle struct {
-	Body         string                       `json:"body"`
-	CategoryId   string                       `json:"categoryId"`
-	Id           string                       `json:"id"`
-	PublishedAt  *time.Time                   `json:"publishedAt"`
+	Body        string     `json:"body"`
+	CategoryId  string     `json:"categoryId"`
+	Id          string     `json:"id"`
+	PublishedAt *time.Time `json:"publishedAt"`
+
+	// Quiz 看完测一测自测题
+	Quiz         *[]KnowledgeQuizQuestion     `json:"quiz,omitempty"`
 	ReviewNote   string                       `json:"reviewNote"`
 	ReviewStatus KnowledgeArticleReviewStatus `json:"reviewStatus"`
 	ReviewedAt   *time.Time                   `json:"reviewedAt"`
@@ -2690,13 +2713,10 @@ type KnowledgeArticle struct {
 	SourceText *string `json:"sourceText,omitempty"`
 	Summary    string  `json:"summary"`
 	Title      string  `json:"title"`
+	Version    int     `json:"version"`
 
 	// VideoUrl 短视频科普地址（HTTPS）
 	VideoUrl *string `json:"videoUrl,omitempty"`
-
-	// Quiz 看完测一测自测题
-	Quiz    *[]KnowledgeQuizQuestion `json:"quiz,omitempty"`
-	Version int                      `json:"version"`
 }
 
 // KnowledgeArticleReviewStatus defines model for KnowledgeArticle.ReviewStatus.
@@ -2730,47 +2750,35 @@ type KnowledgeEventKind string
 // KnowledgeOpenArticleStat defines model for KnowledgeOpenArticleStat.
 type KnowledgeOpenArticleStat struct {
 	ArticleId string `json:"articleId"`
-	Title     string `json:"title"`
 
 	// Opens 打开次数
-	Opens int `json:"opens"`
+	Opens int    `json:"opens"`
+	Title string `json:"title"`
 
 	// UniquePatients 去重患者数（未登录打开不计入）
 	UniquePatients int `json:"uniquePatients"`
 }
 
-// KnowledgeOpenStats defines model for KnowledgeOpenStats.
+// KnowledgeOpenStats 只统计已发布快照的打开；草稿不计
 type KnowledgeOpenStats struct {
-	Articles []KnowledgeOpenArticleStat `json:"articles"`
-	Total    int                        `json:"total"`
-
-	// UniquePatients 只统计已发布快照的打开；草稿不计
-	UniquePatients int `json:"uniquePatients"`
-}
-
-// KnowledgeQuizQuestion defines model for KnowledgeQuizQuestion.
-type KnowledgeQuizQuestion struct {
-	// AnswerIndex 正确答案在 options 中的下标
-	AnswerIndex int `json:"answerIndex"`
-
-	// Explanation 每题解析
-	Explanation *string  `json:"explanation,omitempty"`
-	Options     []string `json:"options"`
-
-	// Question 科普自测题；只做科普互动，不作诊断结论
-	Question string `json:"question"`
+	Articles       []KnowledgeOpenArticleStat `json:"articles"`
+	Total          int                        `json:"total"`
+	UniquePatients int                        `json:"uniquePatients"`
 }
 
 // KnowledgePublicArticle defines model for KnowledgePublicArticle.
 type KnowledgePublicArticle struct {
 	// Body 仅详情返回；纯文本，客户端须转义显示
-	Body         *string   `json:"body,omitempty"`
-	CategoryId   string    `json:"categoryId"`
-	Id           string    `json:"id"`
-	PublishedAt  time.Time `json:"publishedAt"`
-	ReviewedAt   time.Time `json:"reviewedAt"`
-	ReviewerName string    `json:"reviewerName"`
-	SortOrder    int       `json:"sortOrder"`
+	Body        *string   `json:"body,omitempty"`
+	CategoryId  string    `json:"categoryId"`
+	Id          string    `json:"id"`
+	PublishedAt time.Time `json:"publishedAt"`
+
+	// Quiz 看完测一测自测题；公开接口仅详情返回
+	Quiz         *[]KnowledgeQuizQuestion `json:"quiz,omitempty"`
+	ReviewedAt   time.Time                `json:"reviewedAt"`
+	ReviewerName string                   `json:"reviewerName"`
+	SortOrder    int                      `json:"sortOrder"`
 
 	// SourceText 参考来源；公开接口仅详情返回
 	SourceText *string `json:"sourceText,omitempty"`
@@ -2779,9 +2787,17 @@ type KnowledgePublicArticle struct {
 
 	// VideoUrl 短视频科普地址（HTTPS）；公开接口仅详情返回
 	VideoUrl *string `json:"videoUrl,omitempty"`
+}
 
-	// Quiz 看完测一测自测题；公开接口仅详情返回
-	Quiz *[]KnowledgeQuizQuestion `json:"quiz,omitempty"`
+// KnowledgeQuizQuestion 科普自测题；只做科普互动，不作诊断结论
+type KnowledgeQuizQuestion struct {
+	// AnswerIndex 正确答案在 options 中的下标
+	AnswerIndex int `json:"answerIndex"`
+
+	// Explanation 每题解析
+	Explanation *string  `json:"explanation,omitempty"`
+	Options     []string `json:"options"`
+	Question    string   `json:"question"`
 }
 
 // MessageConsent defines model for MessageConsent.
@@ -3518,6 +3534,38 @@ type ScheduleTemplate struct {
 	Weekdays []int  `json:"weekdays"`
 }
 
+// ScheduleTemplateEntry defines model for ScheduleTemplateEntry.
+type ScheduleTemplateEntry struct {
+	Capacity        int32    `json:"capacity"`
+	DoctorId        string   `json:"doctorId"`
+	DurationMinutes *int32   `json:"durationMinutes,omitempty"`
+	StartTimes      []string `json:"startTimes"`
+
+	// Weekday 1=周一 … 7=周日
+	Weekday int32 `json:"weekday"`
+}
+
+// ScheduleTemplateInput defines model for ScheduleTemplateInput.
+type ScheduleTemplateInput struct {
+	Name    string                  `json:"name"`
+	Pattern ScheduleTemplatePattern `json:"pattern"`
+}
+
+// ScheduleTemplatePattern defines model for ScheduleTemplatePattern.
+type ScheduleTemplatePattern struct {
+	Entries []ScheduleTemplateEntry `json:"entries"`
+}
+
+// ScheduleTemplateRecord defines model for ScheduleTemplateRecord.
+type ScheduleTemplateRecord struct {
+	ClinicId  string                  `json:"clinicId"`
+	CreatedAt time.Time               `json:"createdAt"`
+	CreatedBy string                  `json:"createdBy"`
+	Id        string                  `json:"id"`
+	Name      string                  `json:"name"`
+	Pattern   ScheduleTemplatePattern `json:"pattern"`
+}
+
 // Slot defines model for Slot.
 type Slot struct {
 	Capacity int32     `json:"capacity"`
@@ -3749,6 +3797,48 @@ type SuspensionReschedule struct {
 	RequestKey string   `json:"requestKey"`
 	SlotId     EntityId `json:"slotId"`
 	Version    int32    `json:"version"`
+}
+
+// TemplateApplyInput defines model for TemplateApplyInput.
+type TemplateApplyInput struct {
+	EndDate   openapi_types.Date `json:"endDate"`
+	StartDate openapi_types.Date `json:"startDate"`
+}
+
+// TemplateApplyPreview defines model for TemplateApplyPreview.
+type TemplateApplyPreview struct {
+	Conflicts []TemplateConflict `json:"conflicts"`
+	ToCreate  []TemplateDraft    `json:"toCreate"`
+}
+
+// TemplateApplyResult defines model for TemplateApplyResult.
+type TemplateApplyResult struct {
+	Created []Slot             `json:"created"`
+	Skipped []TemplateConflict `json:"skipped"`
+}
+
+// TemplateConflict defines model for TemplateConflict.
+type TemplateConflict struct {
+	Date             openapi_types.Date     `json:"date"`
+	DoctorId         string                 `json:"doctorId"`
+	EndsAt           time.Time              `json:"endsAt"`
+	ExistingCapacity *int32                 `json:"existingCapacity"`
+	ExistingReserved *int32                 `json:"existingReserved"`
+	ExistingSlotId   *string                `json:"existingSlotId"`
+	Reason           TemplateConflictReason `json:"reason"`
+	StartsAt         time.Time              `json:"startsAt"`
+}
+
+// TemplateConflictReason defines model for TemplateConflict.Reason.
+type TemplateConflictReason string
+
+// TemplateDraft defines model for TemplateDraft.
+type TemplateDraft struct {
+	Capacity int32              `json:"capacity"`
+	Date     openapi_types.Date `json:"date"`
+	DoctorId string             `json:"doctorId"`
+	EndsAt   time.Time          `json:"endsAt"`
+	StartsAt time.Time          `json:"startsAt"`
 }
 
 // TimelineEvent defines model for TimelineEvent.
@@ -4098,6 +4188,7 @@ type AdminCasesParams struct {
 	Status   *string `form:"status,omitempty" json:"status,omitempty"`
 	Category *string `form:"category,omitempty" json:"category,omitempty"`
 	Tag      *string `form:"tag,omitempty" json:"tag,omitempty"`
+	Course   *string `form:"course,omitempty" json:"course,omitempty"`
 }
 
 // ListEmployeeLoginAttemptsParams defines parameters for ListEmployeeLoginAttempts.
@@ -4145,6 +4236,12 @@ type ListHandoffReceiptsParams struct {
 // ListHandoffReceiptsParamsStatus defines parameters for ListHandoffReceipts.
 type ListHandoffReceiptsParamsStatus string
 
+// ListHolidaysParams defines parameters for ListHolidays.
+type ListHolidaysParams struct {
+	From openapi_types.Date `form:"from" json:"from"`
+	To   openapi_types.Date `form:"to" json:"to"`
+}
+
 // ListAdminKnowledgeArticlesParams defines parameters for ListAdminKnowledgeArticles.
 type ListAdminKnowledgeArticlesParams struct {
 	ClinicId     *string                                       `form:"clinicId,omitempty" json:"clinicId,omitempty"`
@@ -4167,12 +4264,18 @@ type CreateKnowledgeArticleJSONBody struct {
 	// Body 纯文本正文
 	Body       string `json:"body"`
 	CategoryId string `json:"categoryId"`
-	SortOrder  int    `json:"sortOrder"`
+
+	// Quiz 看完测一测自测题
+	Quiz      *[]KnowledgeQuizQuestion `json:"quiz,omitempty"`
+	SortOrder int                      `json:"sortOrder"`
 
 	// SourceText 参考来源纯文本；审核通过及发布前必填
 	SourceText *string `json:"sourceText,omitempty"`
 	Summary    string  `json:"summary"`
 	Title      string  `json:"title"`
+
+	// VideoUrl 短视频科普地址，须为 HTTPS
+	VideoUrl *string `json:"videoUrl,omitempty"`
 }
 
 // UpdateKnowledgeArticleJSONBody defines parameters for UpdateKnowledgeArticle.
@@ -4180,11 +4283,17 @@ type UpdateKnowledgeArticleJSONBody struct {
 	// Body 纯文本正文
 	Body string `json:"body"`
 
+	// Quiz 看完测一测自测题
+	Quiz *[]KnowledgeQuizQuestion `json:"quiz,omitempty"`
+
 	// SourceText 参考来源纯文本；审核通过及发布前必填
 	SourceText *string `json:"sourceText,omitempty"`
 	Summary    string  `json:"summary"`
 	Title      string  `json:"title"`
 	Version    int     `json:"version"`
+
+	// VideoUrl 短视频科普地址，须为 HTTPS
+	VideoUrl *string `json:"videoUrl,omitempty"`
 }
 
 // PublishKnowledgeArticleJSONBody defines parameters for PublishKnowledgeArticle.
@@ -4236,6 +4345,12 @@ type UpdateKnowledgeCategoryJSONBody struct {
 	Version   int    `json:"version"`
 }
 
+// GetKnowledgeStatsParams defines parameters for GetKnowledgeStats.
+type GetKnowledgeStatsParams struct {
+	ClinicId *string `form:"clinicId,omitempty" json:"clinicId,omitempty"`
+	Days     *int    `form:"days,omitempty" json:"days,omitempty"`
+}
+
 // ListNotificationQueueParams defines parameters for ListNotificationQueue.
 type ListNotificationQueueParams struct {
 	Status          *string                                     `form:"status,omitempty" json:"status,omitempty"`
@@ -4281,6 +4396,11 @@ type ListAdminReviewsParams struct {
 
 // ListAdminReviewsParamsStatus defines parameters for ListAdminReviews.
 type ListAdminReviewsParamsStatus string
+
+// ListScheduleTemplatesParams defines parameters for ListScheduleTemplates.
+type ListScheduleTemplatesParams struct {
+	ClinicId string `form:"clinicId" json:"clinicId"`
+}
 
 // SchedulePatientTasksParams defines parameters for SchedulePatientTasks.
 type SchedulePatientTasksParams struct {
@@ -4331,6 +4451,7 @@ type PublicCasesParams struct {
 	ClinicId *string `form:"clinicId,omitempty" json:"clinicId,omitempty"`
 	Category *string `form:"category,omitempty" json:"category,omitempty"`
 	Tag      *string `form:"tag,omitempty" json:"tag,omitempty"`
+	Course   *string `form:"course,omitempty" json:"course,omitempty"`
 }
 
 // CreateDevPatientSessionJSONBody defines parameters for CreateDevPatientSession.
@@ -4348,6 +4469,11 @@ type ListPublicKnowledgeArticlesParams struct {
 	Q          *string `form:"q,omitempty" json:"q,omitempty"`
 	Page       *int    `form:"page,omitempty" json:"page,omitempty"`
 	PageSize   *int    `form:"pageSize,omitempty" json:"pageSize,omitempty"`
+}
+
+// RecordKnowledgeOpenJSONBody defines parameters for RecordKnowledgeOpen.
+type RecordKnowledgeOpenJSONBody struct {
+	ClinicId *string `json:"clinicId,omitempty"`
 }
 
 // ListPublicKnowledgeCategoriesParams defines parameters for ListPublicKnowledgeCategories.
@@ -4455,6 +4581,7 @@ type PatientCasesParams struct {
 	ClinicId *string `form:"clinicId,omitempty" json:"clinicId,omitempty"`
 	Category *string `form:"category,omitempty" json:"category,omitempty"`
 	Tag      *string `form:"tag,omitempty" json:"tag,omitempty"`
+	Course   *string `form:"course,omitempty" json:"course,omitempty"`
 }
 
 // MeFollowupQueueParams defines parameters for MeFollowupQueue.
@@ -4690,6 +4817,9 @@ type RecordHandoffFollowupJSONRequestBody = HandoffFollowupCreate
 // UpdateHandoffSettingJSONRequestBody defines body for UpdateHandoffSetting for application/json ContentType.
 type UpdateHandoffSettingJSONRequestBody = HandoffSettingUpdate
 
+// CreateHolidayJSONRequestBody defines body for CreateHoliday for application/json ContentType.
+type CreateHolidayJSONRequestBody = HolidayInput
+
 // CreateKnowledgeArticleJSONRequestBody defines body for CreateKnowledgeArticle for application/json ContentType.
 type CreateKnowledgeArticleJSONRequestBody CreateKnowledgeArticleJSONBody
 
@@ -4738,6 +4868,18 @@ type CreateRecordExportJSONRequestBody = RecordExportInput
 // DecideDoctorReviewJSONRequestBody defines body for DecideDoctorReview for application/json ContentType.
 type DecideDoctorReviewJSONRequestBody = DoctorReviewDecision
 
+// CreateScheduleTemplateJSONRequestBody defines body for CreateScheduleTemplate for application/json ContentType.
+type CreateScheduleTemplateJSONRequestBody = ScheduleTemplateInput
+
+// UpdateScheduleTemplateJSONRequestBody defines body for UpdateScheduleTemplate for application/json ContentType.
+type UpdateScheduleTemplateJSONRequestBody = ScheduleTemplateInput
+
+// ApplyScheduleTemplateJSONRequestBody defines body for ApplyScheduleTemplate for application/json ContentType.
+type ApplyScheduleTemplateJSONRequestBody = TemplateApplyInput
+
+// PreviewScheduleTemplateApplyJSONRequestBody defines body for PreviewScheduleTemplateApply for application/json ContentType.
+type PreviewScheduleTemplateApplyJSONRequestBody = TemplateApplyInput
+
 // UpdateScheduleContactJSONRequestBody defines body for UpdateScheduleContact for application/json ContentType.
 type UpdateScheduleContactJSONRequestBody = ScheduleContactInput
 
@@ -4773,6 +4915,9 @@ type AdminChangeSupportJSONRequestBody = SupportAction
 
 // CreateDevPatientSessionJSONRequestBody defines body for CreateDevPatientSession for application/json ContentType.
 type CreateDevPatientSessionJSONRequestBody = CreateDevPatientSessionJSONBody
+
+// RecordKnowledgeOpenJSONRequestBody defines body for RecordKnowledgeOpen for application/json ContentType.
+type RecordKnowledgeOpenJSONRequestBody RecordKnowledgeOpenJSONBody
 
 // CreateAppointmentJSONRequestBody defines body for CreateAppointment for application/json ContentType.
 type CreateAppointmentJSONRequestBody = AppointmentCreate
