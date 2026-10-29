@@ -320,8 +320,11 @@ func TestAssessmentMySQLDeniedPhotoReadAudited(t *testing.T) {
 	a := newAIFixture(t)
 	view := a.prepared(t)
 	photoID := view.Photos[0].ID
-	// Staff can read the photo while consent is granted.
-	if _, err := a.service.Photo(a.doctor, view.Task.ID, photoID, ""); err != nil {
+	// Staff can read the photo while consent is granted. Use the manager:
+	// doctors are scoped to assessments they review (reviewer_employee_id),
+	// and this fixture assigns no reviewer, so a doctor would get "not found"
+	// instead of exercising the consent path.
+	if _, err := a.service.Photo(a.manager, view.Task.ID, photoID, ""); err != nil {
 		t.Fatal("staff photo read before withdrawal failed", err)
 	}
 	// The patient withdraws consent.
@@ -333,15 +336,15 @@ func TestAssessmentMySQLDeniedPhotoReadAudited(t *testing.T) {
 		t.Fatal("consent still granted after withdrawal")
 	}
 	// Staff view hides the photos and a direct photo read is denied.
-	staffView, err := a.service.Get(a.doctor, view.Task.ID, "")
+	staffView, err := a.service.Get(a.manager, view.Task.ID, "")
 	if err != nil || len(staffView.Photos) != 0 {
 		t.Fatal("staff view still exposes photos after withdrawal", staffView.Photos, err)
 	}
-	if _, err := a.service.Photo(a.doctor, view.Task.ID, photoID, ""); !errors.Is(err, store.ErrAssessmentConsent) {
+	if _, err := a.service.Photo(a.manager, view.Task.ID, photoID, ""); !errors.Is(err, store.ErrAssessmentConsent) {
 		t.Fatal("denied staff photo read did not return consent error", err)
 	}
 	// A second denied attempt is audited again: each attempt is recorded.
-	if _, err := a.service.Photo(a.doctor, view.Task.ID, photoID, ""); !errors.Is(err, store.ErrAssessmentConsent) {
+	if _, err := a.service.Photo(a.manager, view.Task.ID, photoID, ""); !errors.Is(err, store.ErrAssessmentConsent) {
 		t.Fatal("second denied staff photo read did not return consent error", err)
 	}
 	// The denied attempts are in the per-assessment audit trail.

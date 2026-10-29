@@ -142,10 +142,17 @@ func TestSupportReplyNotifiesPatient(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		due := f.now.Add(time.Hour)
-		row, err = f.repo.ChangeSupport(agent, row.ID, "", store.SupportInput{Action: "assign", AssigneeID: account.ID, DueAt: &due, Content: "接手", Version: row.Version, RequestKey: key + "-assign"}, f.now)
-		if err != nil {
-			t.Fatal(err)
+		// CreateSupport auto-assigns to the least-busy CS agent; only claim
+		// explicitly when it wasn't already assigned to our test agent.
+		// (Assigning an already-assigned ticket is forbidden for non-managers.)
+		if row.AssigneeID == "" {
+			due := f.now.Add(time.Hour)
+			row, err = f.repo.ChangeSupport(agent, row.ID, "", store.SupportInput{Action: "assign", AssigneeID: account.ID, DueAt: &due, Content: "接手", Version: row.Version, RequestKey: key + "-assign"}, f.now)
+			if err != nil {
+				t.Fatal(err)
+			}
+		} else if row.AssigneeID != account.ID {
+			t.Fatalf("ticket auto-assigned to unexpected agent %q", row.AssigneeID)
 		}
 		return row
 	}

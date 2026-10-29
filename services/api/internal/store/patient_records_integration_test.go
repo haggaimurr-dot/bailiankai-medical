@@ -139,6 +139,9 @@ func TestPatientDirectoryPhoneLast4(t *testing.T) {
 	if err := fixture.db.Model(&model.Patient{}).Where("id = ?", patient.Patient.ID).Update("phone", "13800001005").Error; err != nil {
 		t.Fatal(err)
 	}
+	// The directory only lists patients with an appointment or chart in the
+	// scoped clinics; give the patient an appointment so they are visible.
+	fixture.create(patient, "patient-phone-last4-appt")
 	manager := store.WithEmployeeScope(ctx, "manager", "", []string{"clinic-demo"})
 	rows, total, err := fixture.repo.PatientDirectory(manager, "", 1, 20, "1005")
 	if err != nil || total != 1 || len(rows) != 1 || rows[0].ID != patient.Patient.ID {

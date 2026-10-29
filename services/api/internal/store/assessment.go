@@ -124,10 +124,21 @@ func assessmentView(tx *gorm.DB, task Assessment, admin bool) (AssessmentView, e
 		return AssessmentView{}, err
 	}
 	consent := AssessmentConsent{Version: policy.Version, Content: policy.Content, Granted: granted}
-	if gv, err := latestConsentEventVersion(tx, task.ID); err != nil {
-		return AssessmentView{}, err
-	} else if gv != "" {
-		consent.GrantedVersion = &gv
+	// GrantedVersion comes from the task's ConsentEventID (updated on every
+	// consent change), not from a timestamp-based "latest event" query: when
+	// multiple events share the same created_at, ORDER BY created_at DESC, id
+	// DESC is non-deterministic because event IDs are random, so the displayed
+	// version could be wrong.
+	if task.ConsentEventID != "" {
+		var event AssessmentConsentEvent
+		if err := tx.Select("policy_version").First(&event, "id = ?", task.ConsentEventID).Error; err != nil {
+			if !errors.Is(err, gorm.ErrRecordNotFound) {
+				return AssessmentView{}, err
+			}
+		} else {
+			gv := event.PolicyVersion
+			consent.GrantedVersion = &gv
+		}
 	}
 	view := AssessmentView{Task: task, Photos: []AssessmentPhoto{}, Consent: consent}
 	if !admin {
@@ -867,20 +878,6 @@ func currentAssessmentPolicy(tx *gorm.DB) (AssessmentConsentPolicy, error) {
 	return policy, err
 }
 
-// latestConsentEventVersion is the version the patient last acted on
-// (granted or revoked), or "" when the patient never touched consent.
-func latestConsentEventVersion(tx *gorm.DB, assessmentID string) (string, error) {
-	var event AssessmentConsentEvent
-	err := tx.Select("policy_version").Order("created_at DESC, id DESC").First(&event, "assessment_id = ?", assessmentID).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return "", nil
-	}
-	if err != nil {
-		return "", err
-	}
-	return event.PolicyVersion, nil
-}
-
 var consentPolicyVersionPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,63}$`)
 var consentPolicyVersionBumpPattern = regexp.MustCompile(`^(.*-v)([0-9]+)$`)
 
@@ -910,6 +907,19 @@ func (s *AssessmentService) GetConsentPolicy(ctx context.Context) (AssessmentCon
 	var history []AssessmentConsentPolicy
 	if err := tx.Order("created_at DESC, id DESC").Limit(20).Find(&history).Error; err != nil {
 		return AssessmentConsentPolicyList{}, err
+	}
+	// The seed policy (v1 constants) is the implicit starting point and is
+	// not stored in the table; include it so the history shows the full
+	// lineage once newer versions are published.
+	hasSeed := false
+	for _, h := range history {
+		if h.Version == AssessmentConsentVersion {
+			hasSeed = true
+			break
+		}
+	}
+	if !hasSeed {
+		history = append(history, AssessmentConsentPolicy{Version: AssessmentConsentVersion, Content: AssessmentConsentContent})
 	}
 	return AssessmentConsentPolicyList{Policy: policy, History: history}, nil
 }
