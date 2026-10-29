@@ -320,6 +320,7 @@ onUnmounted(() => {
     <div>
       <p class="lede">MY ASSESSMENTS</p>
       <h1>{{ selected ? '评估任务' : '我的评估' }}</h1>
+      <button v-if="!selected" class="ghost" @click="router.push('/assessment/compare')">历史评估对比</button>
     </div>
 
     <div v-if="error" class="error-box">{{ error }}</div>

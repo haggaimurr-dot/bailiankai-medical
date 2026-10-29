@@ -14,6 +14,7 @@ const routes: RouteRecordRaw[] = [
   { path: '/assessment', name: 'assessment', component: () => import('./views/AssessmentView.vue'), meta: { title: 'AI 辅助评估' } },
   { path: '/assessment/tasks', name: 'assessment-tasks', component: () => import('./views/AssessmentTasksView.vue'), meta: { title: '我的评估' } },
   { path: '/assessment/result', name: 'assessment-result', component: () => import('./views/AssessmentResultView.vue'), meta: { title: '评估结果' } },
+  { path: '/assessment/compare', name: 'assessment-compare', component: () => import('./views/AssessmentCompareView.vue'), meta: { title: '历史评估对比' } },
   { path: '/support', name: 'support', component: () => import('./views/SupportView.vue'), meta: { title: '咨询客服' } },
   { path: '/messages', name: 'messages', component: () => import('./views/MessagesView.vue'), meta: { tab: 'messages', title: '消息设置' } },
   { path: '/profile', name: 'profile', component: () => import('./views/ProfileView.vue'), meta: { tab: 'profile', title: '我的' } },
