@@ -1244,6 +1244,45 @@ paths:
         '401': {$ref: '#/components/responses/Error'}
         '403': {$ref: '#/components/responses/Error'}
         '404': {$ref: '#/components/responses/Error'}
+  /api/v1/admin/arrival-guidance:
+    get:
+      operationId: getArrivalGuidance
+      description: 主管查看到诊指引配置；到诊登记后自动推送给患者的面诊流程指引文案。
+      security: [{EmployeeBearer: []}]
+      parameters:
+        - {name: clinicId, in: query, required: true, schema: {type: string, pattern: '^[A-Za-z0-9_-]+$'}}
+      responses:
+        '200':
+          description: 到诊指引配置
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: '#/components/schemas/ArrivalGuidanceSetting'
+        '404': {$ref: '#/components/responses/Error'}
+    put:
+      operationId: saveArrivalGuidance
+      description: 主管保存到诊指引配置。
+      security: [{EmployeeBearer: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ArrivalGuidanceInput'}
+      responses:
+        '200':
+          description: 已保存的到诊指引配置
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: '#/components/schemas/ArrivalGuidanceSetting'
   /api/v1/admin/holidays:
     get:
       operationId: listHolidays
@@ -4804,6 +4843,22 @@ components:
       properties:
         name: {type: string, minLength: 1, maxLength: 100}
         pattern: {$ref: '#/components/schemas/ScheduleTemplatePattern'}
+    ArrivalGuidanceSetting:
+      type: object
+      required: [clinicId, content, enabled, updatedAt]
+      properties:
+        clinicId: {type: string}
+        content: {type: string, maxLength: 2000}
+        enabled: {type: boolean}
+        updatedAt: {type: string, format: date-time}
+        updatedBy: {type: string}
+    ArrivalGuidanceInput:
+      type: object
+      required: [clinicId, content]
+      properties:
+        clinicId: {type: string, pattern: '^[A-Za-z0-9_-]+$'}
+        content: {type: string, minLength: 1, maxLength: 2000}
+        enabled: {type: boolean, default: true}
     Holiday:
       type: object
       additionalProperties: false

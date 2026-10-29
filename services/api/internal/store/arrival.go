@@ -47,6 +47,9 @@ func (s *MySQL) RegisterArrival(ctx context.Context, id string, input ArrivalInp
 	if err != nil {
 		return model.Appointment{}, err
 	}
+	// 新增-P2 行 98：记录到诊前的预约快照，用于到诊后推送指引（统计口径不变，只做通知）。
+	var before model.Appointment
+	_ = s.db.WithContext(ctx).First(&before, "id = ?", id).Error
 	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		// Use the booking/treatment lock order to serialize arrival with cancellation.
 		if err := lockPatient(tx, initial.PatientID); err != nil {
@@ -121,5 +124,13 @@ func (s *MySQL) RegisterArrival(ctx context.Context, id string, input ArrivalInp
 	if err != nil {
 		return model.Appointment{}, err
 	}
-	return loadAppointment(s.db.WithContext(ctx), id, "")
+	saved, err := loadAppointment(s.db.WithContext(ctx), id, "")
+	if err != nil {
+		return model.Appointment{}, err
+	}
+	// 首次到诊才推送指引；重复登记不重复打扰。best-effort，失败不阻断。
+	if before.ArrivedAt == nil && saved.ArrivedAt != nil {
+		s.notifyArrivalGuidance(saved, now)
+	}
+	return saved, nil
 }

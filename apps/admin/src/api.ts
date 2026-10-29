@@ -189,6 +189,9 @@ export const api = {
   holidays: (from: string, to: string) => request<components['schemas']['Holiday'][]>('/admin/holidays' + query({ from, to }), adminRequest()),
   createHoliday: (body: components['schemas']['HolidayInput']) => request<components['schemas']['Holiday']>('/admin/holidays', adminRequest({ method: 'POST', body: JSON.stringify(body) })),
   deleteHoliday: (date: string) => request('/admin/holidays/' + encodeURIComponent(date), adminRequest({ method: 'DELETE' })),
+  // 到诊指引：主管按院区配置面诊流程指引文案，到诊后自动推送给患者。
+  arrivalGuidance: (clinicId: string) => request<components['schemas']['ArrivalGuidanceSetting']>('/admin/arrival-guidance' + query({ clinicId }), adminRequest()),
+  saveArrivalGuidance: (body: components['schemas']['ArrivalGuidanceInput']) => request<components['schemas']['ArrivalGuidanceSetting']>('/admin/arrival-guidance', adminRequest({ method: 'PUT', body: JSON.stringify(body) })),
   patients: (search = '', page = 1, tag = '', phoneLast4 = '') => requestEnvelope<components['schemas']['PatientDirectoryPage']>('/admin/patients' + query({ search, page, tag, phoneLast4, pageSize: 20 }), adminRequest()),
   createPatientChart: (body: components['schemas']['PatientChartCreate']) => request<PatientRecordSummary>('/admin/patients', adminRequest({ method: 'POST', body: JSON.stringify(body) })),
   createPatientBindingCode: (id: string) => request<components['schemas']['PatientBindingCode']>('/admin/patients/' + encodeURIComponent(id) + '/wechat-binding', adminRequest({ method: 'POST' })),

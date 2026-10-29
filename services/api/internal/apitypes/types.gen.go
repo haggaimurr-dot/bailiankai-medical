@@ -1121,6 +1121,22 @@ type AppointmentTimelineResult struct {
 	Data []AppointmentTimelineEvent `json:"data"`
 }
 
+// ArrivalGuidanceInput defines model for ArrivalGuidanceInput.
+type ArrivalGuidanceInput struct {
+	ClinicId string `json:"clinicId"`
+	Content  string `json:"content"`
+	Enabled  *bool  `json:"enabled,omitempty"`
+}
+
+// ArrivalGuidanceSetting defines model for ArrivalGuidanceSetting.
+type ArrivalGuidanceSetting struct {
+	ClinicId  string    `json:"clinicId"`
+	Content   string    `json:"content"`
+	Enabled   bool      `json:"enabled"`
+	UpdatedAt time.Time `json:"updatedAt"`
+	UpdatedBy *string   `json:"updatedBy,omitempty"`
+}
+
 // AssessmentAccessAuditPage defines model for AssessmentAccessAuditPage.
 type AssessmentAccessAuditPage struct {
 	Data     []AssessmentEvent `json:"data"`
@@ -4141,6 +4157,11 @@ type ListNursingFeedbackParams struct {
 	DateTo   *openapi_types.Date `form:"dateTo,omitempty" json:"dateTo,omitempty"`
 }
 
+// GetArrivalGuidanceParams defines parameters for GetArrivalGuidance.
+type GetArrivalGuidanceParams struct {
+	ClinicId string `form:"clinicId" json:"clinicId"`
+}
+
 // ListAdminAssessmentsParams defines parameters for ListAdminAssessments.
 type ListAdminAssessmentsParams struct {
 	Status   *ListAdminAssessmentsParamsStatus `form:"status,omitempty" json:"status,omitempty"`
@@ -4708,6 +4729,9 @@ type RecordTreatmentJSONRequestBody = TreatmentCreate
 
 // CorrectTreatmentJSONRequestBody defines body for CorrectTreatment for application/json ContentType.
 type CorrectTreatmentJSONRequestBody = TreatmentCorrection
+
+// SaveArrivalGuidanceJSONRequestBody defines body for SaveArrivalGuidance for application/json ContentType.
+type SaveArrivalGuidanceJSONRequestBody = ArrivalGuidanceInput
 
 // ConfirmArrivalScanJSONRequestBody defines body for ConfirmArrivalScan for application/json ContentType.
 type ConfirmArrivalScanJSONRequestBody = CheckInScan

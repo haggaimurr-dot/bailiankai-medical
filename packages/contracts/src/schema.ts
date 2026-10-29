@@ -1581,6 +1581,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/arrival-guidance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description 主管查看到诊指引配置；到诊登记后自动推送给患者的面诊流程指引文案。 */
+        get: operations["getArrivalGuidance"];
+        /** @description 主管保存到诊指引配置。 */
+        put: operations["saveArrivalGuidance"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/holidays": {
         parameters: {
             query?: never;
@@ -4992,6 +5010,20 @@ export interface components {
         ScheduleTemplateInput: {
             name: string;
             pattern: components["schemas"]["ScheduleTemplatePattern"];
+        };
+        ArrivalGuidanceSetting: {
+            clinicId: string;
+            content: string;
+            enabled: boolean;
+            /** Format: date-time */
+            updatedAt: string;
+            updatedBy?: string;
+        };
+        ArrivalGuidanceInput: {
+            clinicId: string;
+            content: string;
+            /** @default true */
+            enabled: boolean;
         };
         Holiday: {
             /** Format: date */
@@ -11386,6 +11418,57 @@ export interface operations {
             401: components["responses"]["Error"];
             403: components["responses"]["Error"];
             404: components["responses"]["Error"];
+        };
+    };
+    getArrivalGuidance: {
+        parameters: {
+            query: {
+                clinicId: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 到诊指引配置 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["ArrivalGuidanceSetting"];
+                    };
+                };
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    saveArrivalGuidance: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ArrivalGuidanceInput"];
+            };
+        };
+        responses: {
+            /** @description 已保存的到诊指引配置 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["ArrivalGuidanceSetting"];
+                    };
+                };
+            };
         };
     };
     listHolidays: {

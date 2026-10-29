@@ -4,6 +4,7 @@ import { BrowserQRCodeReader, type IScannerControls } from '@zxing/browser'
 import { useRoute } from 'vue-router'
 import { api, ApiError, errorMessage, type Appointment, type Slot } from '../api'
 import { auth } from '../auth'
+import ArrivalGuidance from '../components/ArrivalGuidance.vue'
 import { shanghaiDate, slotTime } from '../dates'
 
 const route = useRoute()
@@ -111,6 +112,7 @@ onBeforeUnmount(() => { disposed = true; ++generation; if (timer) clearInterval(
   </el-table>
   <div class="table-footer"><span>按实际到诊记录统计；确认预约不会自动签到。</span><el-pagination v-model:current-page="page" :page-size="20" :total="total" layout="total, prev, pager, next" @current-change="load()" /></div>
  </section>
+ <ArrivalGuidance :clinic-id="clinicId || clinics[0]?.id || ''" />
  <el-dialog :model-value="!!selected" :title="moveOpen ? '停诊改期' : '核实实际到诊'" width="520px" :close-on-click-modal="!busy" :close-on-press-escape="!busy" :show-close="!busy" @close="selected = null">
   <template v-if="selected"><p>{{ selected.contactName }} · {{ selected.doctorName }} · {{ selected.clinicName }}</p>
    <template v-if="moveOpen"><el-alert :title="selected.suspensionReason || '原时段已关闭'" type="warning" :closable="false" /><p>先与患者确认新的就诊时间，再保存改期。已确认预约保留确认状态；待确认预约重新计时。</p><el-form label-position="top"><el-form-item label="新时段（同医生、同院区）"><el-select v-model="slotId" :loading="moveLoading" :disabled="busy || !!movePayload" placeholder="选择可用时段"><el-option v-for="slot in slots" :key="slot.id" :value="slot.id" :label="`${timestamp(slot.startsAt)}（余 ${slot.capacity-slot.reserved} 位）`" /></el-select></el-form-item><el-form-item label="患者同意改期的沟通记录"><el-input v-model="reason" type="textarea" maxlength="200" show-word-limit :disabled="busy || !!movePayload" /></el-form-item></el-form><el-alert v-if="moveError" :title="moveError" type="error" :closable="false" /><el-button type="primary" :loading="busy" :disabled="!selected.canReschedule || !slotId || !reason.trim() || moveLoading" @click="saveMove">{{ movePayload ? '重试原改期申请' : '确认改期' }}</el-button></template>
