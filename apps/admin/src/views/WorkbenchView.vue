@@ -12,6 +12,10 @@ const manager = computed(() => auth.employee?.role === 'manager')
 type Notice = Awaited<ReturnType<typeof api.handoffNotifications>>['data'][number]
 const notices = ref<Notice[]>([]), notificationPage = ref(1), notificationTotal = ref(0), unreadTotal = ref(0)
 const notificationError = ref(''), busy = ref(false), reading = ref('')
+type ApptNotice = Awaited<ReturnType<typeof api.appointmentNotifications>>['data'][number]
+const apptNotices = ref<ApptNotice[]>([]), apptPage = ref(1), apptTotal = ref(0), apptUnreadTotal = ref(0)
+const apptError = ref('')
+const canReviewAppointments = computed(() => ['manager', 'customer_service'].includes(auth.employee?.role || ''))
 const pending = ref<number | null>(null), overdue = ref<number | null>(null), supervisor = ref<number | null>(null)
 const submitted = ref<number | null>(null), alerts = ref<number | null>(null)
 const exportInProgress = ref<number | null>(null), exportReady = ref<number | null>(null), exportFailed = ref<number | null>(null)
@@ -27,7 +31,7 @@ const exportDetail = computed(() => {
   return parts.length ? parts.join(' · ') : '暂无进行中的导出任务'
 })
 const errors = ref<string[]>([])
-let generation = 0, notificationGeneration = 0, timer: ReturnType<typeof setInterval> | undefined
+let generation = 0, notificationGeneration = 0, apptGeneration = 0, timer: ReturnType<typeof setInterval> | undefined
 const levelNames = { 1: '紧急', 2: '重要', 3: '一般' } as const
 const cards = computed(() => [
   { title: '交接待确认', count: pending.value, detail: manager.value ? '查看接手人的确认进度' : '确认您已收到的任务', to: '/handoffs?status=pending', level: 3 as const },
@@ -51,11 +55,31 @@ async function loadNotifications() {
     notices.value = result.data; notificationTotal.value = result.meta.total; unreadTotal.value = result.meta.unreadTotal
   } catch (cause) { if (request === notificationGeneration) notificationError.value = errorMessage(cause) }
 }
+async function loadApptNotifications() {
+  if (!canReviewAppointments.value) return
+  const request = ++apptGeneration
+  apptError.value = ''
+  try {
+    const result = await api.appointmentNotifications(apptPage.value)
+    if (request !== apptGeneration) return
+    apptNotices.value = result.data; apptTotal.value = result.meta.total; apptUnreadTotal.value = result.meta.unreadTotal
+  } catch (cause) { if (request === apptGeneration) apptError.value = errorMessage(cause) }
+}
+async function readAppt(notice: ApptNotice, open = false) {
+  if (reading.value) return
+  reading.value = notice.id; apptError.value = ''
+  try {
+    if (!notice.readAt) { await api.readAppointmentNotification(notice.id) }
+    if (open) await router.push('/appointments')
+    else await loadApptNotifications()
+  } catch (cause) { apptError.value = errorMessage(cause) }
+  finally { reading.value = '' }
+}
 async function load() {
   if (busy.value) return
   const request = ++generation
   busy.value = true; errors.value = []
-  const results = await Promise.allSettled([api.handoffReceipts('pending'), api.followups('submitted'), api.followups('alert'), loadNotifications(), ...(canExportJobs.value ? [api.recordExports(1)] : [])])
+  const results = await Promise.allSettled([api.handoffReceipts('pending'), api.followups('submitted'), api.followups('alert'), loadNotifications(), loadApptNotifications(), ...(canExportJobs.value ? [api.recordExports(1)] : [])])
   if (request !== generation) return
   pending.value = null; overdue.value = null; supervisor.value = null; submitted.value = null; alerts.value = null; loginAnomalies.value = null; backlogPending.value = null; backlogBreached.value = false; backlogOldest.value = null
   exportInProgress.value = null; exportReady.value = null; exportFailed.value = null
@@ -75,7 +99,7 @@ async function load() {
     } catch (cause) { errors.value.push(`消息队列积压：${errorMessage(cause)}`) }
   }
   if (canExportJobs.value) {
-    const exportsResult = results[4]
+    const exportsResult = results[5]
     if (exportsResult?.status === 'fulfilled') {
       const nowMs = Date.now()
       const jobs = exportsResult.value.data
@@ -103,7 +127,7 @@ onMounted(() => {
   void scheduleStore.refresh()
   timer = setInterval(() => { if (document.visibilityState === 'visible' && !reading.value) void load() }, 30000)
 })
-onBeforeUnmount(() => { ++generation; ++notificationGeneration; if (timer) clearInterval(timer) })
+onBeforeUnmount(() => { ++generation; ++notificationGeneration; ++apptGeneration; if (timer) clearInterval(timer) })
 </script>
 
 <template>
@@ -132,6 +156,17 @@ onBeforeUnmount(() => { ++generation; ++notificationGeneration; if (timer) clear
       </article>
       <el-pagination v-if="notificationTotal > 20" layout="prev, pager, next" :total="notificationTotal" :page-size="20" v-model:current-page="notificationPage" @current-change="loadNotifications" />
       <p class="scope-note">通知已读仅表示您已查看，交接仍须由接手人确认。页面可见时每 30 秒刷新；每项交接对同一主管只发送一次超时升级提醒。</p>
+    </section>
+    <section v-if="canReviewAppointments" class="surface notification-panel" aria-labelledby="appt-notification-title">
+      <div class="panel-heading"><div><h2 id="appt-notification-title">待确认提醒 <el-tag size="small" type="warning">{{ apptUnreadTotal }} 条未读</el-tag></h2><p>待确认预约临期（截止前 30 分钟内）时提醒主管与客服；超时未确认后自动升级提醒主管。</p></div><el-button @click="loadApptNotifications">刷新提醒</el-button></div>
+      <el-alert v-if="apptError" :title="apptError" type="error" :closable="false" />
+      <p v-if="!apptNotices.length && !apptError" class="empty">暂无待确认提醒</p>
+      <article v-for="notice in apptNotices" :key="notice.id" class="notification-row" :class="{ unread: !notice.readAt }">
+        <div><div class="notice-title"><el-tag :type="notice.kind === 'pending_escalated' ? 'danger' : 'info'" size="small">{{ notice.kind === 'pending_escalated' ? '超时升级提醒' : '临期提醒' }}</el-tag><strong>{{ notice.doctorName }} · {{ timestamp(notice.startsAt) }}（{{ notice.clinicName }}）</strong><span v-if="!notice.readAt">未读</span></div><p>{{ notice.contactName }} 的预约待确认 · {{ timestamp(notice.createdAt) }}</p></div>
+        <div class="notice-actions"><el-button v-if="!notice.readAt" size="small" :disabled="!!reading" @click="readAppt(notice)">标为已读</el-button><el-button type="primary" plain size="small" :disabled="!!reading" @click="readAppt(notice, true)">查看预约</el-button></div>
+      </article>
+      <el-pagination v-if="apptTotal > 20" layout="prev, pager, next" :total="apptTotal" :page-size="20" v-model:current-page="apptPage" @current-change="loadApptNotifications" />
+      <p class="scope-note">同一预约对同一员工只发送一次临期提醒与一次超时升级提醒；提醒已读不改变预约状态。</p>
     </section>
   </section>
 </template>

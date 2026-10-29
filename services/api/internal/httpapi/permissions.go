@@ -57,6 +57,9 @@ func allowedEmployeeOperation(role, method, path string) bool {
 	if path == "/api/v1/admin/handoff-notifications" && method == "GET" || path == "/api/v1/admin/handoff-notifications/:notificationId/read" && method == "POST" {
 		return role == "manager" || store.ClinicalRole(role)
 	}
+	if path == "/api/v1/admin/appointment-notifications" && method == "GET" || path == "/api/v1/admin/appointment-notifications/:notificationId/read" && method == "POST" {
+		return role == "manager" || role == "customer_service"
+	}
 	if path == "/api/v1/admin/arrival-scans/resolve" || path == "/api/v1/admin/arrival-scans/confirm" {
 		return method == "POST" && (role == "manager" || role == "customer_service" || role == "doctor" || role == "clinician")
 	}

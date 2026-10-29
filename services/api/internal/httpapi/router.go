@@ -102,6 +102,8 @@ func newRouter(a *API) *gin.Engine {
 	r.GET("/api/v1/admin/session", a.authenticate, a.employeeSession)
 	r.GET("/api/v1/admin/handoff-notifications", a.authenticate, a.handoffNotifications)
 	r.POST("/api/v1/admin/handoff-notifications/:notificationId/read", a.authenticate, a.readHandoffNotification)
+	r.GET("/api/v1/admin/appointment-notifications", a.authenticate, a.appointmentNotifications)
+	r.POST("/api/v1/admin/appointment-notifications/:notificationId/read", a.authenticate, a.readAppointmentNotification)
 	r.GET("/api/v1/admin/permissions", a.authenticate, a.employeePermissions)
 	r.POST("/api/v1/admin/session/password", a.authenticate, a.changeEmployeePassword)
 	r.POST("/api/v1/admin/employees/:employeeId/access", a.authenticate, a.requireManager, a.setEmployeeAccess)

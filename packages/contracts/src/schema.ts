@@ -292,6 +292,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/appointment-notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listAppointmentNotifications"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/appointment-notifications/{notificationId}/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["readAppointmentNotification"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/schedule/settings/{clinicId}": {
         parameters: {
             query?: never;
@@ -4720,6 +4752,31 @@ export interface components {
                 unreadTotal: number;
             };
         };
+        AppointmentNotification: {
+            id: string;
+            appointmentId: string;
+            /** @enum {string} */
+            kind: "pending_soon" | "pending_escalated";
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            readAt: string | null;
+            doctorName: string;
+            clinicName: string;
+            /** Format: date-time */
+            startsAt: string;
+            contactName: string;
+            status: string;
+        };
+        AppointmentNotificationPage: {
+            data: components["schemas"]["AppointmentNotification"][];
+            meta: {
+                page: number;
+                pageSize: number;
+                total: number;
+                unreadTotal: number;
+            };
+        };
         HandoffSetting: {
             overdueHours: number;
             version: number;
@@ -6628,6 +6685,60 @@ export interface operations {
             403: components["responses"]["Error"];
             404: components["responses"]["Error"];
             503: components["responses"]["Error"];
+        };
+    };
+    listAppointmentNotifications: {
+        parameters: {
+            query?: {
+                page?: components["parameters"]["Page"];
+                pageSize?: components["parameters"]["PageSize"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 本人待确认提醒与超时升级站内通知 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AppointmentNotificationPage"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    readAppointmentNotification: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                notificationId: components["schemas"]["EntityId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 幂等标记本人通知已读 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            read: boolean;
+                        };
+                    };
+                };
+            };
         };
     };
     getScheduleSetting: {

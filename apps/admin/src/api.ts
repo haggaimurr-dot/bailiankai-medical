@@ -243,6 +243,8 @@ export const api = {
   followupStaffEvents: (id: string) => request<FollowupStaffEvent[]>(`/admin/followup-staff/${encodeURIComponent(id)}/events`, adminRequest()),
   handoffNotifications: (page = 1, pageSize = 20) => requestEnvelope<components['schemas']['HandoffNotificationPage']>(`/admin/handoff-notifications${query({ page, pageSize })}`, adminRequest()),
   readHandoffNotification: (id: string) => request<{ read: boolean }>(`/admin/handoff-notifications/${encodeURIComponent(id)}/read`, adminRequest({ method: 'POST' })),
+  appointmentNotifications: (page = 1, pageSize = 20) => requestEnvelope<components['schemas']['AppointmentNotificationPage']>(`/admin/appointment-notifications${query({ page, pageSize })}`, adminRequest()),
+  readAppointmentNotification: (id: string) => request<{ read: boolean }>(`/admin/appointment-notifications/${encodeURIComponent(id)}/read`, adminRequest({ method: 'POST' })),
   handoffReceipts: (status: 'pending' | 'overdue' | 'todo' | 'confirmed' | 'superseded' | 'all' = 'pending', page = 1, toStaffId = '', receiptId = '') => requestEnvelope<components['schemas']['HandoffReceiptPage']>(`/admin/handoff-receipts${query({ status, page, pageSize: 20, toStaffId, receiptId })}`, adminRequest()),
   confirmHandoffReceipt: (id: string, version: number) => request<HandoffReceipt>(`/admin/handoff-receipts/${encodeURIComponent(id)}/confirm`, adminRequest({ method: 'POST', body: JSON.stringify({ version }) })),
   handoffFollowups: (id: string) => request<HandoffFollowupEvent[]>(`/admin/handoff-receipts/${encodeURIComponent(id)}/followups`, adminRequest()),

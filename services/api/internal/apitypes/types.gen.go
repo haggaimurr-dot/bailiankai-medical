@@ -40,6 +40,12 @@ const (
 	AppointmentCancelCancelReasonScheduleConflict AppointmentCancelCancelReason = "schedule_conflict"
 )
 
+// Defines values for AppointmentNotificationKind.
+const (
+	PendingEscalated AppointmentNotificationKind = "pending_escalated"
+	PendingSoon      AppointmentNotificationKind = "pending_soon"
+)
+
 // Defines values for AppointmentReviewAction.
 const (
 	Confirm AppointmentReviewAction = "confirm"
@@ -907,7 +913,7 @@ type Appointment struct {
 	// CanReview 当前调用者能否审核；仅后台视图中有效待确认预约可能为true。
 	CanReview bool `json:"canReview"`
 
-	// CancelReason 患者取消原因；未填为空串
+	// CancelReason 患者取消原因；未取消或未填时不出现
 	CancelReason *AppointmentCancelReason `json:"cancelReason,omitempty"`
 
 	// CancelReasonDetail 患者取消补充说明；未填为空串
@@ -941,7 +947,7 @@ type Appointment struct {
 	Version          int32     `json:"version"`
 }
 
-// AppointmentCancelReason 患者取消原因；未填为空串
+// AppointmentCancelReason 患者取消原因；未取消或未填时不出现
 type AppointmentCancelReason string
 
 // AppointmentSlotStatus 当前时段开放状态
@@ -976,6 +982,34 @@ type AppointmentCreate struct {
 
 	// Waitlist 仅对开放且已满的正容量时段登记候补，不占名额
 	Waitlist *bool `json:"waitlist,omitempty"`
+}
+
+// AppointmentNotification defines model for AppointmentNotification.
+type AppointmentNotification struct {
+	AppointmentId string                      `json:"appointmentId"`
+	ClinicName    string                      `json:"clinicName"`
+	ContactName   string                      `json:"contactName"`
+	CreatedAt     time.Time                   `json:"createdAt"`
+	DoctorName    string                      `json:"doctorName"`
+	Id            string                      `json:"id"`
+	Kind          AppointmentNotificationKind `json:"kind"`
+	ReadAt        *time.Time                  `json:"readAt"`
+	StartsAt      time.Time                   `json:"startsAt"`
+	Status        string                      `json:"status"`
+}
+
+// AppointmentNotificationKind defines model for AppointmentNotification.Kind.
+type AppointmentNotificationKind string
+
+// AppointmentNotificationPage defines model for AppointmentNotificationPage.
+type AppointmentNotificationPage struct {
+	Data []AppointmentNotification `json:"data"`
+	Meta struct {
+		Page        int `json:"page"`
+		PageSize    int `json:"pageSize"`
+		Total       int `json:"total"`
+		UnreadTotal int `json:"unreadTotal"`
+	} `json:"meta"`
 }
 
 // AppointmentPage defines model for AppointmentPage.
@@ -3680,6 +3714,12 @@ type GetOperationsAnalyticsParams struct {
 
 // GetOperationsAnalyticsParamsGroupBy defines parameters for GetOperationsAnalytics.
 type GetOperationsAnalyticsParamsGroupBy string
+
+// ListAppointmentNotificationsParams defines parameters for ListAppointmentNotifications.
+type ListAppointmentNotificationsParams struct {
+	Page     *Page     `form:"page,omitempty" json:"page,omitempty"`
+	PageSize *PageSize `form:"pageSize,omitempty" json:"pageSize,omitempty"`
+}
 
 // ListAdminAppointmentsParams defines parameters for ListAdminAppointments.
 type ListAdminAppointmentsParams struct {

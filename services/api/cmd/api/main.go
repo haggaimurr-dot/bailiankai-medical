@@ -76,6 +76,8 @@ func run() error {
 	go func() { defer close(notificationDone); repo.RunNotificationWorker(workerCtx, messageSender) }()
 	handoffDone := make(chan struct{})
 	go func() { defer close(handoffDone); repo.RunHandoffNotificationWorker(workerCtx) }()
+	appointmentReminderDone := make(chan struct{})
+	go func() { defer close(appointmentReminderDone); repo.RunPendingAppointmentReminderWorker(workerCtx) }()
 	assessmentDone := make(chan struct{})
 	go func() { defer close(assessmentDone); assessments.Run(workerCtx) }()
 	exportDone := make(chan struct{})
@@ -87,6 +89,7 @@ func run() error {
 		<-notificationDone
 		<-exportDone
 		<-handoffDone
+		<-appointmentReminderDone
 		<-assessmentDone
 	}()
 	serverError := make(chan error, 1)
