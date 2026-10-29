@@ -22,7 +22,12 @@ CREATE TABLE recovery_stage_milestones (
  plan_id VARCHAR(64) NOT NULL,
  day_offset INT NOT NULL,
  stage_label VARCHAR(64) NOT NULL,
- summary TEXT NOT NULL DEFAULT '',
+ -- NOTE: no DEFAULT on TEXT — MySQL 8.4 (CI) rejects BLOB/TEXT/JSON defaults
+ -- with Error 1101; MariaDB accepts them, which is why this passed on the
+ -- test stack. The app always sends summary explicitly (GORM includes zero
+ -- values on Create), so the DB default was dead weight. Fixed 2026-10-30
+ -- after CI run #121 went red on this exact line.
+ summary TEXT NOT NULL,
  notified BOOLEAN NOT NULL DEFAULT FALSE,
  notified_at DATETIME(3) NULL,
  created_at DATETIME(3) NOT NULL,
