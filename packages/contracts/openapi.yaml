@@ -1404,6 +1404,144 @@ paths:
             application/json:
               schema: {$ref: '#/components/schemas/WaitlistSweepResult'}
         default: {$ref: '#/components/responses/Error'}
+  /api/v1/doctors/{doctorId}/reviews:
+    get:
+      operationId: listDoctorReviews
+      description: 仅返回已审核通过的患者评价，署名已脱敏。
+      parameters:
+        - name: doctorId
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200':
+          description: 已审核通过的评价（最新在前）
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: {$ref: '#/components/schemas/DoctorReviewPublic'}
+        default: {$ref: '#/components/responses/Error'}
+  /api/v1/me/doctors/{doctorId}/reviews:
+    post:
+      operationId: createDoctorReview
+      description: 仅已治疗（treatments 有记录）患者可评，每单一次；提交后待审核，不立即公开。
+      security: [{PatientBearer: []}]
+      parameters:
+        - name: doctorId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/PatientReviewInput'}
+      responses:
+        '200':
+          description: 已提交，待审核
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {$ref: '#/components/schemas/DoctorReview'}
+        default: {$ref: '#/components/responses/Error'}
+  /api/v1/me/doctors/{doctorId}/reviewable:
+    get:
+      operationId: listReviewableAppointments
+      description: 本人与该医生之间已有治疗记录且尚未评价的预约。
+      security: [{PatientBearer: []}]
+      parameters:
+        - name: doctorId
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200':
+          description: 可评价预约（就诊时间倒序）
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: {$ref: '#/components/schemas/ReviewableAppointment'}
+        default: {$ref: '#/components/responses/Error'}
+  /api/v1/me/reviews:
+    get:
+      operationId: listMyReviews
+      security: [{PatientBearer: []}]
+      parameters:
+        - name: doctorId
+          in: query
+          schema: {type: string}
+      responses:
+        '200':
+          description: 本人提交的评价（含待审核与已驳回）
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: {$ref: '#/components/schemas/DoctorReview'}
+        default: {$ref: '#/components/responses/Error'}
+  /api/v1/admin/reviews:
+    get:
+      operationId: listAdminReviews
+      security: [{EmployeeBearer: []}]
+      parameters:
+        - name: status
+          in: query
+          schema: {type: string, enum: [pending, approved, rejected]}
+      responses:
+        '200':
+          description: 评价审核队列（最新在前）
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: {$ref: '#/components/schemas/DoctorReview'}
+        default: {$ref: '#/components/responses/Error'}
+  /api/v1/admin/reviews/{reviewId}/review:
+    post:
+      operationId: decideDoctorReview
+      security: [{EmployeeBearer: []}]
+      parameters:
+        - name: reviewId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/DoctorReviewDecision'}
+      responses:
+        '200':
+          description: 审核结果
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {$ref: '#/components/schemas/DoctorReview'}
+        default: {$ref: '#/components/responses/Error'}
   /api/v1/me/appointments/{appointmentId}/photo-consent:
     get:
       operationId: getPhotoConsent
@@ -3710,6 +3848,53 @@ components:
         expiresAt: {type: string, format: date-time}
         createdAt: {type: string, format: date-time}
         updatedAt: {type: string, format: date-time}
+    DoctorReview:
+      type: object
+      required: [id, doctorId, patientId, appointmentId, rating, content, status, createdAt]
+      properties:
+        id: {$ref: '#/components/schemas/EntityId'}
+        doctorId: {$ref: '#/components/schemas/EntityId'}
+        patientId: {$ref: '#/components/schemas/EntityId'}
+        appointmentId: {$ref: '#/components/schemas/EntityId'}
+        rating: {type: integer, minimum: 1, maximum: 5}
+        content: {type: string, minLength: 1, maxLength: 1000}
+        status: {type: string, enum: [pending, approved, rejected]}
+        reviewNote: {type: string, maxLength: 500}
+        createdAt: {type: string, format: date-time}
+        reviewedAt: {type: string, format: date-time}
+        displayName: {type: string}
+    DoctorReviewPublic:
+      type: object
+      required: [id, doctorId, rating, content, createdAt]
+      properties:
+        id: {$ref: '#/components/schemas/EntityId'}
+        doctorId: {$ref: '#/components/schemas/EntityId'}
+        rating: {type: integer, minimum: 1, maximum: 5}
+        content: {type: string, minLength: 1, maxLength: 1000}
+        createdAt: {type: string, format: date-time}
+        displayName: {type: string}
+    PatientReviewInput:
+      type: object
+      additionalProperties: false
+      required: [appointmentId, rating, content]
+      properties:
+        appointmentId: {$ref: '#/components/schemas/EntityId'}
+        rating: {type: integer, minimum: 1, maximum: 5}
+        content: {type: string, minLength: 1, maxLength: 1000}
+    DoctorReviewDecision:
+      type: object
+      additionalProperties: false
+      required: [decision]
+      properties:
+        decision: {type: string, enum: [approved, rejected]}
+        note: {type: string, maxLength: 500}
+    ReviewableAppointment:
+      type: object
+      required: [appointmentId, doctorId, startsAt]
+      properties:
+        appointmentId: {$ref: '#/components/schemas/EntityId'}
+        doctorId: {$ref: '#/components/schemas/EntityId'}
+        startsAt: {type: string, format: date-time}
     WaitlistEntry:
       type: object
       required: [appointment]

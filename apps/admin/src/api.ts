@@ -271,6 +271,8 @@ export const api = {
   appointments: (filters: { clinicId?: string; arrival?: 'expected' | 'arrived' | ''; needsReschedule?: 'true'; q?: string; status?: Appointment['status'] | ''; date?: string; doctorId?: string; page?: number; pageSize?: number }) => requestEnvelope<AppointmentPage>(`/admin/appointments${query(filters)}`, adminRequest()),
   appointment: (id: string) => request<Appointment>(`/admin/appointments/${encodeURIComponent(id)}`, adminRequest()),
   waitlistQueue: (slotId: string) => request<components['schemas']['WaitlistEntry'][]>(`/admin/waitlist${query({ slotId })}`, adminRequest()),
+  doctorReviews: (status = '') => request<components['schemas']['DoctorReview'][]>(`/admin/reviews${query({ status })}`, adminRequest()),
+  decideDoctorReview: (id: string, decision: 'approved' | 'rejected', note?: string) => request<components['schemas']['DoctorReview']>(`/admin/reviews/${encodeURIComponent(id)}/review`, adminRequest({ method: 'POST', body: JSON.stringify({ decision, ...(note ? { note } : {}) }) })),
   sweepWaitlist: () => request<components['schemas']['WaitlistSweepResult']['data']>('/admin/waitlist', adminRequest({ method: 'POST' })),
   reviewAppointment: (id: string, values: AppointmentReview) => request<Appointment>(`/admin/appointments/${encodeURIComponent(id)}/review`, adminRequest({
     method: 'POST',

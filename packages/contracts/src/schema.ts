@@ -1772,6 +1772,105 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/doctors/{doctorId}/reviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description 仅返回已审核通过的患者评价，署名已脱敏。 */
+        get: operations["listDoctorReviews"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/doctors/{doctorId}/reviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description 仅已治疗（treatments 有记录）患者可评，每单一次；提交后待审核，不立即公开。 */
+        post: operations["createDoctorReview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/doctors/{doctorId}/reviewable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description 本人与该医生之间已有治疗记录且尚未评价的预约。 */
+        get: operations["listReviewableAppointments"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/reviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listMyReviews"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/reviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listAdminReviews"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/reviews/{reviewId}/review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["decideDoctorReview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me/appointments/{appointmentId}/photo-consent": {
         parameters: {
             query?: never;
@@ -4093,6 +4192,47 @@ export interface components {
             createdAt: string;
             /** Format: date-time */
             updatedAt: string;
+        };
+        DoctorReview: {
+            id: components["schemas"]["EntityId"];
+            doctorId: components["schemas"]["EntityId"];
+            patientId: components["schemas"]["EntityId"];
+            appointmentId: components["schemas"]["EntityId"];
+            rating: number;
+            content: string;
+            /** @enum {string} */
+            status: "pending" | "approved" | "rejected";
+            reviewNote?: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            reviewedAt?: string;
+            displayName?: string;
+        };
+        DoctorReviewPublic: {
+            id: components["schemas"]["EntityId"];
+            doctorId: components["schemas"]["EntityId"];
+            rating: number;
+            content: string;
+            /** Format: date-time */
+            createdAt: string;
+            displayName?: string;
+        };
+        PatientReviewInput: {
+            appointmentId: components["schemas"]["EntityId"];
+            rating: number;
+            content: string;
+        };
+        DoctorReviewDecision: {
+            /** @enum {string} */
+            decision: "approved" | "rejected";
+            note?: string;
+        };
+        ReviewableAppointment: {
+            appointmentId: components["schemas"]["EntityId"];
+            doctorId: components["schemas"]["EntityId"];
+            /** Format: date-time */
+            startsAt: string;
         };
         WaitlistEntry: {
             appointment: components["schemas"]["Appointment"];
@@ -10952,6 +11092,164 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WaitlistSweepResult"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listDoctorReviews: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                doctorId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 已审核通过的评价（最新在前） */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["DoctorReviewPublic"][];
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createDoctorReview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                doctorId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PatientReviewInput"];
+            };
+        };
+        responses: {
+            /** @description 已提交，待审核 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["DoctorReview"];
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listReviewableAppointments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                doctorId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 可评价预约（就诊时间倒序） */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["ReviewableAppointment"][];
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listMyReviews: {
+        parameters: {
+            query?: {
+                doctorId?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 本人提交的评价（含待审核与已驳回） */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["DoctorReview"][];
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listAdminReviews: {
+        parameters: {
+            query?: {
+                status?: "pending" | "approved" | "rejected";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 评价审核队列（最新在前） */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["DoctorReview"][];
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    decideDoctorReview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                reviewId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DoctorReviewDecision"];
+            };
+        };
+        responses: {
+            /** @description 审核结果 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["DoctorReview"];
+                    };
                 };
             };
             default: components["responses"]["Error"];

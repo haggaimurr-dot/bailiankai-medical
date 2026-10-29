@@ -2,7 +2,28 @@
 import { onMounted, onUnmounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { api, errorMessage, type Clinic, type Doctor } from '../api'
+import { patientApi } from '../patient'
 import { doctorPresentation, previewCredentials, type Credential } from '../patient-presentation'
+import { useSessionStore } from '../stores/session'
+import type { components } from '../../../../packages/contracts/src/schema'
+
+type DoctorReviewPublic = components['schemas']['DoctorReviewPublic']
+type DoctorReview = components['schemas']['DoctorReview']
+type ReviewableAppointment = components['schemas']['ReviewableAppointment']
+type CalendarDay = { date: string; label: string; weekday: string; status: 'loading' | 'open' | 'full' | 'none' }
+
+const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六']
+function shanghaiToday(): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Shanghai' }).format(new Date())
+}
+function addDays(date: string, days: number): string {
+  const [y, m, d] = date.split('-').map(Number)
+  const next = new Date(Date.UTC(y, m - 1, d + days))
+  return next.toISOString().slice(0, 10)
+}
+function weekdayOf(date: string): string {
+  return WEEKDAYS[new Date(`${date}T12:00:00+08:00`).getDay()]
+}
 
 const route = useRoute()
 const router = useRouter()
@@ -19,8 +40,60 @@ const notes = [
   '具体治疗安排以医生面诊和发布的个人方案为准，预约面诊不等于确认治疗。',
 ]
 
+const session = useSessionStore()
 const clinicId = String(route.query.clinicId || '')
 const doctorId = String(route.params.id || '')
+const calendarDays = ref<CalendarDay[]>([])
+const publicReviews = ref<DoctorReviewPublic[]>([])
+const myReviews = ref<DoctorReview[]>([])
+const reviewable = ref<ReviewableAppointment[]>([])
+const reviewForm = ref({ appointmentId: '', rating: 5, content: '' })
+const reviewBusy = ref(false)
+const reviewMessage = ref('')
+const reviewStatusText: Record<string, string> = { pending: '待审核', approved: '已通过', rejected: '已驳回' }
+
+async function loadCalendar(clinic: Clinic, doctor: Doctor) {
+  const today = shanghaiToday()
+  calendarDays.value = Array.from({ length: 14 }, (_, index) => {
+    const date = addDays(today, index)
+    return { date, label: date.slice(5), weekday: weekdayOf(date), status: 'loading' as const }
+  })
+  const results = await Promise.allSettled(calendarDays.value.map((day) => api.slots({ clinicId: clinic.id, doctorId: doctor.id, date: day.date })))
+  results.forEach((result, index) => {
+    if (result.status !== 'fulfilled') { calendarDays.value[index].status = 'none'; return }
+    const slots = result.value
+    calendarDays.value[index].status = slots.length === 0 ? 'none' : slots.some((slot) => slot.remaining > 0) ? 'open' : 'full'
+  })
+}
+
+async function loadReviews() {
+  try {
+    publicReviews.value = await patientApi.doctorReviews(doctorId)
+  } catch { publicReviews.value = [] }
+  if (!session.loggedIn) { myReviews.value = []; reviewable.value = []; return }
+  try {
+    const [mine, canReview] = await Promise.all([patientApi.myReviews(doctorId), patientApi.reviewableAppointments(doctorId)])
+    myReviews.value = mine
+    reviewable.value = canReview
+    if (!reviewForm.value.appointmentId && canReview.length) reviewForm.value.appointmentId = canReview[0].appointmentId
+  } catch { myReviews.value = []; reviewable.value = [] }
+}
+
+async function submitReview() {
+  if (reviewBusy.value || !reviewForm.value.appointmentId || !reviewForm.value.content.trim()) return
+  reviewBusy.value = true
+  reviewMessage.value = ''
+  try {
+    await patientApi.createReview(doctorId, { appointmentId: reviewForm.value.appointmentId, rating: reviewForm.value.rating, content: reviewForm.value.content.trim() })
+    reviewForm.value.content = ''
+    reviewMessage.value = '评价已提交，待审核通过后公开显示。'
+    await loadReviews()
+  } catch (cause) {
+    reviewMessage.value = errorMessage(cause)
+  } finally {
+    reviewBusy.value = false
+  }
+}
 
 const loading = ref(true)
 const refreshing = ref(false)
@@ -53,6 +126,8 @@ async function load() {
     doctor.value = foundDoctor
     isDemo.value = presentation.isDemo
     credentials.value = presentation.credentials
+    void loadCalendar(foundClinic, foundDoctor)
+    void loadReviews()
     reviewedDate.value = Number.isFinite(reviewedAt)
       ? new Date(reviewedAt + 8 * 3600000).toISOString().slice(0, 10)
       : ''
@@ -162,6 +237,60 @@ onUnmounted(() => { requestId += 1 })
           <button class="text-link" @click="openClinic">院区地图 · 就诊导航 · 机构资质 ›</button>
         </section>
 
+        <div class="section-heading"><h2>出诊日历速览</h2><span class="muted">未来 14 天 · 北京时间</span></div>
+        <section class="card">
+          <div class="calendar-grid">
+            <button v-for="day in calendarDays" :key="day.date" class="calendar-day" :class="day.status" :disabled="day.status !== 'open'" @click="openSchedule">
+              <span class="calendar-date">{{ day.label }}</span>
+              <span class="calendar-weekday">周{{ day.weekday }}</span>
+              <span class="calendar-status">{{ day.status === 'loading' ? '查询中' : day.status === 'open' ? '有号' : day.status === 'full' ? '约满' : '无排班' }}</span>
+            </button>
+          </div>
+          <p class="muted calendar-note">点击有号日期可进入排班预约；日历仅作速览，余号以排班页为准。</p>
+        </section>
+
+        <div class="section-heading"><h2>患者评价</h2><span class="muted">仅展示已审核通过的评价</span></div>
+        <section class="card">
+          <p v-if="!publicReviews.length" class="muted">暂无已审核评价。</p>
+          <div v-for="review in publicReviews" :key="review.id" class="review-row">
+            <div class="review-head"><span class="review-name">{{ review.displayName || '匿名患者' }}</span><span class="review-stars">{{ '★'.repeat(review.rating) }}</span></div>
+            <p class="muted">{{ review.content }}</p>
+            <p class="muted review-date">{{ review.createdAt.slice(0, 10) }}</p>
+          </div>
+        </section>
+        <section v-if="session.loggedIn" class="card">
+          <h3 class="review-form-title">写评价</h3>
+          <p class="muted">仅已治疗的就诊可评，每单一次；提交后待审核通过才公开显示。</p>
+          <div v-if="myReviews.length" class="my-reviews">
+            <div v-for="review in myReviews" :key="review.id" class="review-row">
+              <div class="review-head"><span class="review-name">{{ reviewStatusText[review.status] || review.status }}</span><span class="review-stars">{{ '★'.repeat(review.rating) }}</span></div>
+              <p class="muted">{{ review.content }}</p>
+              <p v-if="review.status === 'rejected' && review.reviewNote" class="muted">驳回原因：{{ review.reviewNote }}</p>
+            </div>
+          </div>
+          <div v-if="reviewable.length" class="review-form">
+            <label class="form-label">选择就诊
+              <select v-model="reviewForm.appointmentId" class="form-select">
+                <option v-for="item in reviewable" :key="item.appointmentId" :value="item.appointmentId">就诊 {{ item.startsAt.slice(0, 10) }} {{ item.startsAt.slice(11, 16) }}</option>
+              </select>
+            </label>
+            <label class="form-label">评分
+              <select v-model.number="reviewForm.rating" class="form-select">
+                <option v-for="n in 5" :key="n" :value="n">{{ n }} 分</option>
+              </select>
+            </label>
+            <label class="form-label">评价内容
+              <textarea v-model="reviewForm.content" class="form-textarea" rows="3" maxlength="1000" placeholder="分享你的就诊感受（1–1000 字）" />
+            </label>
+            <button class="primary" :disabled="reviewBusy || !reviewForm.content.trim()" @click="submitReview">提交评价</button>
+            <p v-if="reviewMessage" class="muted">{{ reviewMessage }}</p>
+          </div>
+          <p v-else class="muted">暂无可评价的就诊。</p>
+        </section>
+        <section v-else class="card">
+          <p class="muted">登录后可对已治疗的就诊写评价，每单一次。</p>
+        </section>
+
         <section class="booking-bar">
           <div class="row">
             <div class="grow">
@@ -211,4 +340,25 @@ onUnmounted(() => { requestId += 1 })
 .text-link { border: 0; background: none; color: var(--brand); font-size: 13px; cursor: pointer; padding: 4px 0; }
 .booking-bar { background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
 .booking-title { font-weight: 700; }
+.calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+.calendar-day { border: 1px solid var(--line); background: #fff; border-radius: 10px; padding: 8px 2px; display: flex; flex-direction: column; align-items: center; gap: 2px; cursor: pointer; color: var(--ink); }
+.calendar-day:disabled { cursor: default; opacity: 0.75; }
+.calendar-day.open { border-color: var(--teal); }
+.calendar-day.open .calendar-status { color: var(--teal); font-weight: 700; }
+.calendar-date { font-size: 13px; font-weight: 600; }
+.calendar-weekday { font-size: 11px; color: var(--muted); }
+.calendar-status { font-size: 11px; color: var(--muted); }
+.calendar-note { margin: 10px 0 0; }
+.review-row { padding: 10px 0; border-top: 1px solid var(--bg); }
+.review-row:first-of-type { border-top: 0; padding-top: 2px; }
+.review-head { display: flex; justify-content: space-between; align-items: center; }
+.review-name { font-weight: 600; font-size: 14px; }
+.review-stars { color: #d97706; letter-spacing: 1px; }
+.review-row p { margin: 6px 0 0; line-height: 1.7; }
+.review-date { font-size: 12px; }
+.review-form-title { font-size: 15px; margin: 0 0 6px; }
+.my-reviews { margin-bottom: 12px; }
+.review-form { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+.form-label { font-size: 13px; font-weight: 600; display: flex; flex-direction: column; gap: 6px; }
+.form-select, .form-textarea { width: 100%; border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; font-size: 14px; background: #fff; color: var(--ink); box-sizing: border-box; }
 </style>

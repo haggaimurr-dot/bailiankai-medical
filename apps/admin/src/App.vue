@@ -39,6 +39,7 @@ async function logout() { try { await api.logoutEmployee() } finally { clearAuth
         <RouterLink v-if="canAccess('/overview')" to="/overview"><AppIcon name="check" /><span>医生统计与运营分析</span></RouterLink>
         <RouterLink v-if="canAccess('/appointments')" to="/appointments"><AppIcon name="check" /><span>预约管理</span><span class="nav-dot"></span></RouterLink>
         <RouterLink v-if="canAccess('/waitlist')" to="/waitlist"><AppIcon name="calendar" /><span>候补队列</span></RouterLink>
+        <RouterLink v-if="canAccess('/reviews')" to="/reviews"><AppIcon name="check" /><span>患者评价审核</span></RouterLink>
         <RouterLink v-if="canAccess('/patients')" to="/patients"><AppIcon name="doctors" /><span>患者档案</span><span class="nav-dot"></span></RouterLink>
         <RouterLink v-if="canAccess('/care')" to="/care"><AppIcon name="doctors" /><span>方案与照片</span><span class="nav-dot"></span></RouterLink>
         <RouterLink v-if="canAccess('/followups')" to="/followups"><AppIcon name="check" /><span>治疗与随访</span><span class="nav-dot"></span></RouterLink>

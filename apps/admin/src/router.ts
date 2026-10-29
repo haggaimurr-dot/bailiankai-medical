@@ -20,6 +20,7 @@ import { api } from './api'
 import AccountView from './views/AccountView.vue'
 import AssessmentsView from './views/AssessmentsView.vue'
 import WaitlistView from './views/WaitlistView.vue'
+import ReviewsView from './views/ReviewsView.vue'
 
 export const router = createRouter({
   history: createWebHistory(),
@@ -37,6 +38,7 @@ export const router = createRouter({
     { path: '/arrivals', component: ArrivalsView, meta: { title: '到诊工作台' } },
     { path: '/appointments', component: AppointmentsView, meta: { title: '预约管理' } },
     { path: '/waitlist', component: WaitlistView, meta: { title: '候补队列' } },
+    { path: '/reviews', component: ReviewsView, meta: { title: '患者评价审核' } },
     { path: '/workbench', component: WorkbenchView, meta: { title: '待办工作台' } },
     { path: '/handoffs', component: FollowupView, props: { handoffOnly: true }, meta: { title: '人员交接' } },
     { path: '/followups', component: FollowupView, meta: { title: '治疗与随访' } },

@@ -276,6 +276,19 @@ const (
 	DoctorQualificationReviewStatusRejected DoctorQualificationReviewStatus = "rejected"
 )
 
+// Defines values for DoctorReviewStatus.
+const (
+	DoctorReviewStatusApproved DoctorReviewStatus = "approved"
+	DoctorReviewStatusPending  DoctorReviewStatus = "pending"
+	DoctorReviewStatusRejected DoctorReviewStatus = "rejected"
+)
+
+// Defines values for DoctorReviewDecisionDecision.
+const (
+	DoctorReviewDecisionDecisionApproved DoctorReviewDecisionDecision = "approved"
+	DoctorReviewDecisionDecisionRejected DoctorReviewDecisionDecision = "rejected"
+)
+
 // Defines values for DoctorReviewInputStatus.
 const (
 	DoctorReviewInputStatusApproved DoctorReviewInputStatus = "approved"
@@ -801,6 +814,13 @@ const (
 	Transient     ListNotificationQueueParamsFailureCategory = "transient"
 )
 
+// Defines values for ListAdminReviewsParamsStatus.
+const (
+	ListAdminReviewsParamsStatusApproved ListAdminReviewsParamsStatus = "approved"
+	ListAdminReviewsParamsStatusPending  ListAdminReviewsParamsStatus = "pending"
+	ListAdminReviewsParamsStatusRejected ListAdminReviewsParamsStatus = "rejected"
+)
+
 // Defines values for AdminListSupportParamsStatus.
 const (
 	AdminListSupportParamsStatusClosed         AdminListSupportParamsStatus = "closed"
@@ -825,15 +845,15 @@ const (
 
 // Defines values for ListMyAssessmentsParamsStatus.
 const (
-	ListMyAssessmentsParamsStatusAnalyzing      ListMyAssessmentsParamsStatus = "analyzing"
-	ListMyAssessmentsParamsStatusAwaitingReview ListMyAssessmentsParamsStatus = "awaiting_review"
-	ListMyAssessmentsParamsStatusCancelled      ListMyAssessmentsParamsStatus = "cancelled"
-	ListMyAssessmentsParamsStatusCompleted      ListMyAssessmentsParamsStatus = "completed"
-	ListMyAssessmentsParamsStatusDraft          ListMyAssessmentsParamsStatus = "draft"
-	ListMyAssessmentsParamsStatusFailed         ListMyAssessmentsParamsStatus = "failed"
-	ListMyAssessmentsParamsStatusQueued         ListMyAssessmentsParamsStatus = "queued"
-	ListMyAssessmentsParamsStatusRejected       ListMyAssessmentsParamsStatus = "rejected"
-	ListMyAssessmentsParamsStatusRetryWait      ListMyAssessmentsParamsStatus = "retry_wait"
+	Analyzing      ListMyAssessmentsParamsStatus = "analyzing"
+	AwaitingReview ListMyAssessmentsParamsStatus = "awaiting_review"
+	Cancelled      ListMyAssessmentsParamsStatus = "cancelled"
+	Completed      ListMyAssessmentsParamsStatus = "completed"
+	Draft          ListMyAssessmentsParamsStatus = "draft"
+	Failed         ListMyAssessmentsParamsStatus = "failed"
+	Queued         ListMyAssessmentsParamsStatus = "queued"
+	Rejected       ListMyAssessmentsParamsStatus = "rejected"
+	RetryWait      ListMyAssessmentsParamsStatus = "retry_wait"
 )
 
 // Defines values for UploadAssessmentPhotoFromMiniProgramParamsAngle.
@@ -1984,6 +2004,33 @@ type DoctorQualificationReview struct {
 // DoctorQualificationReviewStatus defines model for DoctorQualificationReview.Status.
 type DoctorQualificationReviewStatus string
 
+// DoctorReview defines model for DoctorReview.
+type DoctorReview struct {
+	AppointmentId EntityId           `json:"appointmentId"`
+	Content       string             `json:"content"`
+	CreatedAt     time.Time          `json:"createdAt"`
+	DisplayName   *string            `json:"displayName,omitempty"`
+	DoctorId      EntityId           `json:"doctorId"`
+	Id            EntityId           `json:"id"`
+	PatientId     EntityId           `json:"patientId"`
+	Rating        int                `json:"rating"`
+	ReviewNote    *string            `json:"reviewNote,omitempty"`
+	ReviewedAt    *time.Time         `json:"reviewedAt,omitempty"`
+	Status        DoctorReviewStatus `json:"status"`
+}
+
+// DoctorReviewStatus defines model for DoctorReview.Status.
+type DoctorReviewStatus string
+
+// DoctorReviewDecision defines model for DoctorReviewDecision.
+type DoctorReviewDecision struct {
+	Decision DoctorReviewDecisionDecision `json:"decision"`
+	Note     *string                      `json:"note,omitempty"`
+}
+
+// DoctorReviewDecisionDecision defines model for DoctorReviewDecision.Decision.
+type DoctorReviewDecisionDecision string
+
 // DoctorReviewInput defines model for DoctorReviewInput.
 type DoctorReviewInput struct {
 	Note    string                  `json:"note"`
@@ -1993,6 +2040,16 @@ type DoctorReviewInput struct {
 
 // DoctorReviewInputStatus defines model for DoctorReviewInput.Status.
 type DoctorReviewInputStatus string
+
+// DoctorReviewPublic defines model for DoctorReviewPublic.
+type DoctorReviewPublic struct {
+	Content     string    `json:"content"`
+	CreatedAt   time.Time `json:"createdAt"`
+	DisplayName *string   `json:"displayName,omitempty"`
+	DoctorId    EntityId  `json:"doctorId"`
+	Id          EntityId  `json:"id"`
+	Rating      int       `json:"rating"`
+}
 
 // DoctorUpdate defines model for DoctorUpdate.
 type DoctorUpdate struct {
@@ -3092,6 +3149,13 @@ type PatientRecordSummary struct {
 	WechatBound *bool `json:"wechatBound,omitempty"`
 }
 
+// PatientReviewInput defines model for PatientReviewInput.
+type PatientReviewInput struct {
+	AppointmentId EntityId `json:"appointmentId"`
+	Content       string   `json:"content"`
+	Rating        int      `json:"rating"`
+}
+
 // PatientSession defines model for PatientSession.
 type PatientSession struct {
 	ExpiresAt time.Time       `json:"expiresAt"`
@@ -3246,6 +3310,13 @@ type RecordExportSection string
 
 // RequestKey defines model for RequestKey.
 type RequestKey = string
+
+// ReviewableAppointment defines model for ReviewableAppointment.
+type ReviewableAppointment struct {
+	AppointmentId EntityId  `json:"appointmentId"`
+	DoctorId      EntityId  `json:"doctorId"`
+	StartsAt      time.Time `json:"startsAt"`
+}
 
 // ScheduleContactInput defines model for ScheduleContactInput.
 type ScheduleContactInput struct {
@@ -3999,6 +4070,14 @@ type ListRecordExportsParams struct {
 	PageSize *PageSize `form:"pageSize,omitempty" json:"pageSize,omitempty"`
 }
 
+// ListAdminReviewsParams defines parameters for ListAdminReviews.
+type ListAdminReviewsParams struct {
+	Status *ListAdminReviewsParamsStatus `form:"status,omitempty" json:"status,omitempty"`
+}
+
+// ListAdminReviewsParamsStatus defines parameters for ListAdminReviews.
+type ListAdminReviewsParamsStatus string
+
 // SchedulePatientTasksParams defines parameters for SchedulePatientTasks.
 type SchedulePatientTasksParams struct {
 	ClinicId string `form:"clinicId" json:"clinicId"`
@@ -4232,6 +4311,11 @@ type ConfirmAdviceReadJSONBody struct {
 // ConfirmAdviceReadParamsKind defines parameters for ConfirmAdviceRead.
 type ConfirmAdviceReadParamsKind string
 
+// ListMyReviewsParams defines parameters for ListMyReviews.
+type ListMyReviewsParams struct {
+	DoctorId *string `form:"doctorId,omitempty" json:"doctorId,omitempty"`
+}
+
 // MeListSupportParams defines parameters for MeListSupport.
 type MeListSupportParams struct {
 	Page     *int                       `form:"page,omitempty" json:"page,omitempty"`
@@ -4447,6 +4531,9 @@ type SavePatientChartJSONRequestBody = PatientChartUpdate
 // CreateRecordExportJSONRequestBody defines body for CreateRecordExport for application/json ContentType.
 type CreateRecordExportJSONRequestBody = RecordExportInput
 
+// DecideDoctorReviewJSONRequestBody defines body for DecideDoctorReview for application/json ContentType.
+type DecideDoctorReviewJSONRequestBody = DoctorReviewDecision
+
 // UpdateScheduleContactJSONRequestBody defines body for UpdateScheduleContact for application/json ContentType.
 type UpdateScheduleContactJSONRequestBody = ScheduleContactInput
 
@@ -4527,6 +4614,9 @@ type AssessmentSubmitJSONRequestBody = AssessmentVersion
 
 // SetCaseConsentJSONRequestBody defines body for SetCaseConsent for application/json ContentType.
 type SetCaseConsentJSONRequestBody = CaseConsent
+
+// CreateDoctorReviewJSONRequestBody defines body for CreateDoctorReview for application/json ContentType.
+type CreateDoctorReviewJSONRequestBody = PatientReviewInput
 
 // UploadFollowupPhotoMultipartRequestBody defines body for UploadFollowupPhoto for multipart/form-data ContentType.
 type UploadFollowupPhotoMultipartRequestBody UploadFollowupPhotoMultipartBody

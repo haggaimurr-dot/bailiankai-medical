@@ -127,6 +127,7 @@ func newRouter(a *API) *gin.Engine {
 	a.registerFollowupToolsRoutes(r)
 	a.registerCaseRoutes(r)
 	a.registerNotificationRoutes(r)
+	a.registerReviewRoutes(r)
 	a.registerSupportRoutes(r)
 	a.registerCareRoutes(r)
 	a.registerFollowupRoutes(r)

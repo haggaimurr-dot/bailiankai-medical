@@ -60,6 +60,9 @@ func allowedEmployeeOperation(role, method, path string) bool {
 	if path == "/api/v1/admin/appointment-notifications" && method == "GET" || path == "/api/v1/admin/appointment-notifications/:notificationId/read" && method == "POST" {
 		return role == "manager" || role == "customer_service"
 	}
+	if path == "/api/v1/admin/reviews" || path == "/api/v1/admin/reviews/:reviewId/review" {
+		return (role == "manager" || role == "customer_service") && (method == "GET" && path == "/api/v1/admin/reviews" || method == "POST" && path == "/api/v1/admin/reviews/:reviewId/review")
+	}
 	if path == "/api/v1/admin/arrival-scans/resolve" || path == "/api/v1/admin/arrival-scans/confirm" {
 		return method == "POST" && (role == "manager" || role == "customer_service" || role == "doctor" || role == "clinician")
 	}
@@ -122,6 +125,7 @@ var employeeAccessRules = []accessRule{
 	{"/overview", "医生统计与运营分析", "GET", "/api/v1/admin/analytics"},
 	{"/appointments", "预约管理", "GET", "/api/v1/admin/appointments"},
 	{"/waitlist", "候补队列", "GET", "/api/v1/admin/waitlist"},
+	{"/reviews", "患者评价审核", "GET", "/api/v1/admin/reviews"},
 	{"/patients", "患者档案", "GET", "/api/v1/admin/patients/:patientId"},
 	{"/care", "方案与照片", "GET", "/api/v1/admin/appointments/:appointmentId/care-plan"},
 	{"/followups", "治疗与随访", "GET", "/api/v1/admin/followups"},
