@@ -190,7 +190,8 @@ func (s *MySQL) CheckinReminder(ctx context.Context, reminderID, patientID strin
 			return err
 		}
 		var existing ReminderCheckin
-		err := tx.Where("reminder_id = ? AND checkin_date = ?", reminderID, day).First(&existing).Error
+		// DATE 列用日期字符串比较：驱动按上海时区格式化 time.Time 会带上 08:00:00，匹配不上 DATE。
+		err := tx.Where("reminder_id = ? AND checkin_date = ?", reminderID, day.Format("2006-01-02")).First(&existing).Error
 		if err == nil {
 			return tx.Model(&existing).Updates(map[string]any{"done": 1}).Error
 		}
