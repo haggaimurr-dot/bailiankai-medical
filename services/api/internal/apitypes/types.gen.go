@@ -4261,6 +4261,17 @@ type CreateCarePlanTemplateJSONBody struct {
 	Name    string          `json:"name"`
 }
 
+// ApplyCarePlanTemplateJSONBody defines parameters for ApplyCarePlanTemplate.
+type ApplyCarePlanTemplateJSONBody struct {
+	AppointmentId   string `json:"appointmentId"`
+	ExpectedVersion *int   `json:"expectedVersion,omitempty"`
+}
+
+// ShareCarePlanTemplateJSONBody defines parameters for ShareCarePlanTemplate.
+type ShareCarePlanTemplateJSONBody struct {
+	ClinicId *string `json:"clinicId,omitempty"`
+}
+
 // AdminCasesParams defines parameters for AdminCases.
 type AdminCasesParams struct {
 	Page     *int    `form:"page,omitempty" json:"page,omitempty"`
@@ -4284,6 +4295,32 @@ type ListEmployeeLoginAttemptsParams struct {
 type SetEmployeeClinicsJSONBody struct {
 	ClinicIds []EntityId `json:"clinicIds"`
 	Version   int        `json:"version"`
+}
+
+// ListFaqsParams defines parameters for ListFaqs.
+type ListFaqsParams struct {
+	ClinicId *string `form:"clinicId,omitempty" json:"clinicId,omitempty"`
+	Category *string `form:"category,omitempty" json:"category,omitempty"`
+	Keyword  *string `form:"keyword,omitempty" json:"keyword,omitempty"`
+}
+
+// CreateFaqJSONBody defines parameters for CreateFaq.
+type CreateFaqJSONBody struct {
+	Answer    string  `json:"answer"`
+	Category  *string `json:"category,omitempty"`
+	ClinicId  *string `json:"clinicId,omitempty"`
+	Enabled   *bool   `json:"enabled,omitempty"`
+	Question  string  `json:"question"`
+	SortOrder *int    `json:"sortOrder,omitempty"`
+}
+
+// UpdateFaqJSONBody defines parameters for UpdateFaq.
+type UpdateFaqJSONBody struct {
+	Answer    string  `json:"answer"`
+	Category  *string `json:"category,omitempty"`
+	Enabled   *bool   `json:"enabled,omitempty"`
+	Question  string  `json:"question"`
+	SortOrder *int    `json:"sortOrder,omitempty"`
 }
 
 // AdminFollowupQueueParams defines parameters for AdminFollowupQueue.
@@ -4316,6 +4353,13 @@ type ListHandoffReceiptsParams struct {
 
 // ListHandoffReceiptsParamsStatus defines parameters for ListHandoffReceipts.
 type ListHandoffReceiptsParamsStatus string
+
+// CreateHandoverBatchJSONBody defines parameters for CreateHandoverBatch.
+type CreateHandoverBatchJSONBody struct {
+	Reason    *string  `json:"reason,omitempty"`
+	TaskIds   []string `json:"taskIds"`
+	ToStaffId string   `json:"toStaffId"`
+}
 
 // ListHolidaysParams defines parameters for ListHolidays.
 type ListHolidaysParams struct {
@@ -4462,6 +4506,23 @@ type GetPatientRecordParams struct {
 
 	// DateTo 上海日期结束日（含）；与dateFrom一起传入
 	DateTo *openapi_types.Date `form:"dateTo,omitempty" json:"dateTo,omitempty"`
+}
+
+// CreateCareReminderJSONBody defines parameters for CreateCareReminder.
+type CreateCareReminderJSONBody struct {
+	ClinicId     *string `json:"clinicId,omitempty"`
+	Detail       *string `json:"detail,omitempty"`
+	EndDate      *string `json:"endDate,omitempty"`
+	Kind         string  `json:"kind"`
+	ScheduleJson *string `json:"scheduleJson,omitempty"`
+	StartDate    string  `json:"startDate"`
+	Title        string  `json:"title"`
+}
+
+// CreateRecoveryStagePlanJSONBody defines parameters for CreateRecoveryStagePlan.
+type CreateRecoveryStagePlanJSONBody struct {
+	AppointmentId *string `json:"appointmentId,omitempty"`
+	StartDate     string  `json:"startDate"`
 }
 
 // ListRecordExportsParams defines parameters for ListRecordExports.
@@ -4655,6 +4716,11 @@ type AssessmentSubmitParams struct {
 	IdempotencyKey string `json:"Idempotency-Key"`
 }
 
+// CheckinCareReminderJSONBody defines parameters for CheckinCareReminder.
+type CheckinCareReminderJSONBody struct {
+	Date *string `json:"date,omitempty"`
+}
+
 // PatientCasesParams defines parameters for PatientCases.
 type PatientCasesParams struct {
 	Page     *int    `form:"page,omitempty" json:"page,omitempty"`
@@ -4663,6 +4729,11 @@ type PatientCasesParams struct {
 	Category *string `form:"category,omitempty" json:"category,omitempty"`
 	Tag      *string `form:"tag,omitempty" json:"tag,omitempty"`
 	Course   *string `form:"course,omitempty" json:"course,omitempty"`
+}
+
+// MeFaqsParams defines parameters for MeFaqs.
+type MeFaqsParams struct {
+	Keyword *string `form:"keyword,omitempty" json:"keyword,omitempty"`
 }
 
 // MeFollowupQueueParams defines parameters for MeFollowupQueue.
@@ -4817,6 +4888,12 @@ type ReviewAssessmentJSONRequestBody = AssessmentReviewCreate
 // CreateCarePlanTemplateJSONRequestBody defines body for CreateCarePlanTemplate for application/json ContentType.
 type CreateCarePlanTemplateJSONRequestBody CreateCarePlanTemplateJSONBody
 
+// ApplyCarePlanTemplateJSONRequestBody defines body for ApplyCarePlanTemplate for application/json ContentType.
+type ApplyCarePlanTemplateJSONRequestBody ApplyCarePlanTemplateJSONBody
+
+// ShareCarePlanTemplateJSONRequestBody defines body for ShareCarePlanTemplate for application/json ContentType.
+type ShareCarePlanTemplateJSONRequestBody ShareCarePlanTemplateJSONBody
+
 // CreateCaseJSONRequestBody defines body for CreateCase for application/json ContentType.
 type CreateCaseJSONRequestBody = CaseCreate
 
@@ -4880,6 +4957,12 @@ type ResetEmployeePasswordJSONRequestBody = EmployeePasswordReset
 // SetEmployeeStatusJSONRequestBody defines body for SetEmployeeStatus for application/json ContentType.
 type SetEmployeeStatusJSONRequestBody = EmployeeStatus
 
+// CreateFaqJSONRequestBody defines body for CreateFaq for application/json ContentType.
+type CreateFaqJSONRequestBody CreateFaqJSONBody
+
+// UpdateFaqJSONRequestBody defines body for UpdateFaq for application/json ContentType.
+type UpdateFaqJSONRequestBody UpdateFaqJSONBody
+
 // LeaveFollowupStaffJSONRequestBody defines body for LeaveFollowupStaff for application/json ContentType.
 type LeaveFollowupStaffJSONRequestBody = FollowupLeave
 
@@ -4906,6 +4989,9 @@ type RecordHandoffFollowupJSONRequestBody = HandoffFollowupCreate
 
 // UpdateHandoffSettingJSONRequestBody defines body for UpdateHandoffSetting for application/json ContentType.
 type UpdateHandoffSettingJSONRequestBody = HandoffSettingUpdate
+
+// CreateHandoverBatchJSONRequestBody defines body for CreateHandoverBatch for application/json ContentType.
+type CreateHandoverBatchJSONRequestBody CreateHandoverBatchJSONBody
 
 // CreateHolidayJSONRequestBody defines body for CreateHoliday for application/json ContentType.
 type CreateHolidayJSONRequestBody = HolidayInput
@@ -4946,11 +5032,17 @@ type SaveMessageTemplateJSONRequestBody = MessageTemplateChange
 // CreatePatientChartJSONRequestBody defines body for CreatePatientChart for application/json ContentType.
 type CreatePatientChartJSONRequestBody = PatientChartCreate
 
+// CreateCareReminderJSONRequestBody defines body for CreateCareReminder for application/json ContentType.
+type CreateCareReminderJSONRequestBody CreateCareReminderJSONBody
+
 // CreatePatientConsultationJSONRequestBody defines body for CreatePatientConsultation for application/json ContentType.
 type CreatePatientConsultationJSONRequestBody = ConsultationCreate
 
 // SavePatientChartJSONRequestBody defines body for SavePatientChart for application/json ContentType.
 type SavePatientChartJSONRequestBody = PatientChartUpdate
+
+// CreateRecoveryStagePlanJSONRequestBody defines body for CreateRecoveryStagePlan for application/json ContentType.
+type CreateRecoveryStagePlanJSONRequestBody CreateRecoveryStagePlanJSONBody
 
 // CreateRecordExportJSONRequestBody defines body for CreateRecordExport for application/json ContentType.
 type CreateRecordExportJSONRequestBody = RecordExportInput
@@ -5050,6 +5142,9 @@ type AssessmentRetryJSONRequestBody = AssessmentVersion
 
 // AssessmentSubmitJSONRequestBody defines body for AssessmentSubmit for application/json ContentType.
 type AssessmentSubmitJSONRequestBody = AssessmentVersion
+
+// CheckinCareReminderJSONRequestBody defines body for CheckinCareReminder for application/json ContentType.
+type CheckinCareReminderJSONRequestBody CheckinCareReminderJSONBody
 
 // SetCaseConsentJSONRequestBody defines body for SetCaseConsent for application/json ContentType.
 type SetCaseConsentJSONRequestBody = CaseConsent
