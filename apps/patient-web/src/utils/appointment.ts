@@ -19,6 +19,20 @@ export function dateTime(value: string): string {
   return `${shifted.getUTCFullYear()}-${month}-${day} ${clinicTime(value)}`
 }
 
+export const cancelReasonLabels: Record<string, string> = {
+  schedule_conflict: '时间冲突',
+  personal: '个人安排变化',
+  found_elsewhere: '已在他处就诊',
+  price: '价格原因',
+  changed_mind: '改变主意',
+  other: '其他',
+}
+
+export function cancelReasonLabel(code?: string) {
+  if (!code) return '未填写'
+  return cancelReasonLabels[code] ?? code
+}
+
 export function appointmentView(appointment: Appointment) {
   const info = statusInfo[appointment.status]
   return {

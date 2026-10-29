@@ -135,7 +135,7 @@ func TestActualArrivalMySQLIntegration(t *testing.T) {
 		if count := arrivalAuditCount(t, f, row.ID); count != 0 {
 			t.Fatalf("invalid request persisted arrival: %d", count)
 		}
-		cancelled, err := f.repo.CancelAppointment(context.Background(), row.ID, patient.Patient.ID, confirmed.Version, f.now)
+		cancelled, err := f.repo.CancelAppointment(context.Background(), row.ID, patient.Patient.ID, confirmed.Version, "", "", f.now)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -263,7 +263,7 @@ func TestActualArrivalMySQLIntegration(t *testing.T) {
 		})
 		wg.Go(func() {
 			<-start
-			_, err := f.repo.CancelAppointment(ctx, other.ID, otherPatient.Patient.ID, other.Version, f.now)
+			_, err := f.repo.CancelAppointment(ctx, other.ID, otherPatient.Patient.ID, other.Version, "", "", f.now)
 			results <- err
 		})
 		close(start)

@@ -71,7 +71,8 @@ type BookingRepository interface {
 	AppointmentByRequest(context.Context, string, string, time.Time) (model.Appointment, error)
 	GetAppointment(context.Context, string, string, time.Time) (model.Appointment, error)
 	ListAppointments(context.Context, AppointmentFilter, time.Time) (AppointmentPage, error)
-	CancelAppointment(context.Context, string, string, int, time.Time) (model.Appointment, error)
+	CancelAppointment(context.Context, string, string, int, string, string, time.Time) (model.Appointment, error)
+	CancellationStats(context.Context, time.Time, time.Time, string, string) (CancellationStatsResult, error)
 	ReviewAppointment(context.Context, string, ReviewInput, time.Time) (model.Appointment, error)
 	RemindAppointments(context.Context, []string, time.Time) ([]AppointmentRemindResult, error)
 	ExpirePending(context.Context, time.Time) (int, error)
@@ -414,7 +415,7 @@ func persistTransition(tx *gorm.DB, a *model.Appointment, to, reason, actorType,
 
 // Mutations use the same patient -> slot -> appointment locking order.
 // Reading immutable ownership first does not lock another row or disclose it.
-func (s *MySQL) transition(ctx context.Context, id, patientID string, version int, action, reason string, now time.Time) (model.Appointment, error) {
+func (s *MySQL) transition(ctx context.Context, id, patientID string, version int, action, reason, cancelReason, cancelReasonDetail string, now time.Time) (model.Appointment, error) {
 	requestStarted := time.Now()
 	requestNow := now
 	if _, err := s.ExpirePending(ctx, now); err != nil {
@@ -475,6 +476,11 @@ func (s *MySQL) transition(ctx context.Context, id, patientID string, version in
 			if err := persistTransition(tx, &row, "cancelled", "", "patient", patientID, "cancel", row.Status != "waiting", now); err != nil {
 				return err
 			}
+			// 取消原因与取消时间同事务落库：不填原因不阻断取消，空原因统计时归入 unspecified。
+			if err := tx.Model(&model.Appointment{}).Where("id = ?", row.ID).Updates(map[string]any{"cancel_reason": cancelReason, "cancel_reason_detail": cancelReasonDetail, "cancelled_at": now}).Error; err != nil {
+				return err
+			}
+			row.CancelReason, row.CancelReasonDetail, row.CancelledAt = cancelReason, cancelReasonDetail, &now
 			// A cancellation frees (or un-holds) the seat: offer it to the
 			// earliest waiter in this same transaction so no direct booking
 			// can take it first. Settle failures only log; they must never
@@ -516,8 +522,8 @@ func (s *MySQL) transition(ctx context.Context, id, patientID string, version in
 	return loadAppointment(s.db.WithContext(ctx), id, patientID)
 }
 
-func (s *MySQL) CancelAppointment(ctx context.Context, id, patientID string, version int, now time.Time) (model.Appointment, error) {
-	return s.transition(ctx, id, patientID, version, "cancel", "", now)
+func (s *MySQL) CancelAppointment(ctx context.Context, id, patientID string, version int, reason, reasonDetail string, now time.Time) (model.Appointment, error) {
+	return s.transition(ctx, id, patientID, version, "cancel", "", reason, reasonDetail, now)
 }
 func (s *MySQL) ReviewAppointment(ctx context.Context, id string, in ReviewInput, now time.Time) (model.Appointment, error) {
 	if scope, ok := scopeFrom(ctx); ok && scope.Role != "manager" && scope.Role != "customer_service" {
@@ -535,7 +541,7 @@ func (s *MySQL) ReviewAppointment(ctx context.Context, id string, in ReviewInput
 	if in.Action == "confirm" {
 		in.Reason = ""
 	}
-	return s.transition(ctx, id, "", in.Version, in.Action, strings.TrimSpace(in.Reason), now)
+	return s.transition(ctx, id, "", in.Version, in.Action, strings.TrimSpace(in.Reason), "", "", now)
 }
 
 func (s *MySQL) expireOne(ctx context.Context, initial model.Appointment, now time.Time) (bool, error) {

@@ -49,6 +49,7 @@ func (a *API) registerBookingRoutes(r *gin.Engine) {
 	me.POST("/appointments/:appointmentId/cancel", a.cancelAppointment)
 	admin := booking.Group("/admin/appointments", a.authenticate)
 	admin.GET("", a.adminAppointments)
+	admin.GET("/cancellation-stats", a.cancellationStats)
 	admin.GET("/:appointmentId", a.requireAppointmentScope, a.adminAppointment)
 	admin.POST("/remind", a.remindAppointments)
 	admin.POST("/:appointmentId/review", a.requireAppointmentScope, a.reviewAppointment)
@@ -195,7 +196,17 @@ func appointmentDTO(row model.Appointment, now time.Time, admin bool) apitypes.A
 	pendingValid := row.Status == "pending" && row.ConfirmationDeadline.After(now)
 	canRegister := admin && arrivalAllowed(row)
 	canReschedule := !admin && active && future && row.ArrivedAt == nil && !row.TreatmentRecorded && (row.Status != "pending" || pendingValid)
-	return apitypes.Appointment{Id: row.ID, PatientId: row.PatientID, SlotId: row.SlotID, ClinicId: row.ClinicID, ClinicName: row.ClinicName, DoctorId: row.DoctorID, DoctorName: row.DoctorName, StartsAt: row.StartsAt.In(database.Shanghai), EndsAt: row.EndsAt.In(database.Shanghai), ContactName: row.ContactName, ContactPhone: row.ContactPhone, Note: row.Note, Status: apitypes.AppointmentStatus(row.Status), RejectionReason: row.RejectionReason, ConfirmationDeadline: row.ConfirmationDeadline.In(database.Shanghai), CreatedAt: row.CreatedAt.In(database.Shanghai), UpdatedAt: row.UpdatedAt.In(database.Shanghai), Version: int32(row.Version), ArrivedAt: row.ArrivedAt, CanRegisterArrival: &canRegister, CanReschedule: &canReschedule, CanCancel: row.ArrivedAt == nil && !row.TreatmentRecorded && !admin && active && future && (row.Status != "pending" || pendingValid), SlotStatus: func() *apitypes.AppointmentSlotStatus {
+	var cancelledAt *time.Time
+	if row.CancelledAt != nil {
+		t := row.CancelledAt.In(database.Shanghai)
+		cancelledAt = &t
+	}
+	var cancelReason *apitypes.AppointmentCancelReason
+	if row.CancelReason != "" {
+		v := apitypes.AppointmentCancelReason(row.CancelReason)
+		cancelReason = &v
+	}
+	return apitypes.Appointment{Id: row.ID, PatientId: row.PatientID, SlotId: row.SlotID, ClinicId: row.ClinicID, ClinicName: row.ClinicName, DoctorId: row.DoctorID, DoctorName: row.DoctorName, StartsAt: row.StartsAt.In(database.Shanghai), EndsAt: row.EndsAt.In(database.Shanghai), ContactName: row.ContactName, ContactPhone: row.ContactPhone, Note: row.Note, Status: apitypes.AppointmentStatus(row.Status), RejectionReason: row.RejectionReason, CancelReason: cancelReason, CancelReasonDetail: &row.CancelReasonDetail, CancelledAt: cancelledAt, ConfirmationDeadline: row.ConfirmationDeadline.In(database.Shanghai), CreatedAt: row.CreatedAt.In(database.Shanghai), UpdatedAt: row.UpdatedAt.In(database.Shanghai), Version: int32(row.Version), ArrivedAt: row.ArrivedAt, CanRegisterArrival: &canRegister, CanReschedule: &canReschedule, CanCancel: row.ArrivedAt == nil && !row.TreatmentRecorded && !admin && active && future && (row.Status != "pending" || pendingValid), SlotStatus: func() *apitypes.AppointmentSlotStatus {
 		value := apitypes.AppointmentSlotStatus(row.SlotStatus)
 		return &value
 	}(), SuspensionReason: &row.SuspensionReason, CanReview: admin && pendingValid && future}
@@ -380,14 +391,22 @@ func (a *API) cancelAppointment(c *gin.Context) {
 		return
 	}
 	var body apitypes.CancelMyAppointmentJSONRequestBody
-	if !decodeObject(c, &body, []string{"version"}, nil) {
+	if !decodeObject(c, &body, []string{"version"}, []string{"cancelReason", "reasonDetail"}) {
 		return
 	}
-	if body.Version < 1 {
-		fail(c, 400, "INVALID_BODY", "需提供有效版本号")
+	reason := ""
+	if body.CancelReason != nil {
+		reason = strings.TrimSpace(string(*body.CancelReason))
+	}
+	reasonDetail := ""
+	if body.ReasonDetail != nil {
+		reasonDetail = strings.TrimSpace(*body.ReasonDetail)
+	}
+	if body.Version < 1 || !store.ValidCancelReason(reason) || utf8.RuneCountInString(reasonDetail) > 200 {
+		fail(c, 400, "INVALID_BODY", "取消原因无效")
 		return
 	}
-	row, err := a.booking.CancelAppointment(c.Request.Context(), c.Param("appointmentId"), currentPatient(c).ID, int(body.Version), a.now())
+	row, err := a.booking.CancelAppointment(c.Request.Context(), c.Param("appointmentId"), currentPatient(c).ID, int(body.Version), reason, reasonDetail, a.now())
 	if err != nil {
 		a.bookingError(c, err, false)
 		return

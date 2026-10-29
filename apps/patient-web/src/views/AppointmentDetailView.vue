@@ -6,7 +6,7 @@ import type { components } from '../../../../packages/contracts/src/schema'
 import { ApiError, errorMessage } from '../api'
 import { clearSubmission, isSessionExpired, loadSubmission, patientApi } from '../patient'
 import { useSessionStore } from '../stores/session'
-import { appointmentView, dateTime, type AppointmentView } from '../utils/appointment'
+import { appointmentView, cancelReasonLabel, cancelReasonLabels, dateTime, type AppointmentView } from '../utils/appointment'
 import { countdownLabel } from '../utils/date'
 
 type TimelineEvent = components['schemas']['AppointmentTimelineEvent'] & { label: string; timeLabel: string }
@@ -26,6 +26,8 @@ const timeline = ref<TimelineEvent[]>([])
 const timelineError = ref('')
 const cancelling = ref(false)
 const notice = ref('')
+const cancelReason = ref('')
+const cancelReasonDetail = ref('')
 const checkInImage = ref('')
 const checkInToken = ref('')
 const checkInExpiry = ref('')
@@ -224,7 +226,7 @@ async function cancelAppointment() {
       return
     }
     if (choice !== 'cancel') return
-    const cancelled = await patientApi.cancel(current.id, current.version)
+    const cancelled = await patientApi.cancel(current.id, current.version, cancelReason.value || undefined, cancelReasonDetail.value.trim() || undefined)
     if (disposed) return
     appointment.value = appointmentView(cancelled)
     notice.value = '预约或候补已取消。'
@@ -384,6 +386,7 @@ onUnmounted(() => {
           <div class="detail-row"><span class="detail-label">联系人</span><span class="detail-value">{{ appointment.contactName }}</span></div>
           <div class="detail-row"><span class="detail-label">手机号</span><span class="detail-value">{{ appointment.contactPhone }}</span></div>
           <div v-if="appointment.note" class="detail-row"><span class="detail-label">备注</span><span class="detail-value">{{ appointment.note }}</span></div>
+          <div v-if="appointment.status === 'cancelled'" class="detail-row"><span class="detail-label">取消原因</span><span class="detail-value">{{ cancelReasonLabel(appointment.cancelReason) }}{{ appointment.cancelReasonDetail ? `：${appointment.cancelReasonDetail}` : '' }}</span></div>
           <div class="detail-row"><span class="detail-label">提交时间</span><span class="detail-value">{{ appointment.createdLabel }}</span></div>
           <div class="detail-row"><span class="detail-label">申请编号</span><span class="detail-value selectable">{{ appointment.id }}</span></div>
         </section>
@@ -413,6 +416,14 @@ onUnmounted(() => {
         </button>
 
         <button class="primary" :disabled="cancelling" @click="refresh">刷新预约结果</button>
+        <div v-if="appointment.cancellable" class="cancel-reason-block">
+          <label class="field-label" for="cancel-reason">取消原因（可选，帮助我们改进服务）</label>
+          <select id="cancel-reason" v-model="cancelReason" class="field-input">
+            <option value="">不填写原因</option>
+            <option v-for="(label, code) in cancelReasonLabels" :key="code" :value="code">{{ label }}</option>
+          </select>
+          <input v-if="cancelReason" v-model="cancelReasonDetail" class="field-input" maxlength="200" placeholder="补充说明（可选，最多 200 字）" />
+        </div>
         <button v-if="appointment.cancellable" class="ghost danger-btn" :disabled="cancelling" @click="cancelAppointment">
           {{ cancelling ? '正在取消…' : '取消预约' }}
         </button>
@@ -443,6 +454,9 @@ onUnmounted(() => {
 .deadline-note { display: block; color: var(--muted); font-size: 12px; }
 .reason { color: var(--danger); font-size: 13px; }
 .detail-row { display: flex; gap: 12px; padding: 7px 0; border-top: 1px solid var(--bg); }
+.cancel-reason-block { display: flex; flex-direction: column; gap: 8px; margin: 12px 0; }
+.field-label { font-size: 14px; color: var(--text-muted, #666); }
+.field-input { width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid var(--border, #ddd); border-radius: 8px; font-size: 15px; background: #fff; }
 .detail-row:first-of-type { border-top: 0; }
 .detail-label { flex: none; width: 64px; color: var(--muted); font-size: 13px; }
 .detail-value { flex: 1; min-width: 0; line-height: 1.6; }

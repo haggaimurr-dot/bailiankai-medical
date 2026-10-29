@@ -30,23 +30,25 @@ func TestWaitlistOfferConfirmAndTimeout(t *testing.T) {
 	f.assertReserved(1)
 
 	waitInput := store.AppointmentInput{SlotID: f.slot.ID, ContactName: "演示访客", ContactPhone: "13800000000", Waitlist: true}
-	waitB, _, err := f.repo.CreateAppointment(ctx, b.Patient.ID, "waitlist-test-b", waitInput, f.now)
+	// 候补登记时间必须严格递增：同毫秒创建时 created_at 打平，候补排序退化为
+	// 随机 id 顺序，offer 会发给非最早登记人，测试变 flaky。
+	waitB, _, err := f.repo.CreateAppointment(ctx, b.Patient.ID, "waitlist-test-b", waitInput, f.now.Add(time.Second))
 	if err != nil || waitB.Status != "waiting" {
 		t.Fatalf("waitlist B failed: status=%s err=%v", waitB.Status, err)
 	}
-	waitC, _, err := f.repo.CreateAppointment(ctx, c.Patient.ID, "waitlist-test-c", waitInput, f.now)
+	waitC, _, err := f.repo.CreateAppointment(ctx, c.Patient.ID, "waitlist-test-c", waitInput, f.now.Add(2*time.Second))
 	if err != nil || waitC.Status != "waiting" {
 		t.Fatalf("waitlist C failed: status=%s err=%v", waitC.Status, err)
 	}
-	waitE, _, err := f.repo.CreateAppointment(ctx, e.Patient.ID, "waitlist-test-e", waitInput, f.now)
+	waitE, _, err := f.repo.CreateAppointment(ctx, e.Patient.ID, "waitlist-test-e", waitInput, f.now.Add(3*time.Second))
 	if err != nil || waitE.Status != "waiting" {
 		t.Fatalf("waitlist E failed: status=%s err=%v", waitE.Status, err)
 	}
 	f.assertReserved(1)
 
 	// A 取消 → 同一事务内 B 收到限时 offer；名额已释放（reserved 0），但
-	// offer 有效期内他人无法直接预约。
-	if _, err := f.repo.CancelAppointment(ctx, booked.ID, a.Patient.ID, booked.Version, f.now); err != nil {
+	// offer 有效期内他人无法直接预约。取消时间晚于候补登记时间。
+	if _, err := f.repo.CancelAppointment(ctx, booked.ID, a.Patient.ID, booked.Version, "", "", f.now.Add(10*time.Second)); err != nil {
 		t.Fatal(err)
 	}
 	f.assertReserved(0)
@@ -82,7 +84,7 @@ func TestWaitlistOfferConfirmAndTimeout(t *testing.T) {
 	}
 
 	// B 再取消 → 顺延给 C。
-	if _, err := f.repo.CancelAppointment(ctx, confirmed.ID, b.Patient.ID, confirmed.Version, f.now); err != nil {
+	if _, err := f.repo.CancelAppointment(ctx, confirmed.ID, b.Patient.ID, confirmed.Version, "", "", f.now); err != nil {
 		t.Fatal(err)
 	}
 	f.assertReserved(0)
@@ -118,7 +120,7 @@ func TestWaitlistOfferConfirmAndTimeout(t *testing.T) {
 	if err != nil || confirmedE.Status != "pending" {
 		t.Fatalf("E confirm failed: status=%s err=%v", confirmedE.Status, err)
 	}
-	if _, err := f.repo.CancelAppointment(ctx, confirmedE.ID, e.Patient.ID, confirmedE.Version, f.now); err != nil {
+	if _, err := f.repo.CancelAppointment(ctx, confirmedE.ID, e.Patient.ID, confirmedE.Version, "", "", f.now); err != nil {
 		t.Fatal(err)
 	}
 	f.assertReserved(0)
@@ -152,7 +154,7 @@ func TestWaitlistSweep(t *testing.T) {
 	if _, _, err := f.repo.CreateAppointment(ctx, b.Patient.ID, "waitlist-sweep-b", waitInput, f.now); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := f.repo.CancelAppointment(ctx, booked.ID, a.Patient.ID, booked.Version, f.now); err != nil {
+	if _, err := f.repo.CancelAppointment(ctx, booked.ID, a.Patient.ID, booked.Version, "", "", f.now); err != nil {
 		t.Fatal(err)
 	}
 	f.assertReserved(0)

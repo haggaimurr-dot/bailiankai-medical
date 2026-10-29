@@ -301,7 +301,7 @@ func TestFollowupMySQLIntegration(t *testing.T) {
 		if _, err := f.repo.RecordTreatment(ctx, appointment.ID, altered, f.now); !errors.Is(err, store.ErrConflict) {
 			t.Fatal("different payload must conflict", err)
 		}
-		if _, err := f.repo.CancelAppointment(ctx, appointment.ID, patient.Patient.ID, appointment.Version, f.now); !errors.Is(err, store.ErrTransition) && !errors.Is(err, store.ErrConflict) {
+		if _, err := f.repo.CancelAppointment(ctx, appointment.ID, patient.Patient.ID, appointment.Version, "", "", f.now); !errors.Is(err, store.ErrTransition) && !errors.Is(err, store.ErrConflict) {
 			t.Fatal("treated appointment cancellable", err)
 		}
 		loaded, err := f.repo.GetAppointment(ctx, appointment.ID, patient.Patient.ID, f.now)

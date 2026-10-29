@@ -44,6 +44,32 @@ const tableRef = ref()
 const selected = ref<Appointment[]>([])
 const reminding = ref(false)
 const remindResult = ref('')
+const cancelReasonLabels: Record<string, string> = {
+  schedule_conflict: '时间冲突',
+  personal: '个人安排变化',
+  found_elsewhere: '已在他处就诊',
+  price: '价格原因',
+  changed_mind: '改变主意',
+  other: '其他',
+  unspecified: '未填写',
+}
+const statsFrom = ref(shanghaiDate(new Date(Date.now() - 30 * 86400 * 1000)))
+const statsTo = ref(shanghaiDate())
+const stats = ref<Awaited<ReturnType<typeof api.cancellationStats>> | null>(null)
+const statsLoading = ref(false)
+const statsError = ref('')
+async function loadStats() {
+  if (statsLoading.value) return
+  statsLoading.value = true
+  statsError.value = ''
+  try {
+    stats.value = await api.cancellationStats(statsFrom.value, statsTo.value)
+  } catch (cause) {
+    statsError.value = errorMessage(cause)
+  } finally {
+    statsLoading.value = false
+  }
+}
 let detailRequestVersion = 0
 let refreshTimer: ReturnType<typeof setInterval> | undefined
 
@@ -279,6 +305,7 @@ function refreshWhenVisible() {
 onMounted(() => {
   void schedule.refresh()
   void store.refresh()
+  void loadStats()
   refreshTimer = setInterval(refreshWhenVisible, 30000)
   document.addEventListener('visibilitychange', refreshWhenVisible)
 })
@@ -301,6 +328,24 @@ onBeforeUnmount(() => {
     <div class="appointment-overview-count"><span>待确认预约</span><strong data-testid="pending-count">{{ store.loading || store.pendingTotal === null ? '—' : store.pendingTotal }}<small>条</small></strong></div>
     <div class="appointment-overview-copy"><h2>提交后先占用名额，确认后才显示已确认</h2><p>待确认名额最多保留 2 小时，具体时间以预约详情中的确认截止为准。</p><span>{{ scopeLabel }}<template v-if="store.countError"> · 数量暂未同步，请刷新重试</template></span></div>
     <el-button class="pending-filter-button" @click="selectStatus('pending')">查看待确认<AppIcon name="arrow" /></el-button>
+  </section>
+
+  <section class="surface cancellation-stats" aria-label="取消原因统计">
+    <div class="panel-heading"><div><h2>取消原因统计</h2><p>按取消时间统计已取消预约的原因分布；不填原因的取消计入“未填写”。</p></div></div>
+    <div class="stats-filters">
+      <label>开始日期 <input type="date" v-model="statsFrom" /></label>
+      <label>结束日期 <input type="date" v-model="statsTo" /></label>
+      <el-button type="primary" :loading="statsLoading" @click="loadStats">查询统计</el-button>
+    </div>
+    <p v-if="statsError" class="state-block error-state" role="alert">{{ statsError }}</p>
+    <table v-else-if="stats" class="stats-table">
+      <thead><tr><th>取消原因</th><th>数量</th></tr></thead>
+      <tbody>
+        <tr v-for="row in stats.byReason" :key="row.reason"><td>{{ cancelReasonLabels[row.reason] ?? row.reason }}</td><td>{{ row.count }}</td></tr>
+        <tr v-if="!stats.byReason.length"><td colspan="2">该区间内暂无取消记录</td></tr>
+      </tbody>
+      <tfoot><tr><td>合计</td><td>{{ stats.total }}</td></tr></tfoot>
+    </table>
   </section>
 
   <section class="surface appointment-panel">

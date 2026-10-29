@@ -73,7 +73,7 @@ func newBookingFixture(t *testing.T) *bookingFixture {
 	if err := db.Exec("UPDATE consultations SET parent_consultation_id = NULL").Error; err != nil {
 		t.Fatal(err)
 	}
-	for _, table := range []string{"support_attachments", "support_events", "support_tickets", "knowledge_favorites", "knowledge_events", "knowledge_articles", "knowledge_categories", "directory_revisions", "privacy_consent_events", "employee_account_events", "employee_sessions", "employee_accounts", "handoff_followup_events", "followup_handoff_receipts", "consultations", "followup_events", "followup_photos", "followup_assignment_events", "followup_staff_events", "followup_tasks", "treatment_revisions", "treatments", "followup_staff", "care_access_events", "care_plan_versions", "care_plans", "photo_consent_events", "care_photos", "check_in_codes", "appointment_events", "appointments", "sessions", "patients", "slots", "doctors", "clinics"} {
+	for _, table := range []string{"support_attachments", "support_events", "support_tickets", "knowledge_favorites", "knowledge_events", "knowledge_articles", "knowledge_categories", "directory_revisions", "privacy_consent_events", "employee_account_events", "employee_sessions", "employee_accounts", "handoff_followup_events", "followup_handoff_receipts", "consultations", "followup_events", "followup_photos", "followup_assignment_events", "followup_staff_events", "followup_tasks", "treatment_revisions", "treatments", "followup_staff", "care_access_events", "care_plan_versions", "care_plans", "photo_consent_events", "care_photos", "check_in_codes", "waitlist_offers", "appointment_events", "appointments", "sessions", "patients", "slots", "doctors", "clinics"} {
 		if err := db.Exec("DELETE FROM " + table).Error; err != nil {
 			t.Fatal(err)
 		}
@@ -255,7 +255,7 @@ func TestBookingMySQLIntegration(t *testing.T) {
 			t.Fatal(err)
 		}
 		err := holdPatientAcrossDeadline(t, f.db, patient.Patient.ID, func() error {
-			_, err := f.repo.CancelAppointment(context.Background(), row.ID, patient.Patient.ID, 2, f.now)
+			_, err := f.repo.CancelAppointment(context.Background(), row.ID, patient.Patient.ID, 2, "", "", f.now)
 			return err
 		})
 		if !errors.Is(err, store.ErrTransition) {
@@ -456,12 +456,12 @@ func TestBookingMySQLIntegration(t *testing.T) {
 		if after.Reserved != 1 || after.Version != before.Version {
 			t.Fatal("confirmation reserved twice or changed slot version")
 		}
-		cancelled, err := f.repo.CancelAppointment(context.Background(), row.ID, patient.Patient.ID, 2, f.now)
+		cancelled, err := f.repo.CancelAppointment(context.Background(), row.ID, patient.Patient.ID, 2, "", "", f.now)
 		if err != nil || cancelled.Status != "cancelled" || cancelled.Version != 3 {
 			t.Fatal("cancellation failed", err)
 		}
 		f.assertReserved(0)
-		if _, err := f.repo.CancelAppointment(context.Background(), row.ID, patient.Patient.ID, 3, f.now); !errors.Is(err, store.ErrTransition) {
+		if _, err := f.repo.CancelAppointment(context.Background(), row.ID, patient.Patient.ID, 3, "", "", f.now); !errors.Is(err, store.ErrTransition) {
 			t.Fatalf("repeat cancellation accepted: %v", err)
 		}
 		f.assertReserved(0)
@@ -587,7 +587,7 @@ func TestBookingMySQLIntegration(t *testing.T) {
 		var wg sync.WaitGroup
 		wg.Go(func() {
 			<-start
-			_, err := f.repo.CancelAppointment(context.Background(), row.ID, patient.Patient.ID, 1, f.now)
+			_, err := f.repo.CancelAppointment(context.Background(), row.ID, patient.Patient.ID, 1, "", "", f.now)
 			results <- err
 		})
 		wg.Go(func() {
@@ -636,7 +636,7 @@ func TestBookingMySQLIntegration(t *testing.T) {
 		})
 		wg.Go(func() {
 			<-start
-			_, err := f.repo.CancelAppointment(context.Background(), row.ID, patient.Patient.ID, 1, row.ConfirmationDeadline)
+			_, err := f.repo.CancelAppointment(context.Background(), row.ID, patient.Patient.ID, 1, "", "", row.ConfirmationDeadline)
 			results <- err
 		})
 		wg.Go(func() {

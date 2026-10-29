@@ -1579,6 +1579,23 @@ paths:
             application/json:
               schema: {$ref: '#/components/schemas/AppointmentPage'}
         default: {$ref: '#/components/responses/Error'}
+  /api/v1/admin/appointments/cancellation-stats:
+    get:
+      operationId: getCancellationStats
+      description: 按取消时间区间统计已取消预约的原因分布；未填原因归入 unspecified；遵循员工院区权限范围。
+      security: [{EmployeeBearer: []}]
+      parameters:
+        - {name: dateFrom, in: query, required: true, schema: {type: string, format: date}, description: 取消日期起始（含）}
+        - {name: dateTo, in: query, required: true, schema: {type: string, format: date}, description: 取消日期结束（含），最多 366 天}
+        - {name: clinicId, in: query, schema: {$ref: '#/components/schemas/EntityId'}}
+        - {name: doctorId, in: query, schema: {$ref: '#/components/schemas/EntityId'}}
+      responses:
+        '200':
+          description: 取消原因统计
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/CancellationStatsResult'}
+        default: {$ref: '#/components/responses/Error'}
   /api/v1/admin/appointments/{appointmentId}:
     get:
       operationId: getAdminAppointment
@@ -3554,6 +3571,9 @@ components:
         note: {type: string, maxLength: 300}
         status: {$ref: '#/components/schemas/AppointmentStatus'}
         rejectionReason: {type: string, maxLength: 200}
+        cancelReason: {type: string, enum: [schedule_conflict, personal, found_elsewhere, price, changed_mind, other], description: 患者取消原因；未取消或未填时不出现}
+        cancelReasonDetail: {type: string, maxLength: 200, description: 患者取消补充说明；未填为空串}
+        cancelledAt: {type: string, format: date-time, nullable: true, description: 取消时间；未取消为 null}
         confirmationDeadline: {type: string, format: date-time}
         createdAt: {type: string, format: date-time}
         updatedAt: {type: string, format: date-time}
@@ -3643,6 +3663,8 @@ components:
       required: [version]
       properties:
         version: {type: integer, minimum: 1, format: int32}
+        cancelReason: {type: string, enum: [schedule_conflict, personal, found_elsewhere, price, changed_mind, other], description: 取消原因；不填不阻断取消}
+        reasonDetail: {type: string, maxLength: 200, description: 取消补充说明}
     AppointmentReview:
       type: object
       additionalProperties: false
@@ -3711,6 +3733,25 @@ components:
           properties:
             expired: {type: integer, minimum: 0, format: int32}
             offered: {type: integer, minimum: 0, format: int32}
+    CancellationReasonCount:
+      type: object
+      required: [reason, count]
+      properties:
+        reason: {type: string, description: 取消原因码；未填原因归入 unspecified}
+        count: {type: integer, minimum: 0, format: int64}
+    CancellationStats:
+      type: object
+      required: [total, byReason]
+      properties:
+        total: {type: integer, minimum: 0, format: int64}
+        byReason:
+          type: array
+          items: {$ref: '#/components/schemas/CancellationReasonCount'}
+    CancellationStatsResult:
+      type: object
+      required: [data]
+      properties:
+        data: {$ref: '#/components/schemas/CancellationStats'}
     PhotoAngle:
       type: string
       enum: [front, left, right]

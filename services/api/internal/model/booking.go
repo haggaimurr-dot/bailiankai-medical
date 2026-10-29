@@ -34,6 +34,9 @@ type Appointment struct {
 	Note                 string
 	Status               string
 	RejectionReason      string
+	CancelReason         string
+	CancelReasonDetail   string
+	CancelledAt          *time.Time
 	ConfirmationDeadline time.Time
 	RequestKey           string
 	RequestHash          string

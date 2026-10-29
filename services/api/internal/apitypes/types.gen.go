@@ -14,10 +14,30 @@ const (
 	PatientBearerScopes  = "PatientBearer.Scopes"
 )
 
+// Defines values for AppointmentCancelReason.
+const (
+	AppointmentCancelReasonChangedMind      AppointmentCancelReason = "changed_mind"
+	AppointmentCancelReasonFoundElsewhere   AppointmentCancelReason = "found_elsewhere"
+	AppointmentCancelReasonOther            AppointmentCancelReason = "other"
+	AppointmentCancelReasonPersonal         AppointmentCancelReason = "personal"
+	AppointmentCancelReasonPrice            AppointmentCancelReason = "price"
+	AppointmentCancelReasonScheduleConflict AppointmentCancelReason = "schedule_conflict"
+)
+
 // Defines values for AppointmentSlotStatus.
 const (
 	AppointmentSlotStatusClosed AppointmentSlotStatus = "closed"
 	AppointmentSlotStatusOpen   AppointmentSlotStatus = "open"
+)
+
+// Defines values for AppointmentCancelCancelReason.
+const (
+	AppointmentCancelCancelReasonChangedMind      AppointmentCancelCancelReason = "changed_mind"
+	AppointmentCancelCancelReasonFoundElsewhere   AppointmentCancelCancelReason = "found_elsewhere"
+	AppointmentCancelCancelReasonOther            AppointmentCancelCancelReason = "other"
+	AppointmentCancelCancelReasonPersonal         AppointmentCancelCancelReason = "personal"
+	AppointmentCancelCancelReasonPrice            AppointmentCancelCancelReason = "price"
+	AppointmentCancelCancelReasonScheduleConflict AppointmentCancelCancelReason = "schedule_conflict"
 )
 
 // Defines values for AppointmentReviewAction.
@@ -885,21 +905,30 @@ type Appointment struct {
 	CanReschedule *bool `json:"canReschedule,omitempty"`
 
 	// CanReview 当前调用者能否审核；仅后台视图中有效待确认预约可能为true。
-	CanReview            bool      `json:"canReview"`
-	ClinicId             EntityId  `json:"clinicId"`
-	ClinicName           string    `json:"clinicName"`
-	ConfirmationDeadline time.Time `json:"confirmationDeadline"`
-	ContactName          string    `json:"contactName"`
-	ContactPhone         string    `json:"contactPhone"`
-	CreatedAt            time.Time `json:"createdAt"`
-	DoctorId             EntityId  `json:"doctorId"`
-	DoctorName           string    `json:"doctorName"`
-	EndsAt               time.Time `json:"endsAt"`
-	Id                   EntityId  `json:"id"`
-	Note                 string    `json:"note"`
-	PatientId            EntityId  `json:"patientId"`
-	RejectionReason      string    `json:"rejectionReason"`
-	SlotId               EntityId  `json:"slotId"`
+	CanReview bool `json:"canReview"`
+
+	// CancelReason 患者取消原因；未填为空串
+	CancelReason *AppointmentCancelReason `json:"cancelReason,omitempty"`
+
+	// CancelReasonDetail 患者取消补充说明；未填为空串
+	CancelReasonDetail *string `json:"cancelReasonDetail,omitempty"`
+
+	// CancelledAt 取消时间；未取消为 null
+	CancelledAt          *time.Time `json:"cancelledAt"`
+	ClinicId             EntityId   `json:"clinicId"`
+	ClinicName           string     `json:"clinicName"`
+	ConfirmationDeadline time.Time  `json:"confirmationDeadline"`
+	ContactName          string     `json:"contactName"`
+	ContactPhone         string     `json:"contactPhone"`
+	CreatedAt            time.Time  `json:"createdAt"`
+	DoctorId             EntityId   `json:"doctorId"`
+	DoctorName           string     `json:"doctorName"`
+	EndsAt               time.Time  `json:"endsAt"`
+	Id                   EntityId   `json:"id"`
+	Note                 string     `json:"note"`
+	PatientId            EntityId   `json:"patientId"`
+	RejectionReason      string     `json:"rejectionReason"`
+	SlotId               EntityId   `json:"slotId"`
 
 	// SlotStatus 当前时段开放状态
 	SlotStatus *AppointmentSlotStatus `json:"slotStatus,omitempty"`
@@ -911,6 +940,9 @@ type Appointment struct {
 	UpdatedAt        time.Time `json:"updatedAt"`
 	Version          int32     `json:"version"`
 }
+
+// AppointmentCancelReason 患者取消原因；未填为空串
+type AppointmentCancelReason string
 
 // AppointmentSlotStatus 当前时段开放状态
 type AppointmentSlotStatus string
@@ -924,8 +956,16 @@ type AppointmentArrival struct {
 
 // AppointmentCancel defines model for AppointmentCancel.
 type AppointmentCancel struct {
-	Version int32 `json:"version"`
+	// CancelReason 取消原因；不填不阻断取消
+	CancelReason *AppointmentCancelCancelReason `json:"cancelReason,omitempty"`
+
+	// ReasonDetail 取消补充说明
+	ReasonDetail *string `json:"reasonDetail,omitempty"`
+	Version      int32   `json:"version"`
 }
+
+// AppointmentCancelCancelReason 取消原因；不填不阻断取消
+type AppointmentCancelCancelReason string
 
 // AppointmentCreate defines model for AppointmentCreate.
 type AppointmentCreate struct {
@@ -1332,6 +1372,25 @@ type AssessmentView struct {
 	Result          *AssessmentResult      `json:"result,omitempty"`
 	Reviews         *[]AssessmentReview    `json:"reviews,omitempty"`
 	Task            AssessmentTask         `json:"task"`
+}
+
+// CancellationReasonCount defines model for CancellationReasonCount.
+type CancellationReasonCount struct {
+	Count int64 `json:"count"`
+
+	// Reason 取消原因码；未填原因归入 unspecified
+	Reason string `json:"reason"`
+}
+
+// CancellationStats defines model for CancellationStats.
+type CancellationStats struct {
+	ByReason []CancellationReasonCount `json:"byReason"`
+	Total    int64                     `json:"total"`
+}
+
+// CancellationStatsResult defines model for CancellationStatsResult.
+type CancellationStatsResult struct {
+	Data CancellationStats `json:"data"`
 }
 
 // CarePhoto defines model for CarePhoto.
@@ -3644,6 +3703,17 @@ type ListAdminAppointmentsParamsArrival string
 
 // ListAdminAppointmentsParamsNeedsReschedule defines parameters for ListAdminAppointments.
 type ListAdminAppointmentsParamsNeedsReschedule string
+
+// GetCancellationStatsParams defines parameters for GetCancellationStats.
+type GetCancellationStatsParams struct {
+	// DateFrom 取消日期起始（含）
+	DateFrom openapi_types.Date `form:"dateFrom" json:"dateFrom"`
+
+	// DateTo 取消日期结束（含），最多 366 天
+	DateTo   openapi_types.Date `form:"dateTo" json:"dateTo"`
+	ClinicId *EntityId          `form:"clinicId,omitempty" json:"clinicId,omitempty"`
+	DoctorId *EntityId          `form:"doctorId,omitempty" json:"doctorId,omitempty"`
+}
 
 // ListNursingFeedbackParams defines parameters for ListNursingFeedback.
 type ListNursingFeedbackParams struct {

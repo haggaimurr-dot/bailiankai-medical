@@ -1869,6 +1869,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/appointments/cancellation-stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description 按取消时间区间统计已取消预约的原因分布；未填原因归入 unspecified；遵循员工院区权限范围。 */
+        get: operations["getCancellationStats"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/appointments/{appointmentId}": {
         parameters: {
             query?: never;
@@ -3901,6 +3918,18 @@ export interface components {
             note: string;
             status: components["schemas"]["AppointmentStatus"];
             rejectionReason: string;
+            /**
+             * @description 患者取消原因；未取消或未填时不出现
+             * @enum {string}
+             */
+            cancelReason?: "schedule_conflict" | "personal" | "found_elsewhere" | "price" | "changed_mind" | "other";
+            /** @description 患者取消补充说明；未填为空串 */
+            cancelReasonDetail?: string;
+            /**
+             * Format: date-time
+             * @description 取消时间；未取消为 null
+             */
+            cancelledAt?: string | null;
             /** Format: date-time */
             confirmationDeadline: string;
             /** Format: date-time */
@@ -3988,6 +4017,13 @@ export interface components {
         AppointmentCancel: {
             /** Format: int32 */
             version: number;
+            /**
+             * @description 取消原因；不填不阻断取消
+             * @enum {string}
+             */
+            cancelReason?: "schedule_conflict" | "personal" | "found_elsewhere" | "price" | "changed_mind" | "other";
+            /** @description 取消补充说明 */
+            reasonDetail?: string;
         };
         AppointmentReview: {
             /** @enum {string} */
@@ -4040,6 +4076,20 @@ export interface components {
                 /** Format: int32 */
                 offered: number;
             };
+        };
+        CancellationReasonCount: {
+            /** @description 取消原因码；未填原因归入 unspecified */
+            reason: string;
+            /** Format: int64 */
+            count: number;
+        };
+        CancellationStats: {
+            /** Format: int64 */
+            total: number;
+            byReason: components["schemas"]["CancellationReasonCount"][];
+        };
+        CancellationStatsResult: {
+            data: components["schemas"]["CancellationStats"];
         };
         /** @enum {string} */
         PhotoAngle: "front" | "left" | "right";
@@ -11043,6 +11093,34 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AppointmentPage"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getCancellationStats: {
+        parameters: {
+            query: {
+                /** @description 取消日期起始（含） */
+                dateFrom: string;
+                /** @description 取消日期结束（含），最多 366 天 */
+                dateTo: string;
+                clinicId?: components["schemas"]["EntityId"];
+                doctorId?: components["schemas"]["EntityId"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 取消原因统计 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CancellationStatsResult"];
                 };
             };
             default: components["responses"]["Error"];

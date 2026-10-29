@@ -43,7 +43,7 @@ func TestBookingExtensions(t *testing.T) {
 		requireHTTP(t, f.http("GET", path+"/timeline", "", other.Token, ""), 404, "APPOINTMENT_NOT_FOUND")
 		requireHTTP(t, f.http("POST", path+"/reschedule", claim, other.Token, "http-claim-key-0001"), 404, "APPOINTMENT_NOT_FOUND")
 		requireHTTP(t, f.http("POST", path+"/reschedule", claim, candidate.Token, "http-claim-key-0001"), 409, "SLOT_FULL")
-		if _, err := f.repo.CancelAppointment(context.Background(), booked.ID, owner.Patient.ID, booked.Version, f.now); err != nil {
+		if _, err := f.repo.CancelAppointment(context.Background(), booked.ID, owner.Patient.ID, booked.Version, "", "", f.now); err != nil {
 			t.Fatal(err)
 		}
 		requireHTTP(t, f.http("POST", path+"/reschedule", claim, candidate.Token, "http-claim-key-0001"), 200, "")
@@ -103,10 +103,10 @@ func TestBookingExtensions(t *testing.T) {
 		if err != nil || len(events) != 3 || events[0].Action != "submit" || events[1].Action != "confirm" || events[2].Action != "reschedule" || events[2].Detail == "" {
 			t.Fatalf("timeline: %+v %v", events, err)
 		}
-		if _, err := f.repo.CancelAppointment(ctx, moved.ID, patient.Patient.ID, original.Version, f.now); !errors.Is(err, store.ErrConflict) {
+		if _, err := f.repo.CancelAppointment(ctx, moved.ID, patient.Patient.ID, original.Version, "", "", f.now); !errors.Is(err, store.ErrConflict) {
 			t.Fatalf("stale version: %v", err)
 		}
-		if _, err := f.repo.CancelAppointment(ctx, moved.ID, patient.Patient.ID, moved.Version, f.now); err != nil {
+		if _, err := f.repo.CancelAppointment(ctx, moved.ID, patient.Patient.ID, moved.Version, "", "", f.now); err != nil {
 			t.Fatal(err)
 		}
 		if err := f.db.First(&target, "id = ?", target.ID).Error; err != nil || target.Reserved != 0 {
@@ -133,7 +133,7 @@ func TestBookingExtensions(t *testing.T) {
 			waiting[i] = row
 		}
 		f.assertReserved(1)
-		if _, err := f.repo.CancelAppointment(ctx, booked.ID, owner.Patient.ID, booked.Version, f.now); err != nil {
+		if _, err := f.repo.CancelAppointment(ctx, booked.ID, owner.Patient.ID, booked.Version, "", "", f.now); err != nil {
 			t.Fatal(err)
 		}
 		f.assertReserved(0)
@@ -174,7 +174,7 @@ func TestBookingExtensions(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if _, err := f.repo.CancelAppointment(ctx, row.ID, patient.Patient.ID, row.Version, f.now); err != nil {
+		if _, err := f.repo.CancelAppointment(ctx, row.ID, patient.Patient.ID, row.Version, "", "", f.now); err != nil {
 			t.Fatal(err)
 		}
 		f.assertReserved(1)
