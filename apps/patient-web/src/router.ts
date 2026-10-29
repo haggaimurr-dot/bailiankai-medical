@@ -26,6 +26,7 @@ const routes: RouteRecordRaw[] = [
   { path: '/recovery', name: 'recovery', component: () => import('./views/RecoveryCalendarView.vue'), meta: { title: '恢复日历' } },
   { path: '/recovery/trend', name: 'recovery-trend', component: () => import('./views/RecoveryTrendView.vue'), meta: { title: '恢复趋势' } },
   { path: '/faqs', name: 'faqs', component: () => import('./views/FaqView.vue'), meta: { title: '常见问题' } },
+  { path: '/shared/:token', name: 'shared-record', component: () => import('./views/SharedRecordView.vue'), meta: { title: '分享的档案', public: true } },
   { path: '/cases', name: 'cases', component: () => import('./views/CasesView.vue'), meta: { title: '真实案例' } },
   { path: '/knowledge', name: 'knowledge', component: () => import('./views/KnowledgeView.vue'), meta: { title: '知识库' } },
   { path: '/knowledge/:id', name: 'knowledge-detail', component: () => import('./views/KnowledgeDetailView.vue'), meta: { title: '文章详情' } },

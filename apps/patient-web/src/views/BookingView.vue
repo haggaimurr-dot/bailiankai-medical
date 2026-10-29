@@ -17,6 +17,13 @@ const router = useRouter()
 const sessionStore = useSessionStore()
 
 const waitlist = ref(route.query.waitlist === '1')
+// 行 111：复诊带上次要点
+const lastVisit = ref<any>(null)
+function formatVisitDate(v: string) { return v ? new Date(v).toLocaleDateString('zh-CN', { timeZone: 'Asia/Shanghai' }) : '' }
+async function loadLastVisit() {
+  try { lastVisit.value = await patientApi.lastVisitSummary(sessionStore.patient?.id) } catch { /* 无记录时静默 */ }
+}
+
 const loading = ref(true)
 const error = ref('')
 const expired = ref(false)
@@ -319,7 +326,7 @@ function openCompleted() {
   }
 }
 
-onMounted(() => void initialize())
+onMounted(() => { void initialize(); void loadLastVisit() })
 onUnmounted(() => { generation += 1; disposed = true })
 </script>
 
@@ -332,6 +339,13 @@ onUnmounted(() => { generation += 1; disposed = true })
       <div class="eyebrow">APPOINTMENT</div>
       <h1>{{ waitlist ? '登记候补预约' : '填写预约申请' }}</h1>
       <p class="lede">{{ waitlist ? '候补不占名额；有空位后会通知你，请在限时内确认，工作人员确认后生效。' : '提交后暂留名额，工作人员确认后生效。' }}</p>
+    <div v-if="lastVisit" class="card last-visit">
+      <h3>上次就诊要点</h3>
+      <p><strong>{{ lastVisit.doctorName }}</strong> · {{ formatVisitDate(lastVisit.visitedAt) }}</p>
+      <p v-if="lastVisit.summary"><strong>治疗小结：</strong>{{ lastVisit.summary }}</p>
+      <p v-if="lastVisit.carePlan"><strong>方案要点：</strong>{{ lastVisit.carePlan }}</p>
+      <p class="muted">复诊时医生将参考以上要点。</p>
+    </div>
     </div>
 
     <div v-if="loading" class="card state"><van-loading size="24">正在核对出诊信息</van-loading></div>

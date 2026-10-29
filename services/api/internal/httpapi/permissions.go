@@ -70,6 +70,9 @@ func allowedEmployeeOperation(role, method, path string) bool {
 	if path == "/api/v1/admin/faqs/:faqId" {
 		return (role == "manager" || role == "doctor" || role == "clinician") && (method == "PUT" || method == "DELETE")
 	}
+	if path == "/api/v1/admin/patients/:patientId/tier" {
+		return (role == "manager" || role == "doctor" || role == "clinician") && (method == "GET" || method == "PUT")
+	}
 	if path == "/api/v1/admin/support" || path == "/api/v1/admin/support/agents" || path == "/api/v1/admin/support/stats" || path == "/api/v1/admin/support/:ticketId" || path == "/api/v1/admin/support/:ticketId/actions" || path == "/api/v1/admin/support/:ticketId/attachments/:attachmentId" {
 		return (role == "manager" || role == "customer_service") && (method == "GET" || method == "POST" && path == "/api/v1/admin/support/:ticketId/actions")
 	}

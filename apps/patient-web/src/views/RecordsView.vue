@@ -36,6 +36,25 @@ function stageLabel(event: TimelineEvent): string {
 const router = useRouter()
 const session = useSessionStore()
 
+// 行 109：档案临时授权
+const shareDialog = ref(false), shareLinks = ref<any[]>([]), shareTTL = ref(168), shareSaving = ref(false), newLink = ref<any>(null)
+function shareUrl(token: string) { return `${window.location.origin}/shared/${token}` }
+async function loadShareLinks() {
+  try { shareLinks.value = await patientApi.recordShareLinks(session.patient?.id) || [] } catch { /* 忽略 */ }
+}
+async function createShareLink() {
+  shareSaving.value = true
+  try {
+    newLink.value = await patientApi.createRecordShareLink(shareTTL.value, session.patient?.id)
+    await loadShareLinks()
+  } catch (e) { showToast(errorMessage(e)) }
+  finally { shareSaving.value = false }
+}
+async function revokeShareLink(id: string) {
+  try { await patientApi.revokeRecordShareLink(id, session.patient?.id); await loadShareLinks() }
+  catch (e) { showToast(errorMessage(e)) }
+}
+
 const loading = ref(true)
 const loadingMore = ref(false)
 const expired = ref(false)
@@ -173,6 +192,7 @@ onMounted(() => load())
     </div>
     <p class="lede">问诊、复诊、方案、治疗与随访记录统一按时间倒序显示，医嘱可在此确认阅读。</p>
     <button class="ghost" @click="router.push('/recovery')">恢复日历 · 查看随访与回评</button>
+    <button class="ghost" @click="shareDialog = true; loadShareLinks()">分享档案 · 生成临时链接</button>
 
     <div v-if="loading" class="card"><van-loading size="24px">正在整理治疗档案…</van-loading></div>
 
@@ -256,6 +276,29 @@ onMounted(() => load())
       </button>
       <p v-else-if="records.length" class="muted center">已显示全部记录</p>
     </template>
+    <van-dialog v-model:show="shareDialog" title="分享治疗档案" :show-confirm-button="false">
+      <div class="share-body">
+        <p class="muted">生成有时效的分享链接，他人凭链接可查看你的档案摘要。过期后自动失效，也可随时撤销。</p>
+        <div class="share-row">
+          <select v-model="shareTTL">
+            <option :value="24">24 小时</option>
+            <option :value="168">7 天</option>
+            <option :value="720">30 天</option>
+          </select>
+          <button class="primary" :disabled="shareSaving" @click="createShareLink">生成链接</button>
+        </div>
+        <div v-if="newLink" class="new-link">
+          <p>链接已生成（仅显示一次）：</p>
+          <p class="link-text">{{ shareUrl(newLink.token) }}</p>
+          <p class="muted">有效期至 {{ new Date(newLink.expiresAt).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' }) }}</p>
+        </div>
+        <div v-for="l in shareLinks" :key="l.id" class="share-item">
+          <span>至 {{ new Date(l.expiresAt).toLocaleDateString('zh-CN') }}</span>
+          <el-tag size="small" :type="l.revoked ? 'info' : 'success'">{{ l.revoked ? '已撤销' : '有效' }}</el-tag>
+          <button v-if="!l.revoked" class="link-btn" @click="revokeShareLink(l.id)">撤销</button>
+        </div>
+      </div>
+    </van-dialog>
   </main>
 </template>
 
