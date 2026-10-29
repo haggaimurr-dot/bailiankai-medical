@@ -106,6 +106,7 @@ type FollowupStaffEvent struct {
 
 type FollowupHandoffReceipt struct {
 	ID              string `gorm:"primaryKey;size:64"`
+	BatchID         *string `gorm:"column:batch_id"`
 	TaskID          string
 	FromStaffID     string
 	ToStaffID       string

@@ -20,6 +20,7 @@ const routes: RouteRecordRaw[] = [
   { path: '/profile', name: 'profile', component: () => import('./views/ProfileView.vue'), meta: { tab: 'profile', title: '我的' } },
   { path: '/records', name: 'records', component: () => import('./views/RecordsView.vue'), meta: { title: '健康档案' } },
   { path: '/care/plan', name: 'care-plan', component: () => import('./views/CarePlanView.vue'), meta: { title: '关怀计划' } },
+  { path: '/care/reminders', name: 'care-reminders', component: () => import('./views/CareRemindersView.vue'), meta: { title: '用药护理打卡' } },
   { path: '/care/photos', name: 'care-photos', component: () => import('./views/CarePhotosView.vue'), meta: { title: '关怀照片' } },
   { path: '/followups', name: 'followups', component: () => import('./views/FollowupsView.vue'), meta: { title: '随访任务' } },
   { path: '/recovery', name: 'recovery', component: () => import('./views/RecoveryCalendarView.vue'), meta: { title: '恢复日历' } },

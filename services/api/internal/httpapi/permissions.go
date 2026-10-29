@@ -40,6 +40,24 @@ func allowedEmployeeOperation(role, method, path string) bool {
 	if path == "/api/v1/admin/care-plan-templates" || path == "/api/v1/admin/care-plan-templates/:templateId" {
 		return (role == "manager" || store.ClinicalRole(role)) && (method == "GET" || method == "POST" || method == "DELETE")
 	}
+	if path == "/api/v1/admin/care-plan-templates/library" {
+		return (role == "manager" || store.ClinicalRole(role)) && method == "GET"
+	}
+	if path == "/api/v1/admin/care-plan-templates/:templateId/share" {
+		return role == "manager" && method == "POST"
+	}
+	if path == "/api/v1/admin/care-plan-templates/:templateId/apply" {
+		return (role == "manager" || role == "doctor") && method == "POST"
+	}
+	if path == "/api/v1/admin/patients/:patientId/care-reminders" {
+		return (role == "manager" || store.ClinicalRole(role)) && (method == "GET" || method == "POST")
+	}
+	if path == "/api/v1/admin/handover-batches" {
+		return (role == "manager" || store.ClinicalRole(role)) && (method == "GET" || method == "POST")
+	}
+	if path == "/api/v1/admin/handover-batches/:batchId/nudge" {
+		return role == "manager" && method == "POST"
+	}
 	if path == "/api/v1/admin/support" || path == "/api/v1/admin/support/agents" || path == "/api/v1/admin/support/stats" || path == "/api/v1/admin/support/:ticketId" || path == "/api/v1/admin/support/:ticketId/actions" || path == "/api/v1/admin/support/:ticketId/attachments/:attachmentId" {
 		return (role == "manager" || role == "customer_service") && (method == "GET" || method == "POST" && path == "/api/v1/admin/support/:ticketId/actions")
 	}

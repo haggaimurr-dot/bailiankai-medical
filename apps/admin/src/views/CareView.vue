@@ -143,6 +143,45 @@ async function applyTemplate() {
   } catch { /* cancelled */ }
 }
 
+const libraryTemplates = ref<CarePlanTemplate[]>([])
+const libraryId = ref('')
+const libraryBusy = ref(false)
+const libraryError = ref('')
+const isManager = computed(() => auth.employee?.role === 'manager')
+
+async function loadLibrary() {
+  libraryError.value = ''
+  try { libraryTemplates.value = (await api.careTemplateLibrary()).filter(t => (t as any).isShared) }
+  catch (cause) { libraryError.value = errorMessage(cause) }
+}
+
+async function applyLibraryTemplate() {
+  const row = libraryTemplates.value.find(t => t.id === libraryId.value)
+  if (!row || !canEdit.value || !selected.value || saving.value) return
+  try {
+    await ElMessageBox.confirm(`将用模板库「${row.name}」新建方案草稿（覆盖当前草稿），是否继续？`, '从模板库新建', { confirmButtonText: '新建草稿', cancelButtonText: '取消' })
+    libraryBusy.value = true
+    await api.applyCareTemplate(row.id, selected.value.id, workspace.value.draftVersion)
+    await reloadSelected()
+    notice.value = '已从模板库新建草稿，请核对修改后发布。'
+    ElMessage.success('已从模板库新建草稿')
+  } catch (cause) { if ((cause as any) !== 'cancel') libraryError.value = errorMessage(cause) }
+  finally { libraryBusy.value = false }
+}
+
+async function shareTemplate() {
+  const row = templates.value.find(t => t.id === templateId.value)
+  if (!row || !isManager.value || !selected.value) return
+  try {
+    await ElMessageBox.confirm(`将个人模板「${row.name}」发布为本院区共享模板？`, '发布到模板库', { confirmButtonText: '发布共享', cancelButtonText: '取消' })
+    libraryBusy.value = true
+    await api.shareCareTemplate(row.id, (selected.value as any).clinicId || '')
+    await loadLibrary()
+    ElMessage.success('已发布到模板库')
+  } catch (cause) { if ((cause as any) !== 'cancel') libraryError.value = errorMessage(cause) }
+  finally { libraryBusy.value = false }
+}
+
 async function deleteTemplate() {
   const row = templates.value.find(t => t.id === templateId.value)
   if (!row || templateBusy.value) return
@@ -343,7 +382,7 @@ async function loadLinkedAppointment(id: unknown) {
     else error.value = '该预约当前无法查看方案。'
   } catch (cause) { error.value = errorMessage(cause) }
 }
-onMounted(() => { void loadTemplates(); void loadList(); void loadLinkedAppointment(route.query.appointmentId) })
+onMounted(() => { void loadTemplates(); void loadLibrary(); void loadList(); void loadLinkedAppointment(route.query.appointmentId) })
 watch(() => route.query.appointmentId, id => { void loadLinkedAppointment(id) })
 onBeforeUnmount(() => { detailRequestVersion++; listRequestVersion++; releasePhotoUrls() })
 </script>
@@ -395,7 +434,10 @@ onBeforeUnmount(() => { detailRequestVersion++; listRequestVersion++; releasePho
               <h4>个人方案模板</h4><p>仅当前员工可见；请勿将患者姓名、联系方式写入模板。</p>
               <el-alert v-if="templateError" type="error" :closable="false" :title="templateError" />
               <div class="template-actions"><el-select v-model="templateId" aria-label="方案模板" placeholder="选择个人模板" clearable><el-option v-for="item in templates" :key="item.id" :label="item.name" :value="item.id" /></el-select><el-button :disabled="!canEdit || saving || !templateId" @click="applyTemplate">应用模板</el-button><el-button :disabled="templateBusy || !templateId" @click="deleteTemplate">删除模板</el-button><el-button :disabled="templateBusy" @click="loadTemplates">刷新模板</el-button></div>
-              <div v-if="canEdit" class="template-actions"><el-input v-model="templateName" aria-label="模板名称" maxlength="80" placeholder="模板名称" /><el-button :loading="templateBusy" :disabled="saving" @click="saveTemplate">存为模板</el-button></div>
+              <div v-if="canEdit" class="template-actions"><el-input v-model="templateName" aria-label="模板名称" maxlength="80" placeholder="模板名称" /><el-button :loading="templateBusy" :disabled="saving" @click="saveTemplate">存为模板</el-button><el-button v-if="isManager" :disabled="templateBusy || !templateId" @click="shareTemplate">发布到模板库</el-button></div>
+              <h4>方案模板库</h4><p>本院区共享模板；选择后可一键新建方案草稿。</p>
+              <el-alert v-if="libraryError" type="error" :closable="false" :title="libraryError" />
+              <div class="template-actions"><el-select v-model="libraryId" aria-label="模板库" placeholder="选择共享模板" clearable><el-option v-for="item in libraryTemplates" :key="item.id" :label="item.name + '（' + ((item as any).ownerName || '') + '）'" :value="item.id" /></el-select><el-button :disabled="!canEdit || saving || libraryBusy || !libraryId" @click="applyLibraryTemplate">从模板库新建草稿</el-button><el-button :disabled="libraryBusy" @click="loadLibrary">刷新模板库</el-button></div>
             </div>
             <el-alert v-if="!canEdit" type="info" :closable="false" title="当前预约方案只读。" />
             <el-form label-position="top" class="care-form" :disabled="!canEdit || saving">

@@ -121,6 +121,12 @@ export async function downloadAuthenticated(path: string, expectedPatientId?: st
   throw new ApiError('照片读取失败，请刷新后重试。', response.status, response.status === 401 ? 'SESSION_EXPIRED' : 'PHOTO_READ_FAILED')
 }
 
+export interface CareReminder {
+  id: string; kind: 'medication' | 'care'; title: string; detail: string;
+  scheduleJson: string; startDate: string; endDate: string | null; doneToday: boolean;
+}
+export interface ReminderCheckin { date: string; done: boolean }
+
 export const patientApi = {
   previewBinding: async (code: string, patientId: string) => (await authenticated<components['schemas']['PatientBindingPreview']>('/me/patient-binding/preview', { method: 'POST', data: { code } }, patientId)).data!,
   bindPatient: async (code: string, version: number, patientId: string) => {
@@ -208,6 +214,9 @@ export const patientApi = {
   uploadPhoto: (id: string, angle: CarePhoto['angle'], file: File, patientId: string) => uploadAuthenticated(`/me/appointments/${encodeURIComponent(id)}/photos/${angle}`, file, patientId),
   photoFile: (id: string, patientId?: string) => downloadAuthenticated(`/me/photos/${encodeURIComponent(id)}/content`, patientId),
   planVersions: async (id: string, patientId?: string) => (await authenticated<CarePlanVersion[]>(`/me/appointments/${encodeURIComponent(id)}/care-plan`, {}, patientId)).data!,
+  careReminders: (patientId: string) => authenticated<CareReminder[]>('/me/care-reminders', {}, patientId).then(r => r.data!),
+  checkinReminder: (id: string, date: string, patientId: string) => authenticated<{ checked: boolean }>('/me/care-reminders/' + encodeURIComponent(id) + '/checkin', { method: 'POST', data: { date } }, patientId).then(r => r.data!),
+  reminderCheckins: (id: string, patientId: string) => authenticated<ReminderCheckin[]>('/me/care-reminders/' + encodeURIComponent(id) + '/checkins', {}, patientId).then(r => r.data!),
 }
 
 export const assessmentApi = {

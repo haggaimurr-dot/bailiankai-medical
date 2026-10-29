@@ -37,6 +37,44 @@ function applySummaryTemplate() {
   const item = treatmentSummaryTemplates.find(item => item.name === chosenSummaryTemplate.value)
   if (item) summary.value = item.text
 }
+const batches = ref<any[]>([]), batchPage = ref(1), batchTotal = ref(0), batchLoading = ref(false), batchError = ref('')
+const batchDialog = ref(false), batchTaskIds = ref<string[]>([]), batchToStaffId = ref(''), batchReason = ref(''), batchSaving = ref(false)
+const batchCandidateTasks = ref<FollowupTask[]>([])
+const nudgingId = ref('')
+async function loadBatches() {
+  batchLoading.value = true; batchError.value = ''
+  try {
+    const result: any = await api.handoverBatches(batchPage.value)
+    batches.value = result.data || []; batchTotal.value = result.meta?.total || 0
+  } catch (cause) { batchError.value = errorMessage(cause) }
+  finally { batchLoading.value = false }
+}
+async function openBatchDialog() {
+  batchError.value = ''; batchTaskIds.value = []; batchToStaffId.value = ''; batchReason.value = ''
+  try {
+    const result = await api.followups('', 1)
+    batchCandidateTasks.value = (result.data || []).filter(t => ['pending', 'submitted', 'alert'].includes(t.status))
+  } catch (cause) { batchError.value = errorMessage(cause); return }
+  batchDialog.value = true
+}
+async function submitBatch() {
+  batchSaving.value = true; batchError.value = ''
+  try {
+    await api.createHandoverBatch({ taskIds: batchTaskIds.value, toStaffId: batchToStaffId.value, reason: batchReason.value.trim() })
+    batchDialog.value = false; batchPage.value = 1; await loadBatches()
+    ElMessage.success('交接已发起')
+  } catch (cause) { batchError.value = errorMessage(cause) }
+  finally { batchSaving.value = false }
+}
+async function nudgeBatch(b: any) {
+  nudgingId.value = b.batchId
+  try {
+    const result: any = await api.nudgeHandoverBatch(b.batchId)
+    ElMessage.success(`已向接手人发送催办通知（${result.nudged ?? result.data?.nudged ?? 0} 项）`)
+    await loadBatches()
+  } catch (cause) { ElMessage.error(errorMessage(cause)) }
+  finally { nudgingId.value = '' }
+}
 async function loadTemplates() { try { templates.value = await api.followupTemplates() } catch (cause) { error.value = errorMessage(cause) } }
 function dateFilter() { page.value = 1; void load() }
 
@@ -147,6 +185,7 @@ async function saveHandoffSetting() {
 function refreshCurrent() {
   if (!props.handoffOnly) return load()
   if (handoffSection.value === 'staff') return loadStaff()
+  if (handoffSection.value === 'kanban') return loadBatches()
   if (handoffSection.value === 'settings') return loadHandoffSetting()
   return loadReceipts()
 }
@@ -348,7 +387,7 @@ onBeforeUnmount(() => { generation++; listGeneration++; receiptGeneration++; if 
     <el-radio-group v-if="!props.handoffOnly" v-model="mode" :disabled="saving" @change="changeMode"><el-radio-button value="queue">随访任务</el-radio-button><el-radio-button v-if="canTreat" value="treatment">治疗记录与更正</el-radio-button><el-radio-button value="templates">护理与随访规范</el-radio-button><el-radio-button value="nursing">护理反馈</el-radio-button></el-radio-group>
     <el-alert v-if="error" class="notice" type="error" :closable="false" :title="error" />
     <div v-if="!props.handoffOnly" class="panel-head"><RouterLink to="/workbench">查看待办工作台</RouterLink><RouterLink to="/handoffs">交接确认与人员管理 →</RouterLink></div>
-    <el-radio-group v-if="props.handoffOnly" v-model="handoffSection"><el-radio-button value="receipts">交接确认与跟进</el-radio-button><el-radio-button v-if="auth.employee?.role === 'manager'" value="staff">人员离岗交接</el-radio-button><el-radio-button v-if="auth.employee?.role === 'manager'" value="settings">提醒设置</el-radio-button></el-radio-group>
+    <el-radio-group v-if="props.handoffOnly" v-model="handoffSection"><el-radio-button value="receipts">交接确认与跟进</el-radio-button><el-radio-button v-if="auth.employee?.role === 'manager'" value="kanban">交接进度看板</el-radio-button><el-radio-button v-if="auth.employee?.role === 'manager'" value="staff">人员离岗交接</el-radio-button><el-radio-button v-if="auth.employee?.role === 'manager'" value="settings">提醒设置</el-radio-button></el-radio-group>
     <section v-if="props.handoffOnly && handoffSection === 'receipts'" class="panel receipt-panel">
       <el-alert v-if="receiptIdFilter" title="当前显示通知关联的交接记录" type="info" :closable="false"><el-button size="small" @click="receiptIdFilter = ''; receiptPage = 1; loadReceipts()">查看完整交接清单</el-button></el-alert>
       <div class="panel-head"><div><h2>任务交接确认 <el-tag v-if="receiptStatus === 'pending'" type="warning" size="small">{{ receiptTotal }} 项待确认</el-tag></h2><p>{{ auth.employee?.role === 'manager' ? '查看交接进度；接手人登录后逐条确认收到任务。' : '请确认您已收到的交接任务。' }}</p></div><el-button :disabled="receiptLoading" @click="loadReceipts">刷新交接</el-button></div>
@@ -370,6 +409,31 @@ onBeforeUnmount(() => { generation++; listGeneration++; receiptGeneration++; if 
       <div class="handoff-form"><el-select v-model="leaveStaffId" :disabled="saving" placeholder="选择人员" @change="loadStaffHistory"><el-option v-for="person in staff" :key="person.id" :label="person.displayName" :value="person.id" /></el-select><template v-if="auth.employee?.role === 'manager' && staff.find(person => person.id === leaveStaffId)?.status === 'on_duty'"><el-select v-model="handoffToId" :disabled="saving" placeholder="选择在岗接手人"><el-option v-for="person in eligibleRecipients.filter(item => item.id !== leaveStaffId)" :key="person.id" :label="person.displayName" :value="person.id" /></el-select><el-input v-model="handoffReason" :disabled="saving" maxlength="300" placeholder="交接原因" /><el-button type="warning" :loading="saving" :disabled="!handoffToId" @click="leaveStaff">离岗并交接</el-button></template><el-button v-else-if="auth.employee?.role === 'manager' && leaveStaffId" type="primary" plain :loading="saving" @click="returnStaff">恢复在岗</el-button></div>
       <p v-if="!eligibleRecipients.length" class="account-hint">接手人需要启用且关联医护人员的员工账号。请先到 <RouterLink to="/employees">员工账号</RouterLink> 设置。</p>
       <details v-if="staffHistory.length" class="history"><summary>查看人员在岗与交接记录（{{ staffHistory.length }}）</summary><div v-for="event in staffHistory" :key="event.id" class="history-row">{{ timestamp(event.createdAt) }} · 操作人 {{ event.actorName }} · {{ event.eventType === 'leave' ? '离岗交接' : '恢复在岗' }}{{ event.toName ? ` · 交给 ${event.toName}（${event.transferredCount} 项）` : '' }}{{ event.reason ? ` · ${event.reason}` : '' }}</div></details>
+    </section>
+    <section v-if="props.handoffOnly && handoffSection === 'kanban' && auth.employee?.role === 'manager'" class="panel">
+      <div class="panel-head"><div><h2>交接进度看板</h2><p>按交接批次聚合：已确认 / 总数；可对未确认的批次催办接手人。</p></div><div><el-button :disabled="batchLoading" @click="loadBatches">刷新看板</el-button><el-button type="primary" :disabled="batchLoading" @click="openBatchDialog">发起交接</el-button></div></div>
+      <el-alert v-if="batchError" type="error" :closable="false" :title="batchError" />
+      <el-skeleton v-if="batchLoading" :rows="3" animated />
+      <div v-else-if="!batches.length" class="empty">暂无交接批次</div>
+      <div v-else class="batch-list">
+        <div v-for="b in batches" :key="b.batchId" class="batch-card">
+          <div class="batch-head"><strong>{{ b.reason }}</strong><el-tag :type="b.pending === 0 ? 'success' : 'warning'" size="small">{{ b.confirmed }}/{{ b.total }} 已确认</el-tag></div>
+          <div class="batch-meta">{{ b.fromName }} → {{ b.toName }} · {{ timestamp(b.createdAt) }}</div>
+          <el-progress :percentage="b.total ? Math.round(b.confirmed * 100 / b.total) : 0" :status="b.pending === 0 ? 'success' : ''" />
+          <div class="batch-actions"><el-button v-if="b.pending > 0" size="small" type="warning" plain :loading="nudgingId === b.batchId" @click="nudgeBatch(b)">催办接手人（{{ b.pending }} 项未确认）</el-button></div>
+        </div>
+      </div>
+      <el-pagination small layout="prev, pager, next" :total="batchTotal" :page-size="20" v-model:current-page="batchPage" :disabled="batchLoading" @current-change="loadBatches" />
+      <el-dialog v-model="batchDialog" title="发起交接" width="560px">
+        <el-alert v-if="batchError" type="error" :closable="false" :title="batchError" />
+        <p>选择要交接的任务（仅未完成任务）：</p>
+        <el-checkbox-group v-model="batchTaskIds">
+          <el-checkbox v-for="t in batchCandidateTasks" :key="t.id" :value="t.id">{{ t.patientName }} · {{ t.title }}（{{ t.assigneeName }}）</el-checkbox>
+        </el-checkbox-group>
+        <div class="batch-form"><el-select v-model="batchToStaffId" placeholder="选择接手人"><el-option v-for="person in eligibleRecipients" :key="person.id" :label="person.displayName" :value="person.id" /></el-select>
+        <el-input v-model="batchReason" maxlength="200" placeholder="交接原因" /></div>
+        <template #footer><el-button @click="batchDialog = false">取消</el-button><el-button type="primary" :loading="batchSaving" :disabled="!batchTaskIds.length || !batchToStaffId || !batchReason.trim()" @click="submitBatch">发起交接</el-button></template>
+      </el-dialog>
     </section>
     <section v-if="props.handoffOnly && handoffSection === 'settings' && auth.employee?.role === 'manager'" class="panel">
       <div class="panel-head"><div><h2>交接通知与超时升级</h2><p>交接时通知接手人；超时未确认且未结案时，自动向授权院区的启用主管账号发送一次站内升级提醒。系统每分钟检查一次。</p></div></div>

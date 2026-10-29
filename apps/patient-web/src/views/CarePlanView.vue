@@ -100,6 +100,7 @@ onMounted(load)
   <main class="page">
     <p class="chip">开发演示 · 方案内容为医生录入后发布</p>
     <h1>治疗方案</h1>
+    <router-link to="/care/reminders" class="remind-link">用药 / 护理打卡 →</router-link>
 
     <div v-if="loading" class="card">
       <van-loading size="24px">正在读取治疗方案…</van-loading>
@@ -176,4 +177,5 @@ onMounted(load)
 .instructions { background: var(--bg); border-radius: 10px; padding: 12px; margin-top: 12px; }
 .footer-line { margin-top: 12px; }
 .plan-version .primary { margin-top: 8px; }
+.remind-link{display:inline-block;margin:4px 0 12px;color:#07c160;font-size:14px;}
 </style>
