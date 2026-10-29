@@ -4014,6 +4014,8 @@ paths:
     get:
       operationId: sharedRecord
       description: 公开分享链接查看档案摘要（token 即凭证，过期/撤销后 404）。
+      parameters:
+        - {name: token, in: path, required: true, schema: {type: string}}
       responses:
         '200':
           description: 档案摘要

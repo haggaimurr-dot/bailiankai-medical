@@ -4525,6 +4525,12 @@ type CreateRecoveryStagePlanJSONBody struct {
 	StartDate     string  `json:"startDate"`
 }
 
+// SetPatientTierJSONBody defines parameters for SetPatientTier.
+type SetPatientTierJSONBody struct {
+	Reason *string `json:"reason,omitempty"`
+	Tier   string  `json:"tier"`
+}
+
 // ListRecordExportsParams defines parameters for ListRecordExports.
 type ListRecordExportsParams struct {
 	Page     *Page     `form:"page,omitempty" json:"page,omitempty"`
@@ -4776,6 +4782,11 @@ type SetPrivacyConsentJSONBody struct {
 
 // SetPrivacyConsentJSONBodyAction defines parameters for SetPrivacyConsent.
 type SetPrivacyConsentJSONBodyAction string
+
+// CreateRecordShareLinkJSONBody defines parameters for CreateRecordShareLink.
+type CreateRecordShareLinkJSONBody struct {
+	TtlHours int `json:"ttlHours"`
+}
 
 // PatientTimelineParams defines parameters for PatientTimeline.
 type PatientTimelineParams struct {
@@ -5044,6 +5055,9 @@ type SavePatientChartJSONRequestBody = PatientChartUpdate
 // CreateRecoveryStagePlanJSONRequestBody defines body for CreateRecoveryStagePlan for application/json ContentType.
 type CreateRecoveryStagePlanJSONRequestBody CreateRecoveryStagePlanJSONBody
 
+// SetPatientTierJSONRequestBody defines body for SetPatientTier for application/json ContentType.
+type SetPatientTierJSONRequestBody SetPatientTierJSONBody
+
 // CreateRecordExportJSONRequestBody defines body for CreateRecordExport for application/json ContentType.
 type CreateRecordExportJSONRequestBody = RecordExportInput
 
@@ -5178,6 +5192,9 @@ type SetPrivacyConsentJSONRequestBody SetPrivacyConsentJSONBody
 
 // UpdatePatientProfileJSONRequestBody defines body for UpdatePatientProfile for application/json ContentType.
 type UpdatePatientProfileJSONRequestBody = PatientProfileUpdate
+
+// CreateRecordShareLinkJSONRequestBody defines body for CreateRecordShareLink for application/json ContentType.
+type CreateRecordShareLinkJSONRequestBody CreateRecordShareLinkJSONBody
 
 // ConfirmAdviceReadJSONRequestBody defines body for ConfirmAdviceRead for application/json ContentType.
 type ConfirmAdviceReadJSONRequestBody ConfirmAdviceReadJSONBody
