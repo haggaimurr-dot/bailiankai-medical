@@ -4575,6 +4575,8 @@ export interface components {
             logoUrl: string;
             hours: string;
             transport: string;
+            /** @description 停车说明；未填时患者端显示暂未公布 */
+            parking?: string;
             arrivalGuide: string;
             location?: components["schemas"]["ClinicLocation"];
             credentials: components["schemas"]["Credential"][];

@@ -132,6 +132,11 @@ onUnmounted(() => { generation += 1 })
         </section>
 
         <section class="card">
+          <h2>停车说明</h2>
+          <p class="copy">{{ presentation.parking || '停车信息暂未公布。' }}</p>
+        </section>
+
+        <section class="card">
           <h2>到院指引</h2>
           <p class="copy">{{ presentation.arrivalGuide || '到院前请确认预约结果与时段，到院后向前台出示预约信息。' }}</p>
           <button class="text-link" @click="router.push('/appointments')">查看我的预约 ›</button>

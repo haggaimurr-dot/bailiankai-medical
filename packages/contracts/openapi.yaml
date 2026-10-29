@@ -4189,6 +4189,7 @@ components:
         logoUrl: {type: string, maxLength: 2048}
         hours: {type: string, maxLength: 120}
         transport: {type: string, maxLength: 2000}
+        parking: {type: string, maxLength: 2000, description: 停车说明；未填时患者端显示暂未公布}
         arrivalGuide: {type: string, maxLength: 2000}
         location: {$ref: '#/components/schemas/ClinicLocation'}
         credentials: {type: array, maxItems: 20, items: {$ref: '#/components/schemas/Credential'}}

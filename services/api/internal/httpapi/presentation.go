@@ -28,7 +28,7 @@ func validClinicPresentation(p *model.ClinicPresentation) bool {
 	if p == nil {
 		return true
 	}
-	if !textLength(p.BrandName, 1, 120) || !textLength(p.Tagline, 0, 120) || !textLength(p.Introduction, 0, 5000) || !validAvatar(p.LogoURL) || !textLength(p.Hours, 0, 120) || !textLength(p.Transport, 0, 2000) || !textLength(p.ArrivalGuide, 0, 2000) || !validCredentials(p.Credentials) {
+	if !textLength(p.BrandName, 1, 120) || !textLength(p.Tagline, 0, 120) || !textLength(p.Introduction, 0, 5000) || !validAvatar(p.LogoURL) || !textLength(p.Hours, 0, 120) || !textLength(p.Transport, 0, 2000) || !textLength(p.Parking, 0, 2000) || !textLength(p.ArrivalGuide, 0, 2000) || !validCredentials(p.Credentials) {
 		return false
 	}
 	if len(p.EnvironmentImages) > 10 || len(p.FeaturedReviews) > 10 {

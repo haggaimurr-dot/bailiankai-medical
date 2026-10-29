@@ -1802,10 +1802,13 @@ type ClinicPresentation struct {
 	IsDemo            bool                `json:"isDemo"`
 
 	// Location GCJ-02 coordinates verified by the clinic; omit if unknown
-	Location  *ClinicLocation `json:"location,omitempty"`
-	LogoUrl   string          `json:"logoUrl"`
-	Tagline   string          `json:"tagline"`
-	Transport string          `json:"transport"`
+	Location *ClinicLocation `json:"location,omitempty"`
+	LogoUrl  string          `json:"logoUrl"`
+
+	// Parking 停车说明；未填时患者端显示暂未公布
+	Parking   *string `json:"parking,omitempty"`
+	Tagline   string  `json:"tagline"`
+	Transport string  `json:"transport"`
 }
 
 // ClinicUpdate defines model for ClinicUpdate.

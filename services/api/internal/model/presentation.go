@@ -39,6 +39,7 @@ type ClinicPresentation struct {
 	LogoURL           string             `json:"logoUrl"`
 	Hours             string             `json:"hours"`
 	Transport         string             `json:"transport"`
+	Parking           string             `json:"parking"`
 	ArrivalGuide      string             `json:"arrivalGuide"`
 	Location          *ClinicLocation    `json:"location,omitempty"`
 	Credentials       []Credential       `json:"credentials"`

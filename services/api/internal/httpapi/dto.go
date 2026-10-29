@@ -55,7 +55,7 @@ func clinicPresentationDTO(p *model.ClinicPresentation) *apitypes.ClinicPresenta
 	if p == nil {
 		return nil
 	}
-	result := &apitypes.ClinicPresentation{IsDemo: p.IsDemo, BrandName: p.BrandName, Tagline: p.Tagline, Introduction: p.Introduction, LogoUrl: p.LogoURL, Hours: p.Hours, Transport: p.Transport, ArrivalGuide: p.ArrivalGuide, Credentials: credentialDTOs(p.Credentials)}
+	result := &apitypes.ClinicPresentation{IsDemo: p.IsDemo, BrandName: p.BrandName, Tagline: p.Tagline, Introduction: p.Introduction, LogoUrl: p.LogoURL, Hours: p.Hours, Transport: p.Transport, Parking: &p.Parking, ArrivalGuide: p.ArrivalGuide, Credentials: credentialDTOs(p.Credentials)}
 	if p.Location != nil {
 		result.Location = &apitypes.ClinicLocation{Latitude: p.Location.Latitude, Longitude: p.Location.Longitude}
 	}
