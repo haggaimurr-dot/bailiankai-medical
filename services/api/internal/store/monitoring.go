@@ -97,11 +97,12 @@ INSERT INTO api_request_stats (route, method, stat_date, total, err_4xx, err_5xx
 VALUES (?, ?, ?, 1, ?, ?, ?, ?)
 ON DUPLICATE KEY UPDATE
  total = total + 1,
- err_4xx = err_4xx + VALUES(err_4xx),
- err_5xx = err_5xx + VALUES(err_5xx),
- sum_ms = sum_ms + VALUES(sum_ms),
- max_ms = GREATEST(max_ms, VALUES(max_ms))`,
-		route, method, dayStr, err4xx, err5xx, durationMs, durationMs).Error
+ err_4xx = err_4xx + ?,
+ err_5xx = err_5xx + ?,
+ sum_ms = sum_ms + ?,
+ max_ms = GREATEST(max_ms, ?)`,
+		route, method, dayStr, err4xx, err5xx, durationMs, durationMs,
+		err4xx, err5xx, durationMs, durationMs).Error
 }
 
 // RecordSlowAlert stores one request that exceeded the slow threshold.
