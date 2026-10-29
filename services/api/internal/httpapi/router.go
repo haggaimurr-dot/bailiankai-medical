@@ -79,6 +79,8 @@ func newRouter(a *API) *gin.Engine {
 	r.Use(gin.CustomRecovery(func(c *gin.Context, _ any) {
 		fail(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "服务暂不可用，请稍后重试")
 	}), cors(), requestTimeout())
+	// 行118: 接口调用监控与慢请求告警（best-effort，不影响业务请求）。
+	r.Use(a.requestMonitor())
 	r.GET("/healthz", func(c *gin.Context) { c.JSON(http.StatusOK, apitypes.Health{Status: apitypes.Ok}) })
 	r.GET("/readyz", func(c *gin.Context) {
 		if a.media != nil {
@@ -131,6 +133,7 @@ func newRouter(a *API) *gin.Engine {
 	a.registerFaqRoutes(r)
 	a.registerP2Batch3Routes(r)
 	a.registerP2Batch4Routes(r)
+	a.registerP2Batch5Routes(r)
 	a.registerDirectoryRoutes(r)
 	a.registerKnowledgeRoutes(r)
 	a.registerFollowupToolsRoutes(r)
@@ -168,6 +171,7 @@ func (a *API) registerCareRoutes(r *gin.Engine) {
 	a.registerFaqPatientRoutes(patient)
 	a.registerP2Batch3PatientRoutes(patient)
 	a.registerP2Batch4PatientRoutes(patient)
+	a.registerP2Batch5PatientRoutes(patient)
 	admin := r.Group("/api/v1/admin/appointments", a.authenticate, a.careAvailable)
 	admin.GET("/:appointmentId/photos", a.requireAppointmentScope, a.adminCarePhotos)
 	admin.GET("/:appointmentId/care-plan", a.requireAppointmentScope, a.adminCarePlan)

@@ -21,6 +21,7 @@ import AccountView from './views/AccountView.vue'
 import AssessmentsView from './views/AssessmentsView.vue'
 import WaitlistView from './views/WaitlistView.vue'
 import ReviewsView from './views/ReviewsView.vue'
+import OpsMonitorView from './views/OpsMonitorView.vue'
 
 export const router = createRouter({
   history: createWebHistory(),
@@ -52,6 +53,7 @@ export const router = createRouter({
     { path: '/messages', component: MessagesView, meta: { title: '消息与复诊提醒' } },
     { path: '/cases', component: CasesView, meta: { title: '案例库' } },
     { path: '/knowledge', component: KnowledgeView, meta: { title: '知识库' } },
+    { path: '/ops', component: OpsMonitorView, meta: { title: '运维监控' } },
     { path: '/:pathMatch(.*)*', redirect: '/appointments' },
   ],
 })

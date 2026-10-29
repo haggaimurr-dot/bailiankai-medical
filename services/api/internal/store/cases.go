@@ -269,7 +269,7 @@ func (s *MySQL) ChangeCase(ctx context.Context, id, action, patient string, in C
 						return err
 					}
 					imageID := randomID("photo-case-")
-					if err := media.Save(ctx, imageID, data); err != nil {
+					if err := SavePhotoWithVariant(ctx, media, imageID, data); err != nil {
 						return err
 					}
 					if err := tx.Create(&model.CaseImage{ID: imageID, CaseID: row.ID, SHA256: source.hash, SizeBytes: source.size}).Error; err != nil {

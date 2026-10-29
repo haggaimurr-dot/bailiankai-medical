@@ -222,14 +222,21 @@ func (a *API) caseImage(audience string) gin.HandlerFunc {
 			caseFailure(c, err)
 			return
 		}
-		data, err := a.media.Read(c.Request.Context(), id)
+		// 行120: ?variant=display 取压缩水印展示副本（鉴权逻辑与原图一致）。
+		mediaID, verify := id, true
+		if c.Query("variant") == "display" {
+			mediaID, verify = id+store.DisplayVariantSuffix, false
+		}
+		data, err := a.media.Read(c.Request.Context(), mediaID)
 		if err != nil {
 			caseFailure(c, err)
 			return
 		}
-		if err := store.VerifyMedia(data, store.MediaReference{ID: id, SHA256: row.SHA256, SizeBytes: row.SizeBytes}); err != nil {
-			caseFailure(c, err)
-			return
+		if verify {
+			if err := store.VerifyMedia(data, store.MediaReference{ID: id, SHA256: row.SHA256, SizeBytes: row.SizeBytes}); err != nil {
+				caseFailure(c, err)
+				return
+			}
 		}
 		// Recheck after storage I/O so withdrawal during a slow read stops delivery.
 		if _, err := repo.CaseImage(c.Request.Context(), c.Param("resourceId"), id, audience, casePatient(c, audience)); err != nil {

@@ -172,7 +172,7 @@ func (a *API) uploadCarePhoto(c *gin.Context) {
 	appointmentID := c.Param("appointmentId")
 	hash := sha256.Sum256(data)
 	row := model.CarePhoto{ID: randomCareID(), AppointmentID: appointmentID, PatientID: patient.ID, Angle: angle, MediaType: "image/jpeg", SizeBytes: int64(len(data)), SHA256: hex.EncodeToString(hash[:]), UploadedAt: a.now().In(database.Shanghai).Truncate(time.Millisecond)}
-	if err := a.media.Save(c.Request.Context(), row.ID, data); err != nil {
+	if err := store.SavePhotoWithVariant(c.Request.Context(), a.media, row.ID, data); err != nil {
 		a.mediaUnavailable(c)
 		return
 	}

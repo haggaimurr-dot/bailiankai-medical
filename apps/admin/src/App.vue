@@ -47,6 +47,7 @@ async function logout() { try { await api.logoutEmployee() } finally { clearAuth
         <RouterLink v-if="canAccess('/doctors')" to="/doctors"><AppIcon name="doctors" /><span>{{ auth.employee?.role === 'manager' ? '医生资料维护' : '医生信息' }}</span><span class="nav-dot"></span></RouterLink>
         <RouterLink v-if="canAccess('/clinics')" to="/clinics"><AppIcon name="location" /><span>院区资料维护</span></RouterLink>
         <RouterLink v-if="canAccess('/employees')" to="/employees"><AppIcon name="doctors" /><span>员工与权限</span><span class="nav-dot"></span></RouterLink>
+        <RouterLink v-if="canAccess('/ops')" to="/ops"><AppIcon name="check" /><span>运维监控</span></RouterLink>
       </nav>
       <div class="sidebar-bottom">
         <div class="demo-card"><span class="demo-dot"></span><strong>开发演示环境</strong><p>当前使用虚构演示数据<br />请勿录入真实患者信息</p></div>

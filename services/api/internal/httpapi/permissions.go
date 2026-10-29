@@ -112,6 +112,20 @@ func allowedEmployeeOperation(role, method, path string) bool {
 	if path == "/api/v1/admin/appointments/:appointmentId/suspension-reschedule" {
 		return method == "POST" && (role == "manager" || role == "customer_service")
 	}
+	// P2 batch5 (rows 117-119, 123): ops monitoring endpoints, manager only.
+	if path == "/api/v1/admin/message-templates/:templateId/effect-stats" ||
+		path == "/api/v1/admin/monitoring/routes" ||
+		path == "/api/v1/admin/monitoring/slow-alerts" ||
+		path == "/api/v1/admin/monitoring/settings/slow-threshold" ||
+		path == "/api/v1/admin/monitoring/data-daily" ||
+		path == "/api/v1/admin/security/alerts" {
+		return role == "manager" && method == "GET"
+	}
+	if path == "/api/v1/admin/monitoring/settings/slow-threshold" && method == "PUT" ||
+		path == "/api/v1/admin/monitoring/data-daily/generate" && method == "POST" ||
+		path == "/api/v1/admin/security/alerts/:alertId/read" && method == "POST" {
+		return role == "manager"
+	}
 	if role == "manager" {
 		return true
 	}
@@ -161,6 +175,7 @@ var employeeAccessRules = []accessRule{
 	{"/assessments", "AI 辅助评估", "GET", "/api/v1/admin/assessments"},
 	{"/support", "客服工作台", "GET", "/api/v1/admin/support"},
 	{"/knowledge", "知识库", "GET", "/api/v1/admin/knowledge/articles"},
+	{"/ops", "运维监控", "GET", "/api/v1/admin/monitoring/routes"},
 	{"/arrivals", "到诊工作台", "POST", "/api/v1/admin/arrival-scans/resolve"},
 	{"/workbench", "待办工作台", "GET", "/api/v1/admin/handoff-notifications"},
 	{"/handoffs", "人员交接", "GET", "/api/v1/admin/handoff-receipts"},

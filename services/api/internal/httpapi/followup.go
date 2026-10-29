@@ -326,7 +326,7 @@ func (a *API) uploadFollowupPhoto(c *gin.Context) {
 	}
 	hash := sha256.Sum256(data)
 	photo := model.FollowupPhoto{ID: randomCareID(), Angle: angle, SizeBytes: int64(len(data)), SHA256: hex.EncodeToString(hash[:]), UploadedAt: a.careNow()}
-	if err := a.media.Save(c.Request.Context(), photo.ID, data); err != nil {
+	if err := store.SavePhotoWithVariant(c.Request.Context(), a.media, photo.ID, data); err != nil {
 		a.mediaUnavailable(c)
 		return
 	}
@@ -352,17 +352,26 @@ func (a *API) followupPhotoContent(c *gin.Context, admin bool) {
 	}
 	row, err := a.followup.FollowupPhoto(c.Request.Context(), id, patientID, admin)
 	if err != nil {
+		// 行123: 照片存在但无权访问时记异常访问信号（纯 404 不记）。
+		a.recordPhotoDenied(c, id, admin, err)
 		a.careError(c, err)
 		return
 	}
-	data, err := a.media.Read(c.Request.Context(), row.ID)
+	// 行120: ?variant=display 取压缩水印展示副本（鉴权逻辑与原图一致）。
+	mediaID, verify := row.ID, true
+	if c.Query("variant") == "display" {
+		mediaID, verify = row.ID+store.DisplayVariantSuffix, false
+	}
+	data, err := a.media.Read(c.Request.Context(), mediaID)
 	if err != nil {
 		a.mediaUnavailable(c)
 		return
 	}
-	if err := store.VerifyMedia(data, store.MediaReference{ID: row.ID, SHA256: row.SHA256, SizeBytes: row.SizeBytes}); err != nil {
-		a.mediaUnavailable(c)
-		return
+	if verify {
+		if err := store.VerifyMedia(data, store.MediaReference{ID: row.ID, SHA256: row.SHA256, SizeBytes: row.SizeBytes}); err != nil {
+			a.mediaUnavailable(c)
+			return
+		}
 	}
 	if _, err := a.followup.FollowupPhoto(c.Request.Context(), id, patientID, admin); err != nil {
 		a.careError(c, err)

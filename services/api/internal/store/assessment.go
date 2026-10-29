@@ -985,7 +985,7 @@ func (s *AssessmentService) Upload(ctx context.Context, id, patientID, key strin
 	if initial.Task.Status != "draft" {
 		return initial, ErrCareState
 	}
-	if err = s.media.Save(ctx, photo.ID, data); err != nil {
+	if err = SavePhotoWithVariant(ctx, s.media, photo.ID, data); err != nil {
 		return initial, &AssessmentProviderError{Code: "MEDIA_UNAVAILABLE", Retryable: true}
 	}
 	input := struct {

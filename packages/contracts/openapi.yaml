@@ -4208,6 +4208,180 @@ paths:
                 properties:
                   data: {type: object}
         default: {$ref: '#/components/responses/Error'}
+  /api/v1/admin/message-templates/{templateId}/effect-stats:
+    get:
+      operationId: templateEffectStats
+      description: 模板效果统计：发送/送达/点击/失败数（主管）。P2 行117。
+      security: [{EmployeeBearer: []}]
+      parameters:
+        - {name: templateId, in: path, required: true, schema: {type: string}}
+      responses:
+        '200':
+          description: 统计
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {type: object}
+        default: {$ref: '#/components/responses/Error'}
+  /api/v1/admin/monitoring/routes:
+    get:
+      operationId: monitoringRoutes
+      description: 接口调用统计（按路由聚合，主管）。P2 行118。
+      security: [{EmployeeBearer: []}]
+      responses:
+        '200':
+          description: 统计列表
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {type: array, items: {type: object}}
+        default: {$ref: '#/components/responses/Error'}
+  /api/v1/admin/monitoring/slow-alerts:
+    get:
+      operationId: monitoringSlowAlerts
+      description: 慢请求告警记录（主管）。P2 行118。
+      security: [{EmployeeBearer: []}]
+      responses:
+        '200':
+          description: 告警列表
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {type: array, items: {type: object}}
+        default: {$ref: '#/components/responses/Error'}
+  /api/v1/admin/monitoring/settings/slow-threshold:
+    get:
+      operationId: getSlowThreshold
+      description: 查询慢请求阈值（主管）。P2 行118。
+      security: [{EmployeeBearer: []}]
+      responses:
+        '200':
+          description: 阈值
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {type: object}
+        default: {$ref: '#/components/responses/Error'}
+    put:
+      operationId: setSlowThreshold
+      description: 设置慢请求阈值（主管）。P2 行118。
+      security: [{EmployeeBearer: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [thresholdMs]
+              properties:
+                thresholdMs: {type: integer}
+      responses:
+        '200':
+          description: 已更新
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {type: object}
+        default: {$ref: '#/components/responses/Error'}
+  /api/v1/admin/monitoring/data-daily/generate:
+    post:
+      operationId: generateDataDaily
+      description: 生成数据变更日报（主管）。P2 行119。
+      security: [{EmployeeBearer: []}]
+      responses:
+        '200':
+          description: 已生成
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {type: object}
+        default: {$ref: '#/components/responses/Error'}
+  /api/v1/admin/monitoring/data-daily:
+    get:
+      operationId: getDataDaily
+      description: 查询数据变更日报（主管）。P2 行119。
+      security: [{EmployeeBearer: []}]
+      responses:
+        '200':
+          description: 日报
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {type: object}
+        default: {$ref: '#/components/responses/Error'}
+  /api/v1/admin/security/alerts:
+    get:
+      operationId: securityAlerts
+      description: 安全告警列表（主管）。P2 行123。
+      security: [{EmployeeBearer: []}]
+      responses:
+        '200':
+          description: 告警列表
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {type: array, items: {type: object}}
+        default: {$ref: '#/components/responses/Error'}
+  /api/v1/admin/security/alerts/{alertId}/read:
+    post:
+      operationId: readSecurityAlert
+      description: 标记安全告警已读（主管）。P2 行123。
+      security: [{EmployeeBearer: []}]
+      parameters:
+        - {name: alertId, in: path, required: true, schema: {type: string}}
+      responses:
+        '200':
+          description: 已标记
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {type: object}
+        default: {$ref: '#/components/responses/Error'}
+  /api/v1/me/notifications/{notificationId}/click:
+    post:
+      operationId: clickNotification
+      description: 患者点击消息内链接，回统计模板点击数。P2 行117。
+      security: [{PatientBearer: []}]
+      parameters:
+        - {name: notificationId, in: path, required: true, schema: {type: string}}
+      responses:
+        '200':
+          description: 已记录
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {type: object}
+        default: {$ref: '#/components/responses/Error'}
   /api/v1/me/notification-preferences:
     get:
       operationId: getNotificationPreferences

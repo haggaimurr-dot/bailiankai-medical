@@ -319,8 +319,17 @@ func (a *API) assessmentPhoto(c *gin.Context) {
 		a.mediaUnavailable(c)
 		return
 	}
-	data, err := a.media.Read(c.Request.Context(), photo.ID)
-	if err != nil || store.VerifyMedia(data, store.MediaReference{ID: photo.ID, SHA256: photo.SHA256, SizeBytes: photo.SizeBytes}) != nil {
+	// 行120: ?variant=display 取压缩水印展示副本（鉴权逻辑与原图一致）。
+	mediaID, verify := photo.ID, true
+	if c.Query("variant") == "display" {
+		mediaID, verify = photo.ID+store.DisplayVariantSuffix, false
+	}
+	data, err := a.media.Read(c.Request.Context(), mediaID)
+	if err != nil {
+		a.mediaUnavailable(c)
+		return
+	}
+	if verify && store.VerifyMedia(data, store.MediaReference{ID: photo.ID, SHA256: photo.SHA256, SizeBytes: photo.SizeBytes}) != nil {
 		a.mediaUnavailable(c)
 		return
 	}
