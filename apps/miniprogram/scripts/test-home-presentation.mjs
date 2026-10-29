@@ -97,9 +97,15 @@ test('knowledge list filters categories, paginates, and links to the public deta
 
 test('detail renders text and Shanghai dates, and clears an article when withdrawn', { timeout: 10_000 }, async () => {
   const h = harness('knowledge-detail'); h.page.id = article.id;
-  const pending = h.page.load(); respond(h.requests[0], article); await tick(); respond(h.requests[1], []); await pending;
+  const pending = h.page.load(); respond(h.requests[0], article); await tick();
+  // 阅读打点是 fire-and-forget 请求（无 success 回调），按 URL 找到相关推荐请求
+  const relatedReq = h.requests.find(r => r.url.endsWith(`/knowledge/articles/${article.id}/related`));
+  respond(relatedReq, []); await pending;
   assert.equal(h.page.data.article.body, article.body); assert.equal(h.page.data.reviewedDate, '2026-10-02');
-  const failed = h.page.load(); h.requests[2].success({ statusCode: 404, data: { error: { message: '内容已下架' } } }); await failed;
+  const base = h.requests.length;
+  const failed = h.page.load(); await tick();
+  // 第二次 load 的新文章请求位于 base 处（之后还会有打点+相关推荐请求）
+  h.requests[base].success({ statusCode: 404, data: { error: { message: '内容已下架' } } }); await failed;
   assert.equal(h.page.data.article, null); assert.match(h.page.data.error, /下架/);
   const markup = readFileSync(resolve(root, 'pages/knowledge-detail/index.wxml'), 'utf8'); assert.ok(!markup.includes('<rich-text'));
 });

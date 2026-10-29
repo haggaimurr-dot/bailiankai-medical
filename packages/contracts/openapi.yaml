@@ -3533,6 +3533,438 @@ paths:
   /api/v1/admin/assessments/{assessmentId}/events: {"get": {"operationId": "AssessmentEvents", "tags": ["Assessments"], "security": [{"EmployeeBearer": []}], "parameters": [{"name": "assessmentId", "in": "path", "required": true, "schema": {"type": "string", "maxLength": 64}}], "responses": {"200": {"description": "Success", "content": {"application/json": {"schema": {"type": "object", "additionalProperties": false, "required": ["data"], "properties": {"data": {"type": "array", "items": {"$ref": "#/components/schemas/AssessmentEvent"}}}}}}}, "400": {"description": "Invalid input"}, "403": {"description": "Consent or permission required"}, "404": {"description": "Not found"}, "409": {"description": "Version or idempotency conflict"}, "422": {"description": "Quality rejected"}, "503": {"description": "Service unavailable"}, "429": {"description": "Too many requests"}}}}
   /api/v1/admin/assessments/{assessmentId}/assignment: {"post": {"operationId": "AssignAssessment", "tags": ["Assessments"], "security": [{"EmployeeBearer": []}], "parameters": [{"name": "assessmentId", "in": "path", "required": true, "schema": {"type": "string", "maxLength": 64}}, {"name": "Idempotency-Key", "in": "header", "required": true, "schema": {"type": "string", "maxLength": 64, "minLength": 1}}], "responses": {"200": {"description": "Success", "content": {"application/json": {"schema": {"type": "object", "additionalProperties": false, "required": ["data"], "properties": {"data": {"$ref": "#/components/schemas/AssessmentView"}}}}}}, "400": {"description": "Invalid input"}, "403": {"description": "Consent or permission required"}, "404": {"description": "Not found"}, "409": {"description": "Version or idempotency conflict"}, "422": {"description": "Quality rejected"}, "503": {"description": "Service unavailable"}, "429": {"description": "Too many requests"}}, "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/AssessmentAssignment"}}}}}}
   /api/v1/admin/assessments/{assessmentId}/reviews: {"post": {"operationId": "ReviewAssessment", "tags": ["Assessments"], "security": [{"EmployeeBearer": []}], "parameters": [{"name": "assessmentId", "in": "path", "required": true, "schema": {"type": "string", "maxLength": 64}}, {"name": "Idempotency-Key", "in": "header", "required": true, "schema": {"type": "string", "maxLength": 64, "minLength": 1}}], "responses": {"200": {"description": "Success", "content": {"application/json": {"schema": {"type": "object", "additionalProperties": false, "required": ["data"], "properties": {"data": {"$ref": "#/components/schemas/AssessmentView"}}}}}}, "400": {"description": "Invalid input"}, "403": {"description": "Consent or permission required"}, "404": {"description": "Not found"}, "409": {"description": "Version or idempotency conflict"}, "422": {"description": "Quality rejected"}, "503": {"description": "Service unavailable"}, "429": {"description": "Too many requests"}}, "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/AssessmentReviewCreate"}}}}}}
+  /api/v1/admin/care-plan-templates/library:
+    get:
+      operationId: listCarePlanTemplateLibrary
+      description: 方案模板库：本人模板 + 同院区已共享模板。
+      security: [{EmployeeBearer: []}]
+      responses:
+        '200':
+          description: 模板库
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {type: array, items: {type: object}}
+        default: {$ref: '#/components/responses/Error'}
+  /api/v1/admin/care-plan-templates/{templateId}/share:
+    post:
+      operationId: shareCarePlanTemplate
+      description: 主管发布共享方案模板到本院区。
+      security: [{EmployeeBearer: []}]
+      parameters:
+        - {name: templateId, in: path, required: true, schema: {type: string}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                clinicId: {type: string}
+      responses:
+        '200':
+          description: 已共享
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {type: object}
+        default: {$ref: '#/components/responses/Error'}
+  /api/v1/admin/care-plan-templates/{templateId}/apply:
+    post:
+      operationId: applyCarePlanTemplate
+      description: 从模板为指定预约新建方案草稿。
+      security: [{EmployeeBearer: []}]
+      parameters:
+        - {name: templateId, in: path, required: true, schema: {type: string}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [appointmentId]
+              properties:
+                appointmentId: {type: string}
+                expectedVersion: {type: integer}
+      responses:
+        '200':
+          description: 草稿已创建
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {type: object}
+        default: {$ref: '#/components/responses/Error'}
+  /api/v1/admin/patients/{patientId}/care-reminders:
+    get:
+      operationId: listCareReminders
+      description: 管理端查看患者的用药/护理提醒。
+      security: [{EmployeeBearer: []}]
+      parameters:
+        - {name: patientId, in: path, required: true, schema: {type: string}}
+      responses:
+        '200':
+          description: 提醒列表
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {type: array, items: {type: object}}
+        default: {$ref: '#/components/responses/Error'}
+    post:
+      operationId: createCareReminder
+      description: 管理端为患者创建用药/护理提醒。
+      security: [{EmployeeBearer: []}]
+      parameters:
+        - {name: patientId, in: path, required: true, schema: {type: string}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [kind, title, startDate]
+              properties:
+                clinicId: {type: string}
+                kind: {type: string}
+                title: {type: string}
+                detail: {type: string}
+                scheduleJson: {type: string}
+                startDate: {type: string}
+                endDate: {type: string}
+      responses:
+        '201':
+          description: 已创建
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {type: object}
+        default: {$ref: '#/components/responses/Error'}
+  /api/v1/admin/handover-batches:
+    get:
+      operationId: listHandoverBatches
+      description: 交接进度看板：按批次聚合已确认/总数。
+      security: [{EmployeeBearer: []}]
+      responses:
+        '200':
+          description: 批次列表
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {type: array, items: {type: object}}
+        default: {$ref: '#/components/responses/Error'}
+    post:
+      operationId: createHandoverBatch
+      description: 发起一次交接批次。
+      security: [{EmployeeBearer: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [taskIds, toStaffId]
+              properties:
+                taskIds: {type: array, items: {type: string}}
+                toStaffId: {type: string}
+                reason: {type: string}
+      responses:
+        '201':
+          description: 已发起
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {type: object}
+        default: {$ref: '#/components/responses/Error'}
+  /api/v1/admin/handover-batches/{batchId}/nudge:
+    post:
+      operationId: nudgeHandoverBatch
+      description: 主管催办交接批次的接手人。
+      security: [{EmployeeBearer: []}]
+      parameters:
+        - {name: batchId, in: path, required: true, schema: {type: string}}
+      responses:
+        '200':
+          description: 已催办
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {type: object}
+        default: {$ref: '#/components/responses/Error'}
+  /api/v1/admin/patients/{patientId}/recovery-stage-plans:
+    get:
+      operationId: listRecoveryStagePlans
+      description: 管理端查看患者的恢复阶段计划。
+      security: [{EmployeeBearer: []}]
+      parameters:
+        - {name: patientId, in: path, required: true, schema: {type: string}}
+      responses:
+        '200':
+          description: 阶段计划列表
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {type: array, items: {type: object}}
+        default: {$ref: '#/components/responses/Error'}
+    post:
+      operationId: createRecoveryStagePlan
+      description: 为患者绑定 42 天恢复阶段计划。
+      security: [{EmployeeBearer: []}]
+      parameters:
+        - {name: patientId, in: path, required: true, schema: {type: string}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [startDate]
+              properties:
+                appointmentId: {type: string}
+                startDate: {type: string}
+      responses:
+        '201':
+          description: 已绑定
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {type: object}
+        default: {$ref: '#/components/responses/Error'}
+  /api/v1/admin/recovery-stage-plans/check:
+    post:
+      operationId: checkRecoveryStagePlans
+      description: 主管触发阶段节点检查，到期生成小结并推送。
+      security: [{EmployeeBearer: []}]
+      responses:
+        '200':
+          description: 检查完成
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {type: object}
+        default: {$ref: '#/components/responses/Error'}
+  /api/v1/admin/faqs:
+    get:
+      operationId: listFaqs
+      description: 后台管理常见问题列表。
+      security: [{EmployeeBearer: []}]
+      parameters:
+        - {name: clinicId, in: query, schema: {type: string}}
+        - {name: category, in: query, schema: {type: string}}
+        - {name: keyword, in: query, schema: {type: string}}
+      responses:
+        '200':
+          description: 问题列表
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {type: array, items: {type: object}}
+        default: {$ref: '#/components/responses/Error'}
+    post:
+      operationId: createFaq
+      description: 后台录入常见问题。
+      security: [{EmployeeBearer: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [question, answer]
+              properties:
+                clinicId: {type: string}
+                category: {type: string}
+                question: {type: string}
+                answer: {type: string}
+                sortOrder: {type: integer}
+                enabled: {type: boolean}
+      responses:
+        '201':
+          description: 已创建
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {type: object}
+        default: {$ref: '#/components/responses/Error'}
+  /api/v1/admin/faqs/{faqId}:
+    put:
+      operationId: updateFaq
+      description: 后台编辑常见问题。
+      security: [{EmployeeBearer: []}]
+      parameters:
+        - {name: faqId, in: path, required: true, schema: {type: string}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [question, answer]
+              properties:
+                category: {type: string}
+                question: {type: string}
+                answer: {type: string}
+                sortOrder: {type: integer}
+                enabled: {type: boolean}
+      responses:
+        '200':
+          description: 已更新
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {type: object}
+        default: {$ref: '#/components/responses/Error'}
+    delete:
+      operationId: deleteFaq
+      description: 后台删除常见问题。
+      security: [{EmployeeBearer: []}]
+      parameters:
+        - {name: faqId, in: path, required: true, schema: {type: string}}
+      responses:
+        '200':
+          description: 已删除
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {type: object}
+        default: {$ref: '#/components/responses/Error'}
+  /api/v1/me/care-reminders:
+    get:
+      operationId: meCareReminders
+      description: 患者端查看自己的用药/护理提醒。
+      security: [{PatientBearer: []}]
+      responses:
+        '200':
+          description: 提醒列表
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {type: array, items: {type: object}}
+        default: {$ref: '#/components/responses/Error'}
+  /api/v1/me/care-reminders/{reminderId}/checkin:
+    post:
+      operationId: checkinCareReminder
+      description: 患者端提醒打卡。
+      security: [{PatientBearer: []}]
+      parameters:
+        - {name: reminderId, in: path, required: true, schema: {type: string}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                date: {type: string}
+      responses:
+        '200':
+          description: 已打卡
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {type: object}
+        default: {$ref: '#/components/responses/Error'}
+  /api/v1/me/care-reminders/{reminderId}/checkins:
+    get:
+      operationId: careReminderCheckins
+      description: 患者端查看提醒打卡记录。
+      security: [{PatientBearer: []}]
+      parameters:
+        - {name: reminderId, in: path, required: true, schema: {type: string}}
+      responses:
+        '200':
+          description: 打卡记录
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {type: array, items: {type: object}}
+        default: {$ref: '#/components/responses/Error'}
+  /api/v1/me/recovery-stage-plans:
+    get:
+      operationId: meRecoveryStagePlans
+      description: 患者端查看自己的恢复阶段计划。
+      security: [{PatientBearer: []}]
+      responses:
+        '200':
+          description: 阶段计划列表
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {type: array, items: {type: object}}
+        default: {$ref: '#/components/responses/Error'}
+  /api/v1/me/faqs:
+    get:
+      operationId: meFaqs
+      description: 患者端常见问题自助问答，按关键词搜索。
+      security: [{PatientBearer: []}]
+      parameters:
+        - {name: keyword, in: query, schema: {type: string}}
+      responses:
+        '200':
+          description: 问题列表
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {type: array, items: {type: object}}
+        default: {$ref: '#/components/responses/Error'}
 components:
   securitySchemes:
     PatientBearer:
