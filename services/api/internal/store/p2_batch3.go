@@ -138,7 +138,7 @@ type LastVisitSummary struct {
 
 func (s *MySQL) LastVisitSummary(ctx context.Context, patientID string) (LastVisitSummary, error) {
 	var out LastVisitSummary
-	// Most recent completed/confirmed appointment.
+	// Most recent completed appointment (completed first, then confirmed past).
 	var appt struct {
 		ID        string
 		SlotID    string
@@ -146,7 +146,7 @@ func (s *MySQL) LastVisitSummary(ctx context.Context, patientID string) (LastVis
 	}
 	err := s.db.WithContext(ctx).Table("appointments").
 		Select("appointments.id, appointments.slot_id, appointments.created_at").
-		Where("appointments.patient_id = ? AND appointments.status IN ?", patientID, []string{"completed", "confirmed"}).
+		Where("appointments.patient_id = ? AND appointments.status = ?", patientID, "completed").
 		Order("appointments.created_at DESC").Limit(1).
 		Scan(&appt).Error
 	if err != nil || appt.ID == "" {
