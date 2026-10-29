@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"sort"
 	"strings"
 	"time"
@@ -148,6 +149,10 @@ func (s *MySQL) SuspendSlots(ctx context.Context, refs []SlotReference, reason s
 			}
 			if err := createSchedulePatientTasks(tx, ctx, row.ID, reason, now); err != nil {
 				return err
+			}
+			// 改期推荐消息只记日志、不阻断停诊：待联系清单已同步建任务兜底人工联系。
+			if err := notifySuspensionReschedule(tx, row, reason, now); err != nil {
+				slog.Error("suspension reschedule notification failed", "slot", row.ID, "error", err)
 			}
 			rows = append(rows, row)
 		}
