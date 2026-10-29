@@ -4497,6 +4497,11 @@ type ListNotificationQueueParams struct {
 // ListNotificationQueueParamsFailureCategory defines parameters for ListNotificationQueue.
 type ListNotificationQueueParamsFailureCategory string
 
+// SetSlowThresholdJSONBody defines parameters for SetSlowThreshold.
+type SetSlowThresholdJSONBody struct {
+	ThresholdMs int `json:"thresholdMs"`
+}
+
 // ListPatientRecordsParams defines parameters for ListPatientRecords.
 type ListPatientRecordsParams struct {
 	// Tag 精确匹配患者标签，可跨页筛选
@@ -5069,6 +5074,9 @@ type UpdateNotificationMergeSettingJSONRequestBody = NotificationMergeSettingUpd
 
 // SaveMessageTemplateJSONRequestBody defines body for SaveMessageTemplate for application/json ContentType.
 type SaveMessageTemplateJSONRequestBody = MessageTemplateChange
+
+// SetSlowThresholdJSONRequestBody defines body for SetSlowThreshold for application/json ContentType.
+type SetSlowThresholdJSONRequestBody SetSlowThresholdJSONBody
 
 // CreatePatientChartJSONRequestBody defines body for CreatePatientChart for application/json ContentType.
 type CreatePatientChartJSONRequestBody = PatientChartCreate
