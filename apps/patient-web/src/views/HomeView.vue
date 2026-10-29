@@ -50,6 +50,23 @@ function onAvatarError(doctor: DoctorRow) {
 }
 let requestId = 0
 
+// Doctor carousel: one full-width card per snap stop. The hint, dots and
+// arrows only render when there is more than one doctor to switch between.
+const carouselRef = ref<HTMLElement | null>(null)
+const carouselIndex = ref(0)
+function onCarouselScroll() {
+  const el = carouselRef.value
+  if (!el || !el.clientWidth) return
+  carouselIndex.value = Math.min(doctors.value.length - 1, Math.max(0, Math.round(el.scrollLeft / el.clientWidth)))
+}
+function scrollToDoctor(index: number) {
+  const el = carouselRef.value
+  if (!el) return
+  const target = Math.min(doctors.value.length - 1, Math.max(0, index))
+  carouselIndex.value = target
+  el.scrollTo({ left: target * el.clientWidth, behavior: 'smooth' })
+}
+
 const clinicActions = computed(() => clinics.value.map((row) => ({ name: row.name })))
 
 async function load(clinicId?: string) {
@@ -61,6 +78,7 @@ async function load(clinicId?: string) {
   avatarFailed.value = {}
   avatarGone.value = {}
   doctors.value = []
+  carouselIndex.value = 0
   clinics.value = []
   clinic.value = null
   presentation.value = null
@@ -81,8 +99,10 @@ async function load(clinicId?: string) {
     ])
     if (id !== requestId) return
     doctors.value = doctorResult.status === 'fulfilled'
-      ? doctorResult.value.slice(0, 2).map((row) => ({ ...row, presentation: doctorPresentation(row) }))
+      ? doctorResult.value.map((row) => ({ ...row, presentation: doctorPresentation(row) }))
       : []
+    carouselIndex.value = 0
+    carouselRef.value?.scrollTo({ left: 0 })
     error.value = doctorResult.status === 'rejected' ? errorMessage(doctorResult.reason) : ''
     articles.value = articleResult.status === 'fulfilled' ? articleResult.value.data || [] : []
     knowledgeError.value = articleResult.status === 'rejected' ? errorMessage(articleResult.reason) : ''
@@ -254,24 +274,36 @@ onUnmounted(() => { requestId += 1 })
         <button class="ghost" @click="load(clinic?.id)">重新加载</button>
       </div>
       <template v-else-if="doctors.length">
-        <section v-for="doctor in doctors" :key="doctor.id" class="card doctor-card" @click="openDoctorDetail(doctor)">
-          <div class="row">
-            <img v-if="avatarVisible(doctor)" class="avatar" :src="doctorAvatarSrc(doctor)" loading="lazy" alt="" @error="onAvatarError(doctor)" />
-            <span v-else class="avatar initials">{{ doctor.initials }}</span>
-            <div class="grow">
-              <div class="doctor-name">{{ doctor.name }}</div>
-              <div class="muted">{{ doctor.title }}</div>
-              <span v-if="doctor.presentation.isDemo" class="chip warning">演示医生</span>
+        <div class="doctor-carousel" data-testid="doctor-carousel">
+          <div ref="carouselRef" class="doctor-track" @scroll="onCarouselScroll">
+            <section v-for="doctor in doctors" :key="doctor.id" class="card doctor-card" data-testid="doctor-card" :data-doctor-id="doctor.id" @click="openDoctorDetail(doctor)">
+              <div class="row">
+                <img v-if="avatarVisible(doctor)" class="avatar" :src="doctorAvatarSrc(doctor)" loading="lazy" alt="" @error="onAvatarError(doctor)" />
+                <span v-else class="avatar initials">{{ doctor.initials }}</span>
+                <div class="grow">
+                  <div class="doctor-name">{{ doctor.name }}</div>
+                  <div class="muted">{{ doctor.title }}</div>
+                  <span v-if="doctor.presentation.isDemo" class="chip warning">演示医生</span>
+                </div>
+              </div>
+              <p class="doctor-summary">{{ doctor.summary }}</p>
+              <div class="focus-list"><span v-for="item in doctor.focus" :key="item" class="chip">{{ item }}</span></div>
+              <div class="row doctor-action">
+                <span class="muted grow">专业方向 · 服务与面诊说明</span>
+                <button class="ghost small" @click.stop="openDoctorDetail(doctor)">查看医生详情</button>
+                <button class="primary small" @click.stop="openSchedule(doctor.id)">立即预约</button>
+              </div>
+            </section>
+          </div>
+          <div v-if="doctors.length > 1" class="carousel-nav">
+            <button class="carousel-arrow" :disabled="carouselIndex === 0" aria-label="上一位医生" @click="scrollToDoctor(carouselIndex - 1)">‹</button>
+            <div class="carousel-dots">
+              <button v-for="(doctor, i) in doctors" :key="doctor.id" class="carousel-dot" :class="{ active: i === carouselIndex }" :aria-label="`第 ${i + 1} 位医生`" @click="scrollToDoctor(i)" />
             </div>
+            <button class="carousel-arrow" :disabled="carouselIndex === doctors.length - 1" aria-label="下一位医生" @click="scrollToDoctor(carouselIndex + 1)">›</button>
           </div>
-          <p class="doctor-summary">{{ doctor.summary }}</p>
-          <div class="focus-list"><span v-for="item in doctor.focus" :key="item" class="chip">{{ item }}</span></div>
-          <div class="row doctor-action">
-            <span class="muted grow">专业方向 · 服务与面诊说明</span>
-            <button class="ghost small" @click.stop="openDoctorDetail(doctor)">查看医生详情</button>
-            <button class="primary small" @click.stop="openSchedule(doctor.id)">立即预约</button>
-          </div>
-        </section>
+          <p v-if="doctors.length > 1" class="swipe-hint">← 左右滑动查看更多医生 →</p>
+        </div>
       </template>
       <div v-else class="card state">
         <div class="state-title">暂无医生资料</div>
@@ -352,6 +384,16 @@ onUnmounted(() => { requestId += 1 })
 .state { text-align: center; }
 .state-title { font-weight: 700; margin-bottom: 6px; }
 .doctor-card { cursor: pointer; }
+.doctor-track { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+.doctor-track::-webkit-scrollbar { display: none; }
+.doctor-track .doctor-card { flex: 0 0 100%; min-width: 100%; scroll-snap-align: start; box-sizing: border-box; }
+.carousel-nav { display: flex; align-items: center; justify-content: center; gap: 12px; margin-top: 10px; }
+.carousel-arrow { width: 32px; height: 32px; border-radius: 50%; border: 1px solid #ddd; background: #fff; font-size: 20px; line-height: 1; cursor: pointer; }
+.carousel-arrow:disabled { opacity: 0.35; cursor: default; }
+.carousel-dots { display: flex; gap: 8px; }
+.carousel-dot { width: 8px; height: 8px; padding: 0; border-radius: 50%; border: none; background: #ddd; cursor: pointer; }
+.carousel-dot.active { background: #333; }
+.swipe-hint { text-align: center; color: #888; font-size: 13px; margin: 6px 0 0; }
 .avatar { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; flex: none; }
 .avatar.initials { background: var(--brand); color: #fff; display: inline-flex; align-items: center; justify-content: center; font-weight: 700; }
 .doctor-name { font-size: 16px; font-weight: 700; }
