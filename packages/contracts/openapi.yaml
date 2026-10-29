@@ -4101,6 +4101,156 @@ paths:
                 properties:
                   data: {type: object}
         default: {$ref: '#/components/responses/Error'}
+  /api/v1/admin/2fa/setup:
+    post:
+      operationId: setup2FA
+      description: 生成双因素验证密钥（验证前未启用）。
+      security: [{EmployeeBearer: []}]
+      responses:
+        '200':
+          description: 密钥
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {type: object}
+        default: {$ref: '#/components/responses/Error'}
+  /api/v1/admin/2fa/enable:
+    post:
+      operationId: enable2FA
+      description: 验证码验证通过后启用双因素验证。
+      security: [{EmployeeBearer: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              properties:
+                code: {type: string}
+      responses:
+        '200':
+          description: 已启用
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {type: object}
+        default: {$ref: '#/components/responses/Error'}
+  /api/v1/admin/2fa/disable:
+    post:
+      operationId: disable2FA
+      description: 验证码验证通过后关闭双因素验证。
+      security: [{EmployeeBearer: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              properties:
+                code: {type: string}
+      responses:
+        '200':
+          description: 已关闭
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {type: object}
+        default: {$ref: '#/components/responses/Error'}
+  /api/v1/admin/2fa/status:
+    get:
+      operationId: twoFAStatus
+      description: 查询本人双因素验证状态。
+      security: [{EmployeeBearer: []}]
+      responses:
+        '200':
+          description: 状态
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {type: object}
+        default: {$ref: '#/components/responses/Error'}
+  /api/v1/admin/session/2fa:
+    post:
+      operationId: verify2FALogin
+      description: 双因素登录第二步：验证码通过后颁发会话。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [employeeId, code]
+              properties:
+                employeeId: {type: string}
+                code: {type: string}
+      responses:
+        '200':
+          description: 登录成功
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {type: object}
+        default: {$ref: '#/components/responses/Error'}
+  /api/v1/me/notification-preferences:
+    get:
+      operationId: getNotificationPreferences
+      description: 患者端查看提醒偏好。
+      security: [{PatientBearer: []}]
+      responses:
+        '200':
+          description: 偏好
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {type: object}
+        default: {$ref: '#/components/responses/Error'}
+    put:
+      operationId: updateNotificationPreferences
+      description: 患者端更新提醒偏好。
+      security: [{PatientBearer: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [appointmentReminder, followupReminder, careReminder, leadHours]
+              properties:
+                appointmentReminder: {type: boolean}
+                followupReminder: {type: boolean}
+                careReminder: {type: boolean}
+                leadHours: {type: integer}
+      responses:
+        '200':
+          description: 已更新
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {type: object}
+        default: {$ref: '#/components/responses/Error'}
 components:
   securitySchemes:
     PatientBearer:

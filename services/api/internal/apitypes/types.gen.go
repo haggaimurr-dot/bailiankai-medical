@@ -4135,6 +4135,16 @@ type PageSize = int32
 // Error defines model for Error.
 type Error = ApiError
 
+// Disable2FAJSONBody defines parameters for Disable2FA.
+type Disable2FAJSONBody struct {
+	Code string `json:"code"`
+}
+
+// Enable2FAJSONBody defines parameters for Enable2FA.
+type Enable2FAJSONBody struct {
+	Code string `json:"code"`
+}
+
 // GetOperationsAnalyticsParams defines parameters for GetOperationsAnalytics.
 type GetOperationsAnalyticsParams struct {
 	// DateFrom 北京时间起始日期（含）
@@ -4566,6 +4576,12 @@ type RescheduleAffectedPatientParams struct {
 	IdempotencyKey string `json:"Idempotency-Key"`
 }
 
+// Verify2FALoginJSONBody defines parameters for Verify2FALogin.
+type Verify2FALoginJSONBody struct {
+	Code       string `json:"code"`
+	EmployeeId string `json:"employeeId"`
+}
+
 // AdminListSupportParams defines parameters for AdminListSupport.
 type AdminListSupportParams struct {
 	Page       *int                              `form:"page,omitempty" json:"page,omitempty"`
@@ -4774,6 +4790,14 @@ type ListPatientMessagesParams struct {
 	PageSize *int `form:"pageSize,omitempty" json:"pageSize,omitempty"`
 }
 
+// UpdateNotificationPreferencesJSONBody defines parameters for UpdateNotificationPreferences.
+type UpdateNotificationPreferencesJSONBody struct {
+	AppointmentReminder bool `json:"appointmentReminder"`
+	CareReminder        bool `json:"careReminder"`
+	FollowupReminder    bool `json:"followupReminder"`
+	LeadHours           int  `json:"leadHours"`
+}
+
 // SetPrivacyConsentJSONBody defines parameters for SetPrivacyConsent.
 type SetPrivacyConsentJSONBody struct {
 	Action        SetPrivacyConsentJSONBodyAction `json:"action"`
@@ -4844,6 +4868,12 @@ type GetSlotRecommendationsParams struct {
 	// Limit 返回条数，默认 3，最大 10。
 	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
 }
+
+// Disable2FAJSONRequestBody defines body for Disable2FA for application/json ContentType.
+type Disable2FAJSONRequestBody Disable2FAJSONBody
+
+// Enable2FAJSONRequestBody defines body for Enable2FA for application/json ContentType.
+type Enable2FAJSONRequestBody Enable2FAJSONBody
 
 // RemindAppointmentsJSONRequestBody defines body for RemindAppointments for application/json ContentType.
 type RemindAppointmentsJSONRequestBody = AppointmentRemindRequest
@@ -5088,6 +5118,9 @@ type SaveScheduleSettingJSONRequestBody = ScheduleSettingChange
 // LoginEmployeeJSONRequestBody defines body for LoginEmployee for application/json ContentType.
 type LoginEmployeeJSONRequestBody = EmployeeLogin
 
+// Verify2FALoginJSONRequestBody defines body for Verify2FALogin for application/json ContentType.
+type Verify2FALoginJSONRequestBody Verify2FALoginJSONBody
+
 // ChangeEmployeePasswordJSONRequestBody defines body for ChangeEmployeePassword for application/json ContentType.
 type ChangeEmployeePasswordJSONRequestBody = EmployeePasswordChange
 
@@ -5174,6 +5207,9 @@ type SubmitFollowupJSONRequestBody = FollowupSubmit
 
 // SetMessageConsentJSONRequestBody defines body for SetMessageConsent for application/json ContentType.
 type SetMessageConsentJSONRequestBody = MessageConsentChange
+
+// UpdateNotificationPreferencesJSONRequestBody defines body for UpdateNotificationPreferences for application/json ContentType.
+type UpdateNotificationPreferencesJSONRequestBody UpdateNotificationPreferencesJSONBody
 
 // ConfirmPatientBindingJSONRequestBody defines body for ConfirmPatientBinding for application/json ContentType.
 type ConfirmPatientBindingJSONRequestBody = PatientBindingConfirm
